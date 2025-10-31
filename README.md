@@ -1,6 +1,6 @@
 # GradeFlow Engine
 
-A powerful Python library and CLI tool for post-processing and re-grading digital exam data with support for complex grading rules.
+A powerful Python library and CLI tool for automated grading digital exam data with support for complex grading rules.
 
 ## Features
 
