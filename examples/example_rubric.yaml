@@ -1,0 +1,147 @@
+name: Final Exam 2024 - Example Rubric
+
+rules:
+  - type: CONDITIONAL
+    if_question: Q1
+    if_answer: A
+    then_question: Q2
+    then_correct_answer: B
+    max_points: 5.0
+    description: If Q1 answer is A, then Q2 should be B (dependent calculation)
+
+  - type: CONDITIONAL
+    if_question: Q1
+    if_answer: C
+    then_question: Q2
+    then_correct_answer: D
+    max_points: 5.0
+    description: If Q1 answer is C, then Q2 should be D (alternative calculation)
+
+  - type: ASSUMPTION_SET
+    question_ids:
+      - Q3
+      - Q4
+      - Q5
+    answer_sets:
+      - name: Interpretation A - Classical Mechanics
+        answers:
+          Q3: kinetic
+          Q4: increases
+          Q5: parabolic
+      - name: Interpretation B - Quantum Mechanics
+        answers:
+          Q3: potential
+          Q4: quantized
+          Q5: discrete
+    mode: favor_best
+    points_per_question:
+      Q3: 3.0
+      Q4: 3.0
+      Q5: 4.0
+    description: Physics problem with two valid interpretations
+
+  - type: PROGRAMMABLE
+    question_id: Q6
+    script: |
+      # Grade essay based on keywords
+      required_keywords = ['algorithm', 'complexity', 'optimization']
+      optional_keywords = ['dynamic programming', 'greedy', 'divide and conquer']
+
+      answer_lower = answer.lower()
+      points_awarded = 0.0
+      feedback_parts = []
+
+      # Check required keywords (2 points each)
+      for keyword in required_keywords:
+          if keyword in answer_lower:
+              points_awarded += 2.0
+              feedback_parts.append(f'Found "{keyword}"')
+          else:
+              feedback_parts.append(f'Missing "{keyword}"')
+
+      # Check optional keywords (1 point each, max 2)
+      optional_found = 0
+      for keyword in optional_keywords:
+          if keyword in answer_lower and optional_found < 2:
+              points_awarded += 1.0
+              optional_found += 1
+              feedback_parts.append(f'Bonus for "{keyword}"')
+
+      # Provide feedback
+      feedback = '; '.join(feedback_parts)
+      if points_awarded >= 8.0:
+          feedback += ' - Excellent answer!'
+      elif points_awarded >= 6.0:
+          feedback += ' - Good answer'
+      else:
+          feedback += ' - Needs improvement'
+    max_points: 8.0
+    timeout_ms: 5000
+    memory_mb: 50
+    description: Essay question about algorithms (keyword-based grading)
+
+  - type: PROGRAMMABLE
+    question_id: Q7
+    script: |
+      # Grade numerical answer with tolerance
+      try:
+          student_value = float(answer.strip())
+          correct_value = 42.5
+          tolerance = 0.5
+          
+          if abs(student_value - correct_value) <= tolerance:
+              points_awarded = 5.0
+              feedback = f'Correct! ({student_value} is within tolerance of {correct_value})'
+          else:
+              diff = abs(student_value - correct_value)
+              if diff <= 2.0:
+                  points_awarded = 3.0
+                  feedback = f'Close! Off by {diff:.2f}'
+              else:
+                  points_awarded = 0.0
+                  feedback = f'Incorrect. Expected ~{correct_value}, got {student_value}'
+      except ValueError:
+          points_awarded = 0.0
+          feedback = 'Invalid number format'
+    max_points: 5.0
+    timeout_ms: 5000
+    memory_mb: 50
+    description: Numerical answer with tolerance (Q7)
+
+  - type: KEYWORD
+    question_id: Q8
+    required_keywords:
+      - mitochondria
+      - energy
+      - ATP
+    optional_keywords:
+      - cellular respiration
+      - powerhouse
+      - glucose
+    points_per_required: 2.0
+    points_per_optional: 1.0
+    max_optional_points: 2.0
+    case_sensitive: false
+    partial_credit: true
+    description: Biology question about cell organelles
+
+  - type: REGEX
+    question_id: Q9
+    patterns:
+      - '\b[A-Z]{2,}\b'  # Acronyms (2+ uppercase letters)
+      - '\d{4}'           # Year (4 digits)
+      - 'http[s]?://\S+'  # URL
+    points_per_match:
+      - 2.0
+      - 2.0
+      - 1.0
+    match_mode: count
+    case_sensitive: true
+    multiline: false
+    partial_credit: true
+    description: Check for proper formatting (acronyms, year, URL)
+
+metadata:
+  course: CS 101
+  semester: Spring 2024
+  total_points: 42.0

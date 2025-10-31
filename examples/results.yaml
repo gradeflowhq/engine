@@ -1,0 +1,366 @@
+results:
+- student_id: student001
+  total_points: 26.0
+  max_points: 41.0
+  percentage: 63.41463414634146
+  grade_details:
+  - question_id: Q2
+    student_answer: B
+    correct_answer: B
+    points_awarded: 5.0
+    max_points: 5.0
+    is_correct: true
+    rule_applied: null
+    feedback: null
+  - question_id: Q3
+    student_answer: kinetic
+    correct_answer: kinetic
+    points_awarded: 3.0
+    max_points: 3.0
+    is_correct: true
+    rule_applied: null
+    feedback: 'Graded using assumption set: Interpretation A - Classical Mechanics'
+  - question_id: Q4
+    student_answer: increases
+    correct_answer: increases
+    points_awarded: 3.0
+    max_points: 3.0
+    is_correct: true
+    rule_applied: null
+    feedback: 'Graded using assumption set: Interpretation A - Classical Mechanics'
+  - question_id: Q5
+    student_answer: parabolic
+    correct_answer: parabolic
+    points_awarded: 4.0
+    max_points: 4.0
+    is_correct: true
+    rule_applied: null
+    feedback: 'Graded using assumption set: Interpretation A - Classical Mechanics'
+  - question_id: Q6
+    student_answer: The algorithm uses dynamic programming to optimize complexity
+      through divide and conquer strategies.
+    correct_answer: null
+    points_awarded: 6.0
+    max_points: 8.0
+    is_correct: false
+    rule_applied: null
+    feedback: Found "algorithm"; Found "complexity"; Missing "optimization"; Bonus
+      for "dynamic programming"; Bonus for "divide and conquer" - Good answer
+  - question_id: Q7
+    student_answer: '42.3'
+    correct_answer: null
+    points_awarded: 5.0
+    max_points: 5.0
+    is_correct: true
+    rule_applied: null
+    feedback: Correct! (42.3 is within tolerance of 42.5)
+  - question_id: Q8
+    student_answer: ''
+    correct_answer: null
+    points_awarded: 0.0
+    max_points: 8.0
+    is_correct: false
+    rule_applied: null
+    feedback: "\u2717 Missing required: mitochondria, energy, ATP"
+  - question_id: Q9
+    student_answer: ''
+    correct_answer: null
+    points_awarded: 0.0
+    max_points: 5.0
+    is_correct: false
+    rule_applied: null
+    feedback: "\u2717 No patterns matched"
+  metadata:
+    row_number: 2
+- student_id: student002
+  total_points: 26.0
+  max_points: 41.0
+  percentage: 63.41463414634146
+  grade_details:
+  - question_id: Q2
+    student_answer: D
+    correct_answer: D
+    points_awarded: 5.0
+    max_points: 5.0
+    is_correct: true
+    rule_applied: null
+    feedback: null
+  - question_id: Q3
+    student_answer: potential
+    correct_answer: potential
+    points_awarded: 3.0
+    max_points: 3.0
+    is_correct: true
+    rule_applied: null
+    feedback: 'Graded using assumption set: Interpretation B - Quantum Mechanics'
+  - question_id: Q4
+    student_answer: quantized
+    correct_answer: quantized
+    points_awarded: 3.0
+    max_points: 3.0
+    is_correct: true
+    rule_applied: null
+    feedback: 'Graded using assumption set: Interpretation B - Quantum Mechanics'
+  - question_id: Q5
+    student_answer: discrete
+    correct_answer: discrete
+    points_awarded: 4.0
+    max_points: 4.0
+    is_correct: true
+    rule_applied: null
+    feedback: 'Graded using assumption set: Interpretation B - Quantum Mechanics'
+  - question_id: Q6
+    student_answer: This optimization problem requires analysis of algorithm complexity
+      and efficient processing.
+    correct_answer: null
+    points_awarded: 6.0
+    max_points: 8.0
+    is_correct: false
+    rule_applied: null
+    feedback: Found "algorithm"; Found "complexity"; Found "optimization" - Good answer
+  - question_id: Q7
+    student_answer: '43.0'
+    correct_answer: null
+    points_awarded: 5.0
+    max_points: 5.0
+    is_correct: true
+    rule_applied: null
+    feedback: Correct! (43.0 is within tolerance of 42.5)
+  - question_id: Q8
+    student_answer: ''
+    correct_answer: null
+    points_awarded: 0.0
+    max_points: 8.0
+    is_correct: false
+    rule_applied: null
+    feedback: "\u2717 Missing required: mitochondria, energy, ATP"
+  - question_id: Q9
+    student_answer: ''
+    correct_answer: null
+    points_awarded: 0.0
+    max_points: 5.0
+    is_correct: false
+    rule_applied: null
+    feedback: "\u2717 No patterns matched"
+  metadata:
+    row_number: 3
+- student_id: student003
+  total_points: 17.0
+  max_points: 41.0
+  percentage: 41.46341463414634
+  grade_details:
+  - question_id: Q2
+    student_answer: D
+    correct_answer: B
+    points_awarded: 0.0
+    max_points: 5.0
+    is_correct: false
+    rule_applied: null
+    feedback: If Q1 answer is A, then Q2 should be B (dependent calculation)
+  - question_id: Q3
+    student_answer: kinetic
+    correct_answer: kinetic
+    points_awarded: 3.0
+    max_points: 3.0
+    is_correct: true
+    rule_applied: null
+    feedback: 'Graded using assumption set: Interpretation A - Classical Mechanics'
+  - question_id: Q4
+    student_answer: increases
+    correct_answer: increases
+    points_awarded: 3.0
+    max_points: 3.0
+    is_correct: true
+    rule_applied: null
+    feedback: 'Graded using assumption set: Interpretation A - Classical Mechanics'
+  - question_id: Q5
+    student_answer: parabolic
+    correct_answer: parabolic
+    points_awarded: 4.0
+    max_points: 4.0
+    is_correct: true
+    rule_applied: null
+    feedback: 'Graded using assumption set: Interpretation A - Classical Mechanics'
+  - question_id: Q6
+    student_answer: The solution involves algorithm design and optimization techniques.
+    correct_answer: null
+    points_awarded: 4.0
+    max_points: 8.0
+    is_correct: false
+    rule_applied: null
+    feedback: Found "algorithm"; Missing "complexity"; Found "optimization" - Needs
+      improvement
+  - question_id: Q7
+    student_answer: '41.8'
+    correct_answer: null
+    points_awarded: 3.0
+    max_points: 5.0
+    is_correct: false
+    rule_applied: null
+    feedback: Close! Off by 0.70
+  - question_id: Q8
+    student_answer: ''
+    correct_answer: null
+    points_awarded: 0.0
+    max_points: 8.0
+    is_correct: false
+    rule_applied: null
+    feedback: "\u2717 Missing required: mitochondria, energy, ATP"
+  - question_id: Q9
+    student_answer: ''
+    correct_answer: null
+    points_awarded: 0.0
+    max_points: 5.0
+    is_correct: false
+    rule_applied: null
+    feedback: "\u2717 No patterns matched"
+  metadata:
+    row_number: 4
+- student_id: student004
+  total_points: 17.0
+  max_points: 41.0
+  percentage: 41.46341463414634
+  grade_details:
+  - question_id: Q2
+    student_answer: C
+    correct_answer: D
+    points_awarded: 0.0
+    max_points: 5.0
+    is_correct: false
+    rule_applied: null
+    feedback: If Q1 answer is C, then Q2 should be D (alternative calculation)
+  - question_id: Q3
+    student_answer: potential
+    correct_answer: potential
+    points_awarded: 3.0
+    max_points: 3.0
+    is_correct: true
+    rule_applied: null
+    feedback: 'Graded using assumption set: Interpretation B - Quantum Mechanics'
+  - question_id: Q4
+    student_answer: increases
+    correct_answer: quantized
+    points_awarded: 0.0
+    max_points: 3.0
+    is_correct: false
+    rule_applied: null
+    feedback: 'Graded using assumption set: Interpretation B - Quantum Mechanics'
+  - question_id: Q5
+    student_answer: discrete
+    correct_answer: discrete
+    points_awarded: 4.0
+    max_points: 4.0
+    is_correct: true
+    rule_applied: null
+    feedback: 'Graded using assumption set: Interpretation B - Quantum Mechanics'
+  - question_id: Q6
+    student_answer: Algorithm complexity can be improved using greedy approaches.
+    correct_answer: null
+    points_awarded: 5.0
+    max_points: 8.0
+    is_correct: false
+    rule_applied: null
+    feedback: Found "algorithm"; Found "complexity"; Missing "optimization"; Bonus
+      for "greedy" - Needs improvement
+  - question_id: Q7
+    student_answer: '42.5'
+    correct_answer: null
+    points_awarded: 5.0
+    max_points: 5.0
+    is_correct: true
+    rule_applied: null
+    feedback: Correct! (42.5 is within tolerance of 42.5)
+  - question_id: Q8
+    student_answer: ''
+    correct_answer: null
+    points_awarded: 0.0
+    max_points: 8.0
+    is_correct: false
+    rule_applied: null
+    feedback: "\u2717 Missing required: mitochondria, energy, ATP"
+  - question_id: Q9
+    student_answer: ''
+    correct_answer: null
+    points_awarded: 0.0
+    max_points: 5.0
+    is_correct: false
+    rule_applied: null
+    feedback: "\u2717 No patterns matched"
+  metadata:
+    row_number: 5
+- student_id: student005
+  total_points: 28.0
+  max_points: 41.0
+  percentage: 68.29268292682927
+  grade_details:
+  - question_id: Q2
+    student_answer: B
+    correct_answer: B
+    points_awarded: 5.0
+    max_points: 5.0
+    is_correct: true
+    rule_applied: null
+    feedback: null
+  - question_id: Q3
+    student_answer: potential
+    correct_answer: potential
+    points_awarded: 3.0
+    max_points: 3.0
+    is_correct: true
+    rule_applied: null
+    feedback: 'Graded using assumption set: Interpretation B - Quantum Mechanics'
+  - question_id: Q4
+    student_answer: quantized
+    correct_answer: quantized
+    points_awarded: 3.0
+    max_points: 3.0
+    is_correct: true
+    rule_applied: null
+    feedback: 'Graded using assumption set: Interpretation B - Quantum Mechanics'
+  - question_id: Q5
+    student_answer: discrete
+    correct_answer: discrete
+    points_awarded: 4.0
+    max_points: 4.0
+    is_correct: true
+    rule_applied: null
+    feedback: 'Graded using assumption set: Interpretation B - Quantum Mechanics'
+  - question_id: Q6
+    student_answer: Dynamic programming and divide and conquer are key algorithm optimization
+      strategies with low complexity.
+    correct_answer: null
+    points_awarded: 8.0
+    max_points: 8.0
+    is_correct: true
+    rule_applied: null
+    feedback: Found "algorithm"; Found "complexity"; Found "optimization"; Bonus for
+      "dynamic programming"; Bonus for "divide and conquer" - Excellent answer!
+  - question_id: Q7
+    student_answer: '42.6'
+    correct_answer: null
+    points_awarded: 5.0
+    max_points: 5.0
+    is_correct: true
+    rule_applied: null
+    feedback: Correct! (42.6 is within tolerance of 42.5)
+  - question_id: Q8
+    student_answer: ''
+    correct_answer: null
+    points_awarded: 0.0
+    max_points: 8.0
+    is_correct: false
+    rule_applied: null
+    feedback: "\u2717 Missing required: mitochondria, energy, ATP"
+  - question_id: Q9
+    student_answer: ''
+    correct_answer: null
+    points_awarded: 0.0
+    max_points: 5.0
+    is_correct: false
+    rule_applied: null
+    feedback: "\u2717 No patterns matched"
+  metadata:
+    row_number: 6
+metadata:
+  rubric_name: Final Exam 2024 - Example Rubric
+  total_submissions: 5

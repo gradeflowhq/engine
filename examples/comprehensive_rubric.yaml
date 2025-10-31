@@ -1,0 +1,252 @@
+# Comprehensive rubric demonstrating all rule types
+
+name: "Comprehensive Grading Rubric - All Rule Types"
+description: "Comprehensive rubric demonstrating all available grading rule types"
+
+rules:
+  # 1. ExactMatch: Simple exact string matching
+  - type: EXACT_MATCH
+    question_id: "q1_capital"
+    correct_answer: "Paris"
+    max_points: 5.0
+    case_sensitive: false
+    trim_whitespace: true
+    description: "What is the capital of France?"
+  
+  # 2. NumericRange: Numeric answers with tolerance and partial credit
+  - type: NUMERIC_RANGE
+    question_id: "q2_pi"
+    correct_value: 3.14159
+    tolerance: 0.01
+    max_points: 10.0
+    partial_credit_ranges:
+      - min: 2.5
+        max: 3.0
+        points: 3.0
+      - min: 3.2
+        max: 3.5
+        points: 3.0
+    description: "What is the value of pi (π) to 5 decimal places?"
+  
+  # 3. MultipleChoice: Single or multiple correct answers
+  - type: MULTIPLE_CHOICE
+    question_id: "q3_colors"
+    correct_answers:
+      - "Red"
+      - "Blue"
+      - "Yellow"
+    scoring_mode: "partial"
+    max_points: 15.0
+    description: "Select all primary colors"
+  
+  - type: MULTIPLE_CHOICE
+    question_id: "q4_capital_us"
+    correct_answers:
+      - "Washington DC"
+    scoring_mode: "all_or_nothing"
+    max_points: 5.0
+    description: "What is the capital of the United States?"
+  
+  # 4. Length: Enforce word/character count constraints
+  - type: LENGTH
+    question_id: "q5_essay"
+    min_words: 50
+    max_words: 200
+    min_chars: null
+    max_chars: 1000
+    max_points: 20.0
+    deduct_per_violation: 5.0
+    description: "Write an essay (50-200 words)"
+  
+  # 5. Similarity: Fuzzy string matching with different algorithms
+  - type: SIMILARITY
+    question_id: "q6_definition"
+    reference_answers:
+      - "Photosynthesis is the process by which plants convert sunlight into energy"
+    algorithm: "levenshtein"
+    threshold: 0.7
+    partial_credit: true
+    max_points: 15.0
+    description: "Define photosynthesis"
+  
+  - type: SIMILARITY
+    question_id: "q7_formula"
+    reference_answers:
+      - "E equals m c squared"
+    algorithm: "token_sort"
+    threshold: 0.8
+    partial_credit: false
+    max_points: 10.0
+    description: "State Einstein's mass-energy equivalence formula in words"
+  
+  # 6. Keyword: Award points for presence of specific keywords
+  - type: KEYWORD
+    question_id: "q8_biology"
+    required_keywords:
+      - "mitochondria"
+      - "ATP"
+      - "energy"
+    optional_keywords:
+      - "cellular respiration"
+      - "glucose"
+      - "oxygen"
+    points_per_required: 3.0
+    points_per_optional: 1.0
+    case_sensitive: false
+    description: "Explain the role of mitochondria (must mention key terms)"
+  
+  # 7. Regex: Pattern matching with regular expressions
+  - type: REGEX
+    question_id: "q9_email"
+    patterns:
+      - "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+    match_mode: "any"
+    points_per_match: 10.0
+    description: "Provide a valid email address"
+  
+  - type: REGEX
+    question_id: "q10_code"
+    patterns:
+      - "def\\s+\\w+\\("  # Function definition
+      - "return\\s+"      # Return statement
+      - "if\\s+.*:"       # If statement
+    match_mode: "all"
+    points_per_match: 3.0
+    description: "Write a Python function with conditional logic"
+  
+  # 8. Conditional: Grade one question based on answer to another
+  - type: CONDITIONAL
+    if_question: "q11_programming"
+    if_answer: "Python"
+    then_question: "q12_version"
+    then_correct_answer: "3.x"
+    max_points: 5.0
+    description: "If you chose Python, specify the version"
+  
+  # 9. AssumptionSet: Grade related questions together
+  - type: ASSUMPTION_SET
+    question_ids:
+      - q13_calc_a
+      - q13_calc_b
+      - q13_calc_c
+    answer_sets:
+      - name: "Correct calculation path"
+        answers:
+          q13_calc_a: "10"
+          q13_calc_b: "20"
+          q13_calc_c: "30"
+    points_per_question:
+      q13_calc_a: 5.0
+      q13_calc_b: 5.0
+      q13_calc_c: 5.0
+    description: "Multi-step calculation problem"
+  
+  # 10. Programmable: Custom Python logic
+  - type: PROGRAMMABLE
+    question_id: "q14_custom"
+    script: |
+      # Custom grading logic
+      answer_lower = answer.strip().lower()
+      word_count = len(answer.split())
+      
+      # Award points based on complexity
+      if word_count > 20:
+          points_awarded = 10.0
+          feedback = "Comprehensive answer"
+      elif word_count > 10:
+          points_awarded = 7.0
+          feedback = "Good answer"
+      elif word_count > 5:
+          points_awarded = 4.0
+          feedback = "Adequate answer"
+      else:
+          points_awarded = 0.0
+          feedback = "Answer too brief"
+    max_points: 10.0
+    timeout_ms: 5000
+    description: "Explain the concept (graded by length and depth)"
+  
+  # 11. Composite: Combine multiple rules with logical operators
+  - type: COMPOSITE
+    question_id: "q15_essay_graded"
+    mode: "AND"
+    rules:
+      # Student must provide lengthy answer
+      - type: LENGTH
+        question_id: "q15_essay_graded"
+        min_words: 100
+        max_words: 500
+        max_points: 10.0
+        deduct_per_violation: 5.0
+      
+      # AND it must contain required keywords
+      - type: KEYWORD
+        question_id: "q15_essay_graded"
+        required_keywords:
+          - "climate change"
+          - "carbon emissions"
+          - "renewable energy"
+        points_per_required: 5.0
+    description: "Essay must meet length AND keyword requirements"
+  
+  - type: COMPOSITE
+    question_id: "q16_flexible"
+    mode: "OR"
+    rules:
+      # Accept either exact match
+      - type: EXACT_MATCH
+        question_id: "q16_flexible"
+        correct_answer: "United States"
+        max_points: 5.0
+        case_sensitive: false
+      
+      # OR a similar variant
+      - type: EXACT_MATCH
+        question_id: "q16_flexible"
+        correct_answer: "USA"
+        max_points: 5.0
+        case_sensitive: false
+      
+      # OR the abbreviation
+      - type: EXACT_MATCH
+        question_id: "q16_flexible"
+        correct_answer: "US"
+        max_points: 5.0
+        case_sensitive: false
+    description: "Accept multiple valid answers for the same question"
+  
+  # Nested composite rules
+  - type: COMPOSITE
+    question_id: "q17_research"
+    mode: "WEIGHTED"
+    weights: [0.6, 0.4]
+    rules:
+      # 60% from content quality
+      - type: COMPOSITE
+        question_id: "q17_research"
+        mode: "AND"
+        rules:
+          - type: LENGTH
+            question_id: "q17_research"
+            min_words: 200
+            max_words: 1000
+            max_points: 20.0
+          
+          - type: KEYWORD
+            question_id: "q17_research"
+            required_keywords:
+              - "methodology"
+              - "results"
+              - "conclusion"
+            points_per_required: 10.0
+      
+      # 40% from style
+      - type: SIMILARITY
+        question_id: "q17_research"
+        reference_answers:
+          - "A well-structured research paper with clear methodology, comprehensive results, and insightful conclusions"
+        algorithm: "jaro_winkler"
+        threshold: 0.6
+        partial_credit: true
+        max_points: 20.0
+    description: "Research paper graded on content (60%) and style (40%)"

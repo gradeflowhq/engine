@@ -1,0 +1,80 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gradeflow-engine"
+version = "0.1.0"
+description = "Advanced grading engine for digital assessments"
+readme = "README.md"
+authors = [
+    { name = "GradeFlow Team" }
+]
+license = { text = "MIT" }
+requires-python = ">=3.14"
+classifiers = [
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Education",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+keywords = ["grading", "assessment", "education", "examplify", "lms", "canvas"]
+
+dependencies = [
+    "pydantic>=2.12.0",
+    "typer>=0.20.0",
+    "rich>=14.2.0",
+    "RestrictedPython>=8.1",
+    "PyYAML>=6.0.3",
+    "rapidfuzz>=3.14.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.4.2",
+    "pytest-cov>=7.0.0",
+    "ruff>=0.8.0",
+    "mypy>=1.18.2",
+    "types-PyYAML>=6.0.12",
+]
+
+[project.scripts]
+gradeflow-engine = "gradeflow_engine.cli:app"
+
+[tool.setuptools]
+packages = ["gradeflow_engine"]
+
+[tool.setuptools.package-data]
+gradeflow_engine = ["py.typed"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+]
+ignore = [
+    "B008",  # Do not perform function calls in argument defaults (false positive for Typer)
+    "UP037", # Remove quotes from type annotation (needed for forward references)
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.14"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
