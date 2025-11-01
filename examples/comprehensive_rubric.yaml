@@ -16,8 +16,9 @@ rules:
   # 2. NumericRange: Numeric answers with tolerance and partial credit
   - type: NUMERIC_RANGE
     question_id: "q2_pi"
-    correct_value: 3.14159
-    tolerance: 0.01
+    min_value: 3.13159
+    max_value: 3.15159
+    unit: null
     max_points: 10.0
     partial_credit_ranges:
       - min: 2.5
@@ -116,11 +117,21 @@ rules:
   
   # 8. Conditional: Grade one question based on answer to another
   - type: CONDITIONAL
-    if_question: "q11_programming"
-    if_answer: "Python"
-    then_question: "q12_version"
-    then_correct_answer: "3.x"
-    max_points: 5.0
+    if_rules:
+      q11_programming:
+        type: EXACT_MATCH
+        question_id: "q11_programming"
+        correct_answer: "Python"
+        max_points: 0
+        case_sensitive: false
+    then_rules:
+      q12_version:
+        type: EXACT_MATCH
+        question_id: "q12_version"
+        correct_answer: "3.x"
+        max_points: 5.0
+        case_sensitive: false
+    if_aggregation: "AND"
     description: "If you chose Python, specify the version"
   
   # 9. AssumptionSet: Grade related questions together
@@ -132,13 +143,25 @@ rules:
     answer_sets:
       - name: "Correct calculation path"
         answers:
-          q13_calc_a: "10"
-          q13_calc_b: "20"
-          q13_calc_c: "30"
-    points_per_question:
-      q13_calc_a: 5.0
-      q13_calc_b: 5.0
-      q13_calc_c: 5.0
+          q13_calc_a:
+            type: EXACT_MATCH
+            question_id: "q13_calc_a"
+            correct_answer: "10"
+            max_points: 5.0
+            case_sensitive: false
+          q13_calc_b:
+            type: EXACT_MATCH
+            question_id: "q13_calc_b"
+            correct_answer: "20"
+            max_points: 5.0
+            case_sensitive: false
+          q13_calc_c:
+            type: EXACT_MATCH
+            question_id: "q13_calc_c"
+            correct_answer: "30"
+            max_points: 5.0
+            case_sensitive: false
+    mode: "favor_best"
     description: "Multi-step calculation problem"
   
   # 10. Programmable: Custom Python logic

@@ -6,7 +6,7 @@ A powerful Python library and CLI tool for automated grading digital exam data w
 
 - **Multiple Grading Rules**: Comprehensive rule system for any grading scenario
   - **ExactMatch**: Simple text matching with case-sensitivity and whitespace options
-  - **NumericRange**: Numeric answers with tolerance and partial credit ranges
+  - **NumericRange**: Numeric answers with min/max ranges and partial credit
   - **MultipleChoice**: Single/multiple selection with flexible scoring modes
   - **Length**: Enforce word/character count constraints with partial credit
   - **Similarity**: Fuzzy string matching with multiple algorithms (Levenshtein, Jaro-Winkler, Token-based)
@@ -88,10 +88,9 @@ rubric = Rubric(
         ),
         NumericRangeRule(
             question_id="Q2",
-            correct_value=9.81,
-            tolerance=0.1,
+            min_value=9.71,
+            max_value=9.91,
             max_points=10.0,
-            unit="m/s²",
             description="Acceleration due to gravity"
         ),
     ]
@@ -146,7 +145,26 @@ export_canvas_csv(
 
 ## Grading Rule Types
 
-The engine supports 11 rule types that can be combined to create sophisticated grading rubrics. Each rule type is designed for specific grading scenarios.
+The engine supports 11 rule types organized into two categories:
+
+### Rule Categories
+
+**Single-Question Rules** - Evaluate individual questions independently:
+  - **ExactMatch**: Exact string matching with flexible options
+  - **Keyword**: Points for required/optional keywords
+  - **Regex**: Pattern matching with regular expressions
+  - **Similarity**: Fuzzy matching with multiple algorithms
+  - **Length**: Word/character count constraints
+  - **MultipleChoice**: MCQ/MRQ with flexible scoring
+  - **NumericRange**: Numeric values within min/max ranges
+  - **Programmable**: Custom Python grading logic
+  - **Composite**: Combine multiple single-question rules (AND/OR/WEIGHTED)
+
+**Multiple-Question Rules** - Evaluate relationships across questions:
+  - **Conditional**: If-then logic across questions with rule-based conditions
+  - **AssumptionSet**: Multiple valid answer sets with rule-based validation
+
+Each rule type is designed for specific grading scenarios and can be combined to create sophisticated rubrics.
 
 ### 1. ExactMatch
 
@@ -183,10 +201,10 @@ rule = ExactMatchRule(
 
 ### 2. NumericRange
 
-Grades numeric answers with tolerance and optional partial credit ranges.
+Grades numeric answers within a specified range with optional partial credit ranges.
 
 **Features:**
-- Tolerance-based grading (±tolerance)
+- Range-based grading (min_value to max_value)
 - Partial credit ranges for different deviation levels
 - Unit specification (documentation only)
 - Handles scientific notation and special values
@@ -195,8 +213,8 @@ Grades numeric answers with tolerance and optional partial credit ranges.
 ```yaml
 type: NUMERIC_RANGE
 question_id: Q2
-correct_value: 9.81
-tolerance: 0.1
+min_value: 9.71
+max_value: 9.91
 max_points: 10.0
 unit: "m/s²"
 partial_credit_ranges:
@@ -339,45 +357,68 @@ description: "Format validation"
 
 ### 8. Conditional
 
-Grade a question differently based on the answer to another question.
+Grade questions based on conditional logic across multiple questions. Evaluates conditions on one or more questions (if_rules) and applies grading rules to other questions when conditions are met (then_rules).
 
 **Features:**
-- Dependency-based grading
-- Supports exact match or similarity-based conditions
-- Flexible condition evaluation
+- Multi-question conditional logic
+- Rule-based conditions (any single-question rule)
+- AND/OR aggregation for multiple conditions
+- Flexible then-action grading with any single-question rule
 
 **Example YAML:**
 ```yaml
 type: CONDITIONAL
-if_question: Q1
-if_answer: "A"
-then_question: Q2
-then_correct_answer: "B"
-points: 10.0
-description: "If Q1 is A, then Q2 should be B"
+if_rules:
+  Q1:
+    type: EXACT_MATCH
+    question_id: "Q1"
+    correct_answer: "Python"
+    max_points: 0
+    case_sensitive: false
+then_rules:
+  Q2:
+    type: EXACT_MATCH
+    question_id: "Q2"
+    correct_answer: "3.x"
+    max_points: 10.0
+    case_sensitive: false
+if_aggregation: "AND"
+description: "If Q1 is Python, then Q2 should be 3.x"
 ```
 
 **Example Python:**
 ```python
-from gradeflow_engine import ConditionalRule
+from gradeflow_engine import ConditionalRule, ExactMatchRule
 
 rule = ConditionalRule(
-    if_question="Q1",
-    if_answer="A",
-    then_question="Q2",
-    then_correct_answer="B",
-    points=10.0
+    if_rules={
+        "Q1": ExactMatchRule(
+            question_id="Q1",
+            correct_answer="Python",
+            max_points=0,
+            case_sensitive=False
+        )
+    },
+    then_rules={
+        "Q2": ExactMatchRule(
+            question_id="Q2",
+            correct_answer="3.x",
+            max_points=10.0,
+            case_sensitive=False
+        )
+    },
+    if_aggregation="AND"
 )
 ```
 
 ### 9. AssumptionSet
 
-Support multiple valid answer sets and apply the most favorable scoring.
+Support multiple valid answer sets with rule-based grading. Each answer set contains rules for grading questions, and the engine picks the best-scoring or first-matching set.
 
 **Features:**
-- Multiple valid interpretation sets
+- Multiple valid interpretation paths
+- Rule-based answer validation (any single-question rule)
 - Best-score or first-match modes
-- Per-question point specification
 - Detailed feedback on which set was applied
 
 **Example YAML:**
@@ -387,40 +428,67 @@ question_ids: ["Q8", "Q9", "Q10"]
 answer_sets:
   - name: "Interpretation A"
     answers:
-      Q8: "X"
-      Q9: "Y"
-      Q10: "Z"
+      Q8:
+        type: EXACT_MATCH
+        question_id: "Q8"
+        correct_answer: "X"
+        max_points: 5.0
+      Q9:
+        type: EXACT_MATCH
+        question_id: "Q9"
+        correct_answer: "Y"
+        max_points: 5.0
+      Q10:
+        type: EXACT_MATCH
+        question_id: "Q10"
+        correct_answer: "Z"
+        max_points: 5.0
   - name: "Interpretation B"
     answers:
-      Q8: "P"
-      Q9: "Q"
-      Q10: "R"
+      Q8:
+        type: EXACT_MATCH
+        question_id: "Q8"
+        correct_answer: "P"
+        max_points: 5.0
+      Q9:
+        type: EXACT_MATCH
+        question_id: "Q9"
+        correct_answer: "Q"
+        max_points: 5.0
+      Q10:
+        type: EXACT_MATCH
+        question_id: "Q10"
+        correct_answer: "R"
+        max_points: 5.0
 mode: favor_best  # or "first_match"
-points_per_question:
-  Q8: 5.0
-  Q9: 5.0
-  Q10: 5.0
 description: "Multiple valid answer paths"
 ```
 
 **Example Python:**
 ```python
-from gradeflow_engine import AssumptionSetRule, AnswerSet
+from gradeflow_engine import AssumptionSetRule, AnswerSet, ExactMatchRule
 
 rule = AssumptionSetRule(
     question_ids=["Q8", "Q9", "Q10"],
     answer_sets=[
         AnswerSet(
             name="Interpretation A",
-            answers={"Q8": "X", "Q9": "Y", "Q10": "Z"}
+            answers={
+                "Q8": ExactMatchRule(question_id="Q8", correct_answer="X", max_points=5.0),
+                "Q9": ExactMatchRule(question_id="Q9", correct_answer="Y", max_points=5.0),
+                "Q10": ExactMatchRule(question_id="Q10", correct_answer="Z", max_points=5.0),
+            }
         ),
         AnswerSet(
             name="Interpretation B",
-            answers={"Q8": "P", "Q9": "Q", "Q10": "R"}
+            answers={
+                "Q8": ExactMatchRule(question_id="Q8", correct_answer="P", max_points=5.0),
+                "Q9": ExactMatchRule(question_id="Q9", correct_answer="Q", max_points=5.0),
+                "Q10": ExactMatchRule(question_id="Q10", correct_answer="R", max_points=5.0),
+            }
         ),
     ],
-    mode="favor_best",
-    points_per_question={"Q8": 5.0, "Q9": 5.0, "Q10": 5.0}
+    mode="favor_best"
 )
 ```
 
@@ -635,7 +703,7 @@ Contains question-level grading details for each student.
 ```csv
 student_id,question_id,student_answer,correct_answer,points_awarded,max_points,is_correct,feedback,rule_applied
 student001,Q1,Paris,Paris,10.00,10.00,true,,exact_match_rule
-student001,Q2,9.8,9.81,10.00,10.00,true,Within tolerance (0.1),numeric_range_rule
+student001,Q2,9.8,9.81,10.00,10.00,true,Within range [9.71-9.91],numeric_range_rule
 student002,Q1,London,Paris,0.00,10.00,false,Expected: Paris,exact_match_rule
 ```
 

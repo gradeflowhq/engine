@@ -2,7 +2,7 @@
 Tests for ConditionalRule grading logic.
 """
 
-from gradeflow_engine import ConditionalRule, Rubric, Submission, grade
+from gradeflow_engine import ConditionalRule, ExactMatchRule, Rubric, Submission, grade
 
 
 class TestConditionalRule:
@@ -11,11 +11,20 @@ class TestConditionalRule:
     def test_condition_met(self):
         """Test conditional grading when condition is met."""
         rule = ConditionalRule(
-            if_question="q1",
-            if_answer="A",
-            then_question="q2",
-            then_correct_answer="B",
-            max_points=10.0,
+            if_rules={
+                "q1": ExactMatchRule(
+                    question_id="q1",
+                    correct_answer="A",
+                    max_points=1.0,
+                )
+            },
+            then_rules={
+                "q2": ExactMatchRule(
+                    question_id="q2",
+                    correct_answer="B",
+                    max_points=10.0,
+                )
+            },
         )
         rubric = Rubric(name="Test", rules=[rule])
         # Condition met, correct answer
@@ -29,11 +38,20 @@ class TestConditionalRule:
     def test_condition_not_met(self):
         """Test conditional grading when condition is not met."""
         rule = ConditionalRule(
-            if_question="q1",
-            if_answer="A",
-            then_question="q2",
-            then_correct_answer="B",
-            max_points=10.0,
+            if_rules={
+                "q1": ExactMatchRule(
+                    question_id="q1",
+                    correct_answer="A",
+                    max_points=1.0,
+                )
+            },
+            then_rules={
+                "q2": ExactMatchRule(
+                    question_id="q2",
+                    correct_answer="B",
+                    max_points=10.0,
+                )
+            },
         )
         rubric = Rubric(name="Test", rules=[rule])
         # Condition not met - rule doesn't apply

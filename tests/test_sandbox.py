@@ -311,20 +311,24 @@ class TestMemoryLimitContextManager:
 
     def test_memory_limit_strict_mode_failure(self):
         """Test strict mode raises error when limit cannot be set."""
-        # Try to set an invalid limit with strict mode
-        with patch("resource.setrlimit", side_effect=OSError("Cannot set limit")):
-            with pytest.raises(SandboxExecutionError, match="Cannot enforce memory limit"):
-                with memory_limit(50, strict=True):
-                    pass
+        # Mock container detection to ensure we try to set limits
+        with patch("gradeflow_engine.sandbox._is_running_in_container", return_value=False):
+            # Try to set an invalid limit with strict mode
+            with patch("resource.setrlimit", side_effect=OSError("Cannot set limit")):
+                with pytest.raises(SandboxExecutionError, match="Cannot enforce memory limit"):
+                    with memory_limit(50, strict=True):
+                        pass
 
     def test_memory_limit_non_strict_mode_failure(self):
         """Test non-strict mode continues when limit cannot be set."""
-        with patch("resource.setrlimit", side_effect=OSError("Cannot set limit")):
-            # Should not raise in non-strict mode
-            with memory_limit(50, strict=False):
-                x = 42
+        # Mock container detection to ensure we try to set limits
+        with patch("gradeflow_engine.sandbox._is_running_in_container", return_value=False):
+            with patch("resource.setrlimit", side_effect=OSError("Cannot set limit")):
+                # Should not raise in non-strict mode
+                with memory_limit(50, strict=False):
+                    x = 42
 
-            assert x == 42
+                assert x == 42
 
 
 class TestContainerDetection:

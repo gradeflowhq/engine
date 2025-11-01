@@ -37,24 +37,13 @@ Metadata = dict[str, Any]
 # All rule model classes are now imported from rules/ directory
 # Each rule is defined in its own module: rules/<rule_name>/model.py
 
-# Discriminated union of all rule types for faster validation and better error messages
-GradingRule = Annotated[
-    ExactMatchRule
-    | NumericRangeRule
-    | MultipleChoiceRule
-    | LengthRule
-    | SimilarityRule
-    | ConditionalRule
-    | AssumptionSetRule
-    | ProgrammableRule
-    | KeywordRule
-    | RegexRule
-    | CompositeRule,
-    Discriminator("type"),  # Use 'type' field for discrimination
-]
+# ============================================================================
+# Single-Question Rules
+# ============================================================================
+# Rules that evaluate a single question independently
 
-# Rules that can be composed (single-question evaluation rules only)
-ComposableRule = Union[
+# Basic single-question rules (non-composite)
+BasicSingleQuestionRule = Union[
     ExactMatchRule,
     NumericRangeRule,
     MultipleChoiceRule,
@@ -63,11 +52,63 @@ ComposableRule = Union[
     KeywordRule,
     RegexRule,
     ProgrammableRule,
-    "CompositeRule",  # Allow recursive composition
 ]
 
-# Update CompositeRule to properly reference GradingRule
+# All single-question rules (including composite)
+SingleQuestionRule = Annotated[
+    ExactMatchRule
+    | NumericRangeRule
+    | MultipleChoiceRule
+    | LengthRule
+    | SimilarityRule
+    | KeywordRule
+    | RegexRule
+    | ProgrammableRule
+    | CompositeRule,
+    Discriminator("type"),
+]
+
+# Rules that can be composed (single-question evaluation rules only)
+# Alias for backwards compatibility
+ComposableRule = SingleQuestionRule
+
+# ============================================================================
+# Multiple-Question Rules
+# ============================================================================
+# Rules that evaluate relationships across multiple questions
+
+MultipleQuestionRule = Annotated[
+    ConditionalRule | AssumptionSetRule,
+    Discriminator("type"),
+]
+
+# ============================================================================
+# All Grading Rules
+# ============================================================================
+
+# Discriminated union of all rule types for faster validation and better error messages
+GradingRule = Annotated[
+    # Single-question rules
+    ExactMatchRule
+    | NumericRangeRule
+    | MultipleChoiceRule
+    | LengthRule
+    | SimilarityRule
+    | KeywordRule
+    | RegexRule
+    | ProgrammableRule
+    | CompositeRule
+    # Multiple-question rules
+    | ConditionalRule
+    | AssumptionSetRule,
+    Discriminator("type"),  # Use 'type' field for discrimination
+]
+
+# Update model references to properly reference SingleQuestionRule
 CompositeRule.model_rebuild()
+ConditionalRule.model_rebuild()
+AnswerSet.model_rebuild()
+AssumptionSetRule.model_rebuild()
 
 
 # ============================================================================
@@ -145,6 +186,8 @@ class GradeOutput(BaseModel):
 __all__ = [
     "AnswerSet",
     "AssumptionSetRule",
+    "BasicSingleQuestionRule",
+    "ComposableRule",
     "CompositeRule",
     "ConditionalRule",
     "ExactMatchRule",
@@ -155,12 +198,13 @@ __all__ = [
     "LengthRule",
     "Metadata",
     "MultipleChoiceRule",
+    "MultipleQuestionRule",
     "NumericRangeRule",
     "ProgrammableRule",
     "RegexRule",
     "Rubric",
     "SimilarityRule",
+    "SingleQuestionRule",
     "StudentResult",
     "Submission",
-    "ComposableRule",
 ]

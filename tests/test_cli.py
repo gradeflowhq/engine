@@ -42,8 +42,8 @@ def sample_rubric(tmp_path):
             {
                 "type": "NUMERIC_RANGE",
                 "question_id": "Q2",
-                "correct_value": 42.0,
-                "tolerance": 0.1,
+                "min_value": 41.9,
+                "max_value": 42.1,
                 "max_points": 5.0,
             },
         ],

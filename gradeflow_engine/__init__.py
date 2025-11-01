@@ -21,6 +21,8 @@ from .io import (
 from .models import (
     AnswerSet,
     AssumptionSetRule,
+    BasicSingleQuestionRule,
+    ComposableRule,
     CompositeRule,
     ConditionalRule,
     ExactMatchRule,
@@ -30,11 +32,13 @@ from .models import (
     KeywordRule,
     LengthRule,
     MultipleChoiceRule,
+    MultipleQuestionRule,
     NumericRangeRule,
     ProgrammableRule,
     RegexRule,
     Rubric,
     SimilarityRule,
+    SingleQuestionRule,
     StudentResult,
     Submission,
 )
@@ -91,20 +95,26 @@ __all__ = [
     "GradeDetail",
     "StudentResult",
     "GradeOutput",
+    # Rule type unions
     "GradingRule",
-    # Rule models
+    "SingleQuestionRule",
+    "MultipleQuestionRule",
+    "BasicSingleQuestionRule",
+    "ComposableRule",
+    # Single-question rule models
     "ExactMatchRule",
     "NumericRangeRule",
     "MultipleChoiceRule",
     "LengthRule",
     "SimilarityRule",
-    "ConditionalRule",
-    "AssumptionSetRule",
-    "AnswerSet",
     "ProgrammableRule",
     "KeywordRule",
     "RegexRule",
     "CompositeRule",
+    # Multiple-question rule models
+    "ConditionalRule",
+    "AssumptionSetRule",
+    "AnswerSet",
     # Utilities
     "configure_logging",
     # Version

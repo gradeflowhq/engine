@@ -6,6 +6,7 @@ This script shows various ways to use the engine programmatically.
 
 from gradeflow_engine import (
     ConditionalRule,
+    ExactMatchRule,
     ProgrammableRule,
     Rubric,
     Submission,
@@ -22,17 +23,29 @@ def example_1_basic_usage():
     print("Example 1: Basic Usage")
     print("=" * 60)
 
-    # Create a simple rubric
+    # Create a simple rubric with conditional rule
     rubric = Rubric(
         name="Demo Exam",
         rules=[
             ConditionalRule(
                 type="CONDITIONAL",
-                if_question="Q1",
-                if_answer="A",
-                then_question="Q2",
-                then_correct_answer="B",
-                max_points=10.0,
+                if_rules={
+                    "Q1": ExactMatchRule(
+                        question_id="Q1",
+                        correct_answer="A",
+                        max_points=0,
+                        case_sensitive=False,
+                    )
+                },
+                then_rules={
+                    "Q2": ExactMatchRule(
+                        question_id="Q2",
+                        correct_answer="B",
+                        max_points=10.0,
+                        case_sensitive=False,
+                    )
+                },
+                if_aggregation="AND",
             )
         ],
     )

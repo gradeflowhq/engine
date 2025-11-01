@@ -230,17 +230,23 @@ def _validate_script(script: str) -> None:
         raise SandboxExecutionError(f"Script has syntax errors at line {e.lineno}: {e.msg}") from e
 
 
-def _safe_iter(obj):
+def _safe_iter(obj: object) -> object:
     """
     Safe iterator that allows iteration over basic Python types.
 
     RestrictedPython requires explicit iterator support. This function
     enables for loops, comprehensions, and iteration operations.
+    
+    Args:
+        obj: Any iterable object (list, tuple, dict, set, range, etc.)
+        
+    Returns:
+        Iterator for the given object
     """
     return iter(obj)
 
 
-def _inplacevar(op, x, y):
+def _inplacevar(op: str, x: object, y: object) -> object:
     """
     Handler for augmented assignment operations (+=, -=, *=, etc.).
 
@@ -422,6 +428,9 @@ def memory_limit(memory_mb: int, strict: bool = False):
 
     Uses resource.RLIMIT_AS to limit virtual memory allocation.
     Only works on Unix-like systems (Linux, macOS).
+    
+    Automatically skips memory limits in containerized environments (Docker, Kubernetes, etc.)
+    where resource limits may not work properly or cause MemoryErrors.
 
     Args:
         memory_mb: Memory limit in megabytes
@@ -439,6 +448,13 @@ def memory_limit(memory_mb: int, strict: bool = False):
     """
     if memory_mb <= 0:
         raise ValueError(f"memory_mb must be positive, got {memory_mb}")
+
+    # Skip memory limits entirely in containerized environments
+    # to avoid MemoryErrors and other issues in CI/CD pipelines
+    if _is_running_in_container():
+        logger.debug("Running in container, skipping memory limit enforcement")
+        yield
+        return
 
     memory_bytes = memory_mb * 1024 * 1024
     old_limit: tuple[int, int] | None = None
@@ -493,6 +509,9 @@ def execute_programmable_rule(
 
     Uses RestrictedPython to provide a sandboxed execution environment with
     time and memory limits.
+    
+    Note: Memory limits are automatically skipped in containerized environments
+    (Docker, Kubernetes, CI/CD) where they can cause MemoryErrors or fail to work properly.
 
     Args:
         script: Python script to execute
@@ -500,7 +519,7 @@ def execute_programmable_rule(
         question_id: Current question being graded
         answer: Student's answer to the current question
         timeout_ms: Timeout in milliseconds (default: 5000)
-        memory_mb: Memory limit in megabytes (default: 50)
+        memory_mb: Memory limit in megabytes (default: 50, skipped in containers)
         strict_limits: If True, fail if resource limits cannot be set (default: False)
 
     Returns:
@@ -514,7 +533,7 @@ def execute_programmable_rule(
     Security:
         - RestrictedPython limits available builtins and operations
         - SIGALRM timeout (Unix/Linux/macOS only)
-        - Memory limit via resource.RLIMIT_AS (Unix/Linux/macOS only)
+        - Memory limit via resource.RLIMIT_AS (Unix/Linux/macOS only, skipped in containers)
         - No file system or network access
 
     Script Variables Available:
@@ -548,20 +567,12 @@ def execute_programmable_rule(
     # Set up restricted globals
     restricted_globals = _create_restricted_globals(student_answers, question_id, answer)
 
-    # Execute with appropriate sandboxing based on environment
+    # Execute with sandboxing (memory_limit handles container detection internally)
     try:
-        if _is_running_in_container():
-            # Skip memory limits in containerized environments
-            logger.debug("Container environment detected, skipping memory limits")
+        with memory_limit(memory_mb, strict=strict_limits):
             with time_limit(timeout_ms):
                 logger.debug("Executing restricted script")
                 exec(byte_code, restricted_globals)
-        else:
-            # Non-container environment: use full sandboxing with memory limits
-            with memory_limit(memory_mb, strict=strict_limits):
-                with time_limit(timeout_ms):
-                    logger.debug("Executing restricted script")
-                    exec(byte_code, restricted_globals)
 
         # Extract and validate results
         points_awarded, feedback = _extract_and_validate_results(restricted_globals)

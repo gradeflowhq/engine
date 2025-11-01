@@ -33,24 +33,23 @@ def process_numeric_range(
         return create_grade_detail(
             question_id=rule.question_id,
             student_answer=student_answer,
-            correct_answer=str(rule.correct_value),
+            correct_answer=f"[{rule.min_value}, {rule.max_value}]",
             points_awarded=0.0,
             max_points=rule.max_points,
             is_correct=False,
             feedback="✗ Invalid numeric value",
         )
 
-    # Check exact match with tolerance
-    difference = abs(student_value - rule.correct_value)
-    if difference <= rule.tolerance:
+    # Check if within acceptable range
+    if rule.min_value <= student_value <= rule.max_value:
         return create_grade_detail(
             question_id=rule.question_id,
             student_answer=student_answer,
-            correct_answer=str(rule.correct_value),
+            correct_answer=f"[{rule.min_value}, {rule.max_value}]",
             points_awarded=rule.max_points,
             max_points=rule.max_points,
             is_correct=True,
-            feedback=f"✓ Within tolerance (±{rule.tolerance})",
+            feedback=f"✓ Within acceptable range [{rule.min_value}, {rule.max_value}]",
         )
 
     # Check partial credit ranges
@@ -61,19 +60,27 @@ def process_numeric_range(
                 return create_grade_detail(
                     question_id=rule.question_id,
                     student_answer=student_answer,
-                    correct_answer=str(rule.correct_value),
+                    correct_answer=f"[{rule.min_value}, {rule.max_value}]",
                     points_awarded=points,
                     max_points=rule.max_points,
                     is_correct=False,
                     feedback=f"Partial credit: within range [{pc_range['min']}, {pc_range['max']}]",
                 )
 
+    # Outside all acceptable ranges
+    if student_value < rule.min_value:
+        difference = rule.min_value - student_value
+        feedback = f"✗ Below minimum (difference: {difference:.2f})"
+    else:
+        difference = student_value - rule.max_value
+        feedback = f"✗ Above maximum (difference: {difference:.2f})"
+
     return create_grade_detail(
         question_id=rule.question_id,
         student_answer=student_answer,
-        correct_answer=str(rule.correct_value),
+        correct_answer=f"[{rule.min_value}, {rule.max_value}]",
         points_awarded=0.0,
         max_points=rule.max_points,
         is_correct=False,
-        feedback=f"✗ Outside acceptable range (difference: {difference:.2f})",
+        feedback=feedback,
     )

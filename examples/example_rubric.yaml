@@ -2,19 +2,39 @@ name: Final Exam 2024 - Example Rubric
 
 rules:
   - type: CONDITIONAL
-    if_question: Q1
-    if_answer: A
-    then_question: Q2
-    then_correct_answer: B
-    max_points: 5.0
+    if_rules:
+      Q1:
+        type: EXACT_MATCH
+        question_id: Q1
+        correct_answer: A
+        max_points: 0
+        case_sensitive: false
+    then_rules:
+      Q2:
+        type: EXACT_MATCH
+        question_id: Q2
+        correct_answer: B
+        max_points: 5.0
+        case_sensitive: false
+    if_aggregation: AND
     description: If Q1 answer is A, then Q2 should be B (dependent calculation)
 
   - type: CONDITIONAL
-    if_question: Q1
-    if_answer: C
-    then_question: Q2
-    then_correct_answer: D
-    max_points: 5.0
+    if_rules:
+      Q1:
+        type: EXACT_MATCH
+        question_id: Q1
+        correct_answer: C
+        max_points: 0
+        case_sensitive: false
+    then_rules:
+      Q2:
+        type: EXACT_MATCH
+        question_id: Q2
+        correct_answer: D
+        max_points: 5.0
+        case_sensitive: false
+    if_aggregation: AND
     description: If Q1 answer is C, then Q2 should be D (alternative calculation)
 
   - type: ASSUMPTION_SET
@@ -25,19 +45,45 @@ rules:
     answer_sets:
       - name: Interpretation A - Classical Mechanics
         answers:
-          Q3: kinetic
-          Q4: increases
-          Q5: parabolic
+          Q3:
+            type: EXACT_MATCH
+            question_id: Q3
+            correct_answer: kinetic
+            max_points: 3.0
+            case_sensitive: false
+          Q4:
+            type: EXACT_MATCH
+            question_id: Q4
+            correct_answer: increases
+            max_points: 3.0
+            case_sensitive: false
+          Q5:
+            type: EXACT_MATCH
+            question_id: Q5
+            correct_answer: parabolic
+            max_points: 4.0
+            case_sensitive: false
       - name: Interpretation B - Quantum Mechanics
         answers:
-          Q3: potential
-          Q4: quantized
-          Q5: discrete
+          Q3:
+            type: EXACT_MATCH
+            question_id: Q3
+            correct_answer: potential
+            max_points: 3.0
+            case_sensitive: false
+          Q4:
+            type: EXACT_MATCH
+            question_id: Q4
+            correct_answer: quantized
+            max_points: 3.0
+            case_sensitive: false
+          Q5:
+            type: EXACT_MATCH
+            question_id: Q5
+            correct_answer: discrete
+            max_points: 4.0
+            case_sensitive: false
     mode: favor_best
-    points_per_question:
-      Q3: 3.0
-      Q4: 3.0
-      Q5: 4.0
     description: Physics problem with two valid interpretations
 
   - type: PROGRAMMABLE
@@ -84,6 +130,12 @@ rules:
     question_id: Q7
     script: |
       # Grade numerical answer with tolerance
+      # Note: This could also be done with NUMERIC_RANGE rule:
+      #   type: NUMERIC_RANGE
+      #   question_id: Q7
+      #   min_value: 42.0
+      #   max_value: 43.0
+      #   max_points: 5.0
       try:
           student_value = float(answer.strip())
           correct_value = 42.5

@@ -7,21 +7,33 @@ from pydantic import BaseModel, Field, field_validator
 
 class NumericRangeRule(BaseModel):
     """
-    Numeric answer grading with tolerance and partial credit ranges.
+    Numeric answer grading with min/max range and partial credit ranges.
 
-    Example: Physics calculations, math problems with rounding.
+    Accepts answers within the specified range [min_value, max_value].
+    Optionally supports partial credit for values outside the main range.
+
+    Example: Physics calculations, math problems with acceptable ranges.
     """
 
     type: Literal["NUMERIC_RANGE"] = "NUMERIC_RANGE"
     question_id: str = Field(description="Question ID to grade")
-    correct_value: float = Field(description="The correct numeric value")
-    tolerance: float = Field(default=0.0, description="Acceptable deviation for full credit", ge=0)
+    min_value: float = Field(description="Minimum acceptable value for full credit")
+    max_value: float = Field(description="Maximum acceptable value for full credit")
     max_points: float = Field(description="Maximum points available", ge=0)
     unit: str | None = Field(None, description="Expected unit (e.g., 'meters', 'kg')")
     partial_credit_ranges: list[dict[str, float]] | None = Field(
         None, description="List of {min: float, max: float, points: float} for partial credit"
     )
     description: str | None = Field(None, description="Human-readable description of the rule")
+
+    @field_validator("max_value")
+    @classmethod
+    def validate_max_value(cls, v, info):
+        """Ensure max_value >= min_value."""
+        min_value = info.data.get("min_value")
+        if min_value is not None and v < min_value:
+            raise ValueError(f"max_value ({v}) must be greater than or equal to min_value ({min_value})")
+        return v
 
     @field_validator("partial_credit_ranges")
     @classmethod

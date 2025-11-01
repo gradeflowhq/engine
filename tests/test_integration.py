@@ -43,7 +43,7 @@ class TestEndToEndGrading:
                 ExactMatchRule(question_id="q1", correct_answer="Paris", max_points=10.0),
                 ExactMatchRule(question_id="q2", correct_answer="London", max_points=10.0),
                 NumericRangeRule(
-                    question_id="q3", correct_value=42.0, tolerance=2.0, max_points=15.0
+                    question_id="q3", min_value=40.0, max_value=44.0, max_points=15.0
                 ),
             ],
         )
@@ -81,11 +81,20 @@ class TestEndToEndGrading:
             rules=[
                 ExactMatchRule(question_id="q1", correct_answer="A", max_points=5.0),
                 ConditionalRule(
-                    if_question="q1",
-                    if_answer="A",
-                    then_question="q2",
-                    then_correct_answer="B",
-                    max_points=10.0,
+                    if_rules={
+                        "q1": ExactMatchRule(
+                            question_id="q1",
+                            correct_answer="A",
+                            max_points=1.0,
+                        )
+                    },
+                    then_rules={
+                        "q2": ExactMatchRule(
+                            question_id="q2",
+                            correct_answer="B",
+                            max_points=10.0,
+                        )
+                    },
                     description="If q1 is A, then q2 should be B",
                 ),
             ],
@@ -166,8 +175,8 @@ rules:
     case_sensitive: false
   - type: NUMERIC_RANGE
     question_id: q2
-    correct_value: 100.0
-    tolerance: 5.0
+    min_value: 95.0
+    max_value: 105.0
     max_points: 15.0
 """
         # Write YAML file
@@ -407,11 +416,20 @@ class TestComplexScenarios:
                 ExactMatchRule(question_id="q1_basics", correct_answer="yes", max_points=5.0),
                 # If they got basics right, check advanced (just checks for specific keyword)
                 ConditionalRule(
-                    if_question="q1_basics",
-                    if_answer="yes",
-                    then_question="q2_code",
-                    then_correct_answer="function",
-                    max_points=10.0,
+                    if_rules={
+                        "q1_basics": ExactMatchRule(
+                            question_id="q1_basics",
+                            correct_answer="yes",
+                            max_points=1.0,
+                        )
+                    },
+                    then_rules={
+                        "q2_code": ExactMatchRule(
+                            question_id="q2_code",
+                            correct_answer="function",
+                            max_points=10.0,
+                        )
+                    },
                 ),
                 # Separately grade an essay question with composite rules
                 CompositeRule(
@@ -473,7 +491,7 @@ class TestComplexScenarios:
             rules=[
                 ExactMatchRule(question_id="q1", correct_answer="A", max_points=10.0),
                 NumericRangeRule(
-                    question_id="q2", correct_value=50.0, tolerance=5.0, max_points=10.0
+                    question_id="q2", min_value=45.0, max_value=55.0, max_points=10.0
                 ),
             ],
         )

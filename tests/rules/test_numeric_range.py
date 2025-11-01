@@ -12,37 +12,41 @@ class TestNumericRangeRule:
         """Test exact numeric value."""
         rule = NumericRangeRule(
             question_id="q1",
-            correct_value=3.14,
-            tolerance=0.0,
+            min_value=3.14,
+            max_value=3.14,
             max_points=10.0,
         )
         rubric = Rubric(name="Test", rules=[rule])
         result = grade(rubric, [Submission(student_id="s1", answers={"q1": "3.14"})])
         assert result.results[0].total_points == 10.0
 
-    def test_tolerance(self):
-        """Test numeric tolerance."""
+    def test_range(self):
+        """Test numeric range."""
         rule = NumericRangeRule(
             question_id="q1",
-            correct_value=100.0,
-            tolerance=5.0,
+            min_value=95.0,
+            max_value=105.0,
             max_points=10.0,
         )
         rubric = Rubric(name="Test", rules=[rule])
-        # Within tolerance
+        # Within range
         result = grade(rubric, [Submission(student_id="s1", answers={"q1": "103"})])
         assert result.results[0].total_points == 10.0
 
-        # Outside tolerance
+        # Outside range (above)
         result = grade(rubric, [Submission(student_id="s2", answers={"q1": "106"})])
+        assert result.results[0].total_points == 0.0
+
+        # Outside range (below)
+        result = grade(rubric, [Submission(student_id="s3", answers={"q1": "94"})])
         assert result.results[0].total_points == 0.0
 
     def test_partial_credit(self):
         """Test partial credit ranges."""
         rule = NumericRangeRule(
             question_id="q1",
-            correct_value=100.0,
-            tolerance=0.0,
+            min_value=100.0,
+            max_value=100.0,
             max_points=10.0,
             partial_credit_ranges=[
                 {"min": 98.0, "max": 102.0, "points": 8.0},
@@ -67,8 +71,8 @@ class TestNumericRangeRule:
         """Test invalid numeric input."""
         rule = NumericRangeRule(
             question_id="q1",
-            correct_value=10.0,
-            tolerance=1.0,
+            min_value=9.0,
+            max_value=11.0,
             max_points=10.0,
         )
         rubric = Rubric(name="Test", rules=[rule])
@@ -79,8 +83,8 @@ class TestNumericRangeRule:
         """Test scientific notation input."""
         rule = NumericRangeRule(
             question_id="q1",
-            correct_value=1000.0,
-            tolerance=10.0,
+            min_value=990.0,
+            max_value=1010.0,
             max_points=10.0,
         )
         rubric = Rubric(name="Test", rules=[rule])
@@ -91,8 +95,8 @@ class TestNumericRangeRule:
         """Test negative numbers."""
         rule = NumericRangeRule(
             question_id="q1",
-            correct_value=-5.0,
-            tolerance=1.0,
+            min_value=-6.0,
+            max_value=-4.0,
             max_points=10.0,
         )
         rubric = Rubric(name="Test", rules=[rule])
@@ -103,8 +107,8 @@ class TestNumericRangeRule:
         """Test very large numbers."""
         rule = NumericRangeRule(
             question_id="q1",
-            correct_value=1e100,
-            tolerance=1e98,
+            min_value=1e100 - 1e98,
+            max_value=1e100 + 1e98,
             max_points=5.0,
             description="Large number test",
             unit="units",
@@ -117,8 +121,8 @@ class TestNumericRangeRule:
         """Test handling of -0.0."""
         rule = NumericRangeRule(
             question_id="q1",
-            correct_value=0.0,
-            tolerance=0.0,
+            min_value=0.0,
+            max_value=0.0,
             max_points=10.0,
             description="Negative zero test",
             unit="units",

@@ -5,9 +5,9 @@ from typing import TYPE_CHECKING, Literal
 from pydantic import BaseModel, Field, field_validator
 
 if TYPE_CHECKING:
-    from gradeflow_engine.models import ComposableRule
+    from gradeflow_engine.models import SingleQuestionRule
     # Forward references to avoid circular imports
-    # ComposableRule will be defined in models.py
+    # SingleQuestionRule will be defined in models.py
 
 
 class CompositeRule(BaseModel):
@@ -31,7 +31,7 @@ class CompositeRule(BaseModel):
             "WEIGHTED: weighted average of all rules"
         )
     )
-    rules: list["ComposableRule"] = Field(  # type: ignore[name-defined]
+    rules: list["SingleQuestionRule"] = Field(  # type: ignore[name-defined]
         description=(
             "List of single-question rules to combine "
             "(excludes ConditionalRule and AssumptionSetRule)"

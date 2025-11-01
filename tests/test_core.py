@@ -76,8 +76,8 @@ class TestGradeFunction:
                 ),
                 NumericRangeRule(
                     question_id="Q1",
-                    correct_value=10.0,
-                    tolerance=1.0,
+                    min_value=9.0,
+                    max_value=11.0,
                     max_points=5,
                     description="Test",
                 ),
@@ -250,8 +250,8 @@ class TestErrorHandling:
             rules=[
                 NumericRangeRule(
                     question_id="q1",
-                    correct_value=10.0,
-                    tolerance=1.0,
+                    min_value=9.0,
+                    max_value=11.0,
                     max_points=10.0,
                     description="Test",
                     unit="cm",
@@ -340,8 +340,8 @@ class TestProgressCallback:
             rules=[
                 NumericRangeRule(
                     question_id="q1",
-                    correct_value=10.0,
-                    tolerance=1.0,
+                    min_value=9.0,
+                    max_value=11.0,
                     max_points=10.0,
                     description="Test",
                     unit="units",
