@@ -3,6 +3,12 @@ Tests for MultipleChoiceRule grading logic.
 """
 
 from gradeflow_engine import MultipleChoiceRule, Rubric, Submission, grade
+from gradeflow_engine.schema import (
+    AssessmentSchema,
+    ChoiceQuestionSchema,
+    NumericQuestionSchema,
+    TextQuestionSchema,
+)
 
 
 class TestMultipleChoiceRule:
@@ -120,3 +126,103 @@ class TestMultipleChoiceRule:
 
         result = grade(rubric, [Submission(student_id="s2", answers={"q1": "a"})])
         assert result.results[0].total_points == 10.0
+
+
+class TestMultipleChoiceSchemaValidation:
+    """Test MultipleChoiceRule schema validation."""
+
+    def test_validate_against_choice_schema(self):
+        """Test that MultipleChoiceRule validates correctly against CHOICE schema."""
+        rule = MultipleChoiceRule(
+            question_id="q1",
+            correct_answers=["A", "B"],
+            max_points=10.0,
+            description="MCQ test",
+        )
+        schema = AssessmentSchema(
+            name="Test",
+            questions={
+                "q1": ChoiceQuestionSchema(question_id="q1", options=["A", "B", "C", "D"]),
+            },
+        )
+
+        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        assert errors == []
+
+    def test_validate_incompatible_numeric_schema(self):
+        """Test that MultipleChoiceRule rejects NUMERIC schema."""
+        rule = MultipleChoiceRule(
+            question_id="q1",
+            correct_answers=["A"],
+            max_points=10.0,
+            description="Test",
+        )
+        schema = AssessmentSchema(
+            name="Test",
+            questions={
+                "q1": NumericQuestionSchema(question_id="q1"),
+            },
+        )
+
+        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        assert len(errors) == 1
+        assert "only compatible with" in errors[0]
+        assert "CHOICE" in errors[0]
+
+    def test_validate_incompatible_text_schema(self):
+        """Test that MultipleChoiceRule rejects TEXT schema."""
+        rule = MultipleChoiceRule(
+            question_id="q1",
+            correct_answers=["answer"],
+            max_points=10.0,
+            description="Test",
+        )
+        schema = AssessmentSchema(
+            name="Test",
+            questions={
+                "q1": TextQuestionSchema(question_id="q1"),
+            },
+        )
+
+        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        assert len(errors) == 1
+        assert "only compatible with" in errors[0]
+
+    def test_validate_answer_not_in_options(self):
+        """Test that MultipleChoiceRule validates answers are in schema options."""
+        rule = MultipleChoiceRule(
+            question_id="q1",
+            correct_answers=["A", "E"],  # E not in options
+            max_points=10.0,
+            description="Test",
+        )
+        schema = AssessmentSchema(
+            name="Test",
+            questions={
+                "q1": ChoiceQuestionSchema(question_id="q1", options=["A", "B", "C", "D"]),
+            },
+        )
+
+        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        assert len(errors) == 1
+        assert "not in schema options" in errors[0]
+        assert "E" in errors[0]
+
+    def test_validate_multiple_answers_not_in_options(self):
+        """Test validation with multiple invalid answers."""
+        rule = MultipleChoiceRule(
+            question_id="q1",
+            correct_answers=["E", "F"],  # Both not in options
+            max_points=10.0,
+            description="Test",
+        )
+        schema = AssessmentSchema(
+            name="Test",
+            questions={
+                "q1": ChoiceQuestionSchema(question_id="q1", options=["A", "B", "C"]),
+            },
+        )
+
+        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        assert len(errors) >= 1
+        assert "not in schema options" in errors[0]

@@ -3,6 +3,12 @@ Tests for SimilarityRule grading logic.
 """
 
 from gradeflow_engine import Rubric, SimilarityRule, Submission, grade
+from gradeflow_engine.schema import (
+    AssessmentSchema,
+    ChoiceQuestionSchema,
+    NumericQuestionSchema,
+    TextQuestionSchema,
+)
 
 
 class TestSimilarityRule:
@@ -81,3 +87,68 @@ class TestSimilarityRule:
             rubric, [Submission(student_id="s1", answers={"q1": "completely different"})]
         )
         assert result.results[0].total_points == 0.0
+
+
+class TestSimilaritySchemaValidation:
+    """Test SimilarityRule schema validation."""
+
+    def test_validate_against_text_schema(self):
+        """Test that SimilarityRule validates correctly against TEXT schema."""
+        rule = SimilarityRule(
+            question_id="q1",
+            reference_answers=["The answer"],
+            algorithm="levenshtein",
+            threshold=0.8,
+            max_points=10.0,
+        )
+        schema = AssessmentSchema(
+            name="Test",
+            questions={
+                "q1": TextQuestionSchema(question_id="q1", max_length=100),
+            },
+        )
+
+        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        assert errors == []
+
+    def test_validate_incompatible_choice_schema(self):
+        """Test that SimilarityRule rejects CHOICE schema."""
+        rule = SimilarityRule(
+            question_id="q1",
+            reference_answers=["A"],
+            algorithm="levenshtein",
+            threshold=0.8,
+            max_points=10.0,
+        )
+        schema = AssessmentSchema(
+            name="Test",
+            questions={
+                "q1": ChoiceQuestionSchema(question_id="q1", options=["A", "B", "C"]),
+            },
+        )
+
+        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        assert len(errors) == 1
+        assert "only compatible with" in errors[0]
+        assert "CHOICE" in errors[0]
+
+    def test_validate_incompatible_numeric_schema(self):
+        """Test that SimilarityRule rejects NUMERIC schema."""
+        rule = SimilarityRule(
+            question_id="q1",
+            reference_answers=["42"],
+            algorithm="levenshtein",
+            threshold=0.8,
+            max_points=10.0,
+        )
+        schema = AssessmentSchema(
+            name="Test",
+            questions={
+                "q1": NumericQuestionSchema(question_id="q1"),
+            },
+        )
+
+        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        assert len(errors) == 1
+        assert "only compatible with" in errors[0]
+        assert "NUMERIC" in errors[0]

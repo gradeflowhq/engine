@@ -11,6 +11,11 @@ from gradeflow_engine import (
     Submission,
     grade,
 )
+from gradeflow_engine.schema import (
+    ChoiceQuestionSchema,
+    NumericQuestionSchema,
+    TextQuestionSchema,
+)
 
 
 class TestCompositeRule:
@@ -153,3 +158,52 @@ class TestCompositeRule:
         # Only 1 rule can pass with single answer "A", but min_passing requires 2
         result = grade(rubric, [Submission(student_id="s1", answers={"q1": "A"})])
         assert result.results[0].total_points == 0.0
+
+
+class TestCompositeSchemaValidation:
+    """Test CompositeRule schema validation."""
+
+    def test_validate_against_text_schema(self):
+        """Test that CompositeRule validates correctly against TEXT schema."""
+        rule = CompositeRule(
+            question_id="q1",
+            mode="AND",
+            rules=[
+                ExactMatchRule(question_id="q1", correct_answer="Paris", max_points=5.0),
+                LengthRule(question_id="q1", min_words=1, max_words=10, max_points=5.0),
+            ],
+        )
+        schema = TextQuestionSchema(question_id="q1", max_length=100)
+
+        errors = rule.validate_against_schema("q1", schema, "Rule 1")
+        assert errors == []
+
+    def test_validate_against_choice_schema(self):
+        """Test that CompositeRule validates correctly against CHOICE schema."""
+        rule = CompositeRule(
+            question_id="q1",
+            mode="OR",
+            rules=[
+                ExactMatchRule(question_id="q1", correct_answer="A", max_points=10.0),
+                ExactMatchRule(question_id="q1", correct_answer="B", max_points=10.0),
+            ],
+        )
+        schema = ChoiceQuestionSchema(question_id="q1", options=["A", "B", "C"])
+
+        errors = rule.validate_against_schema("q1", schema, "Rule 1")
+        assert errors == []
+
+    def test_validate_incompatible_numeric_schema(self):
+        """Test that CompositeRule rejects NUMERIC schema when sub-rules are incompatible."""
+        rule = CompositeRule(
+            question_id="q1",
+            mode="AND",
+            rules=[
+                ExactMatchRule(question_id="q1", correct_answer="text", max_points=5.0),
+            ],
+        )
+        schema = NumericQuestionSchema(question_id="q1")
+
+        errors = rule.validate_against_schema("q1", schema, "Rule 1")
+        assert len(errors) > 0
+        assert any("only compatible with" in error for error in errors)

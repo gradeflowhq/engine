@@ -3,6 +3,12 @@ Tests for RegexRule grading logic.
 """
 
 from gradeflow_engine import RegexRule, Rubric, Submission, grade
+from gradeflow_engine.schema import (
+    AssessmentSchema,
+    ChoiceQuestionSchema,
+    NumericQuestionSchema,
+    TextQuestionSchema,
+)
 
 
 class TestRegexRule:
@@ -93,3 +99,65 @@ class TestRegexRule:
         # Only one pattern matches, partial_credit=False means 0 points
         result = grade(rubric, [Submission(student_id="s1", answers={"q1": "123"})])
         assert result.results[0].total_points == 0.0
+
+
+class TestRegexSchemaValidation:
+    """Test RegexRule schema validation."""
+
+    def test_validate_against_text_schema(self):
+        """Test that RegexRule validates correctly against TEXT schema."""
+        rule = RegexRule(
+            question_id="q1",
+            patterns=[r"\d+"],
+            points_per_match=10.0,
+            match_mode="all",
+        )
+        schema = AssessmentSchema(
+            name="Test",
+            questions={
+                "q1": TextQuestionSchema(question_id="q1", max_length=100),
+            },
+        )
+
+        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        assert errors == []
+
+    def test_validate_incompatible_choice_schema(self):
+        """Test that RegexRule rejects CHOICE schema."""
+        rule = RegexRule(
+            question_id="q1",
+            patterns=[r"[A-Z]"],
+            points_per_match=10.0,
+            match_mode="all",
+        )
+        schema = AssessmentSchema(
+            name="Test",
+            questions={
+                "q1": ChoiceQuestionSchema(question_id="q1", options=["A", "B", "C"]),
+            },
+        )
+
+        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        assert len(errors) == 1
+        assert "only compatible with" in errors[0]
+        assert "CHOICE" in errors[0]
+
+    def test_validate_incompatible_numeric_schema(self):
+        """Test that RegexRule rejects NUMERIC schema."""
+        rule = RegexRule(
+            question_id="q1",
+            patterns=[r"\d+"],
+            points_per_match=10.0,
+            match_mode="all",
+        )
+        schema = AssessmentSchema(
+            name="Test",
+            questions={
+                "q1": NumericQuestionSchema(question_id="q1"),
+            },
+        )
+
+        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        assert len(errors) == 1
+        assert "only compatible with" in errors[0]
+        assert "NUMERIC" in errors[0]

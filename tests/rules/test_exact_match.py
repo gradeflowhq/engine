@@ -3,6 +3,12 @@ Tests for ExactMatchRule grading logic.
 """
 
 from gradeflow_engine import ExactMatchRule, Rubric, Submission, grade
+from gradeflow_engine.schema import (
+    AssessmentSchema,
+    ChoiceQuestionSchema,
+    NumericQuestionSchema,
+    TextQuestionSchema,
+)
 
 
 class TestExactMatchRule:
@@ -100,3 +106,83 @@ class TestExactMatchRule:
         rubric = Rubric(name="Test", rules=[rule])
         result = grade(rubric, [Submission(student_id="s1", answers={"q1": "\tAnswer\n"})])
         assert result.results[0].total_points == 10.0
+
+
+class TestExactMatchSchemaValidation:
+    """Test ExactMatchRule schema validation."""
+
+    def test_validate_against_text_schema(self):
+        """Test that ExactMatchRule validates correctly against TEXT schema."""
+        rule = ExactMatchRule(
+            question_id="q1",
+            correct_answer="Paris",
+            max_points=10.0,
+            description="Text question",
+        )
+        schema = AssessmentSchema(
+            name="Test",
+            questions={
+                "q1": TextQuestionSchema(question_id="q1", max_length=100),
+            },
+        )
+
+        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        assert errors == []
+
+    def test_validate_against_choice_schema(self):
+        """Test that ExactMatchRule validates correctly against CHOICE schema."""
+        rule = ExactMatchRule(
+            question_id="q1",
+            correct_answer="A",
+            max_points=10.0,
+            description="Choice question",
+        )
+        schema = AssessmentSchema(
+            name="Test",
+            questions={
+                "q1": ChoiceQuestionSchema(question_id="q1", options=["A", "B", "C"]),
+            },
+        )
+
+        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        assert errors == []
+
+    def test_validate_incompatible_numeric_schema(self):
+        """Test that ExactMatchRule rejects NUMERIC schema."""
+        rule = ExactMatchRule(
+            question_id="q1",
+            correct_answer="42",
+            max_points=10.0,
+            description="Numeric question",
+        )
+        schema = AssessmentSchema(
+            name="Test",
+            questions={
+                "q1": NumericQuestionSchema(question_id="q1"),
+            },
+        )
+
+        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        assert len(errors) == 1
+        assert "only compatible with" in errors[0]
+        assert "NUMERIC" in errors[0]
+
+    def test_validate_choice_answer_in_options(self):
+        """Test that ExactMatchRule validates answer is in CHOICE options."""
+        rule = ExactMatchRule(
+            question_id="q1",
+            correct_answer="D",  # Not in options
+            max_points=10.0,
+            description="Invalid choice",
+        )
+        schema = AssessmentSchema(
+            name="Test",
+            questions={
+                "q1": ChoiceQuestionSchema(question_id="q1", options=["A", "B", "C"]),
+            },
+        )
+
+        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        assert len(errors) == 1
+        assert "not in schema options" in errors[0]
+        assert "D" in errors[0]

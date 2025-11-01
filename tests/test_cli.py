@@ -642,3 +642,465 @@ class TestCLIIntegration:
         assert (tmp_path / "summary.csv").exists()
         assert (tmp_path / "detailed.csv").exists()
         assert (tmp_path / "canvas.csv").exists()
+
+
+class TestInferSchemaCommand:
+    """Test the infer-schema command."""
+
+    def test_infer_schema_basic(self, runner, sample_submissions, tmp_path):
+        """Test basic schema inference from submissions."""
+        output_file = tmp_path / "schema.yaml"
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "infer-schema",
+                str(sample_submissions),
+                "--out",
+                str(output_file),
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Loaded 4 submissions" in result.stdout
+        assert "Inferred schema with 3 questions" in result.stdout
+        assert output_file.exists()
+
+        # Verify schema structure
+        with open(output_file) as f:
+            schema = yaml.safe_load(f)
+
+        assert "name" in schema
+        assert "questions" in schema
+        assert len(schema["questions"]) == 3
+        assert "Q1" in schema["questions"]
+        assert "Q2" in schema["questions"]
+        assert "Q3" in schema["questions"]
+
+    def test_infer_schema_with_custom_name(self, runner, sample_submissions, tmp_path):
+        """Test schema inference with custom assessment name."""
+        output_file = tmp_path / "schema.yaml"
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "infer-schema",
+                str(sample_submissions),
+                "--out",
+                str(output_file),
+                "--name",
+                "My Custom Assessment",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert output_file.exists()
+
+        with open(output_file) as f:
+            schema = yaml.safe_load(f)
+
+        assert schema["name"] == "My Custom Assessment"
+
+    def test_infer_schema_verbose(self, runner, sample_submissions, tmp_path):
+        """Test schema inference with verbose output."""
+        output_file = tmp_path / "schema.yaml"
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "infer-schema",
+                str(sample_submissions),
+                "--out",
+                str(output_file),
+                "--verbose",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Schema Details:" in result.stdout
+        assert "Question Types:" in result.stdout
+        assert "Sample Questions:" in result.stdout
+
+    def test_infer_schema_custom_student_col(self, runner, tmp_path):
+        """Test schema inference with custom student ID column."""
+        # Create submissions with custom column name
+        submissions_data = [
+            {"StudentID": "student1", "Q1": "Paris", "Q2": "9.8"},
+            {"StudentID": "student2", "Q1": "London", "Q2": "9.81"},
+        ]
+
+        submissions_file = tmp_path / "submissions_custom.csv"
+        with open(submissions_file, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=["StudentID", "Q1", "Q2"])
+            writer.writeheader()
+            writer.writerows(submissions_data)
+
+        output_file = tmp_path / "schema.yaml"
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "infer-schema",
+                str(submissions_file),
+                "--out",
+                str(output_file),
+                "--student-col",
+                "StudentID",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert output_file.exists()
+
+    def test_infer_schema_nonexistent_file(self, runner, tmp_path):
+        """Test schema inference with nonexistent submissions file."""
+        output_file = tmp_path / "schema.yaml"
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "infer-schema",
+                "nonexistent.csv",
+                "--out",
+                str(output_file),
+            ],
+        )
+
+        assert result.exit_code != 0
+
+    def test_infer_schema_empty_submissions(self, runner, tmp_path):
+        """Test schema inference with empty submissions."""
+        empty_submissions = tmp_path / "empty.csv"
+        with open(empty_submissions, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["student_id", "Q1", "Q2"])
+            # No data rows
+
+        output_file = tmp_path / "schema.yaml"
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "infer-schema",
+                str(empty_submissions),
+                "--out",
+                str(output_file),
+            ],
+        )
+
+        # Should fail with error about no questions
+        assert result.exit_code == 1
+        assert "Error:" in result.stdout
+
+
+class TestValidateSchemaCommand:
+    """Test the validate-schema command."""
+
+    @pytest.fixture
+    def sample_schema(self, tmp_path):
+        """Create a sample schema YAML file."""
+        schema_data = {
+            "name": "Test Schema",
+            "questions": {
+                "Q1": {
+                    "type": "CHOICE",
+                    "question_id": "Q1",
+                    "options": ["Paris", "London", "Berlin"],
+                    "allow_multiple": False,
+                },
+                "Q2": {
+                    "type": "NUMERIC",
+                    "question_id": "Q2",
+                    "numeric_range": [0.0, 100.0],
+                },
+                "Q3": {
+                    "type": "TEXT",
+                    "question_id": "Q3",
+                    "max_length": 500,
+                },
+            },
+        }
+
+        schema_file = tmp_path / "schema.yaml"
+        with open(schema_file, "w") as f:
+            yaml.dump(schema_data, f)
+
+        return schema_file
+
+    @pytest.fixture
+    def invalid_schema(self, tmp_path):
+        """Create an invalid schema file."""
+        invalid_data = {
+            "name": "Invalid Schema",
+            "questions": {
+                "Q1": {
+                    "type": "CHOICE",
+                    "question_id": "Q1",
+                    # Missing required field: options
+                }
+            },
+        }
+
+        schema_file = tmp_path / "invalid_schema.yaml"
+        with open(schema_file, "w") as f:
+            yaml.dump(invalid_data, f)
+
+        return schema_file
+
+    @pytest.fixture
+    def compatible_rubric(self, tmp_path):
+        """Create a rubric compatible with sample_schema."""
+        rubric_data = {
+            "name": "Compatible Rubric",
+            "rules": [
+                {
+                    "type": "EXACT_MATCH",
+                    "question_id": "Q1",
+                    "correct_answer": "Paris",
+                    "max_points": 10.0,
+                },
+                {
+                    "type": "NUMERIC_RANGE",
+                    "question_id": "Q2",
+                    "min_value": 9.0,
+                    "max_value": 10.0,
+                    "max_points": 5.0,
+                },
+            ],
+        }
+
+        rubric_file = tmp_path / "compatible_rubric.yaml"
+        with open(rubric_file, "w") as f:
+            yaml.dump(rubric_data, f)
+
+        return rubric_file
+
+    @pytest.fixture
+    def incompatible_rubric(self, tmp_path):
+        """Create a rubric incompatible with sample_schema."""
+        rubric_data = {
+            "name": "Incompatible Rubric",
+            "rules": [
+                {
+                    "type": "EXACT_MATCH",
+                    "question_id": "Q99",  # Question not in schema
+                    "correct_answer": "Paris",
+                    "max_points": 10.0,
+                }
+            ],
+        }
+
+        rubric_file = tmp_path / "incompatible_rubric.yaml"
+        with open(rubric_file, "w") as f:
+            yaml.dump(rubric_data, f)
+
+        return rubric_file
+
+    def test_validate_schema_basic(self, runner, sample_schema):
+        """Test basic schema validation."""
+        result = runner.invoke(
+            cli_app,
+            ["validate-schema", str(sample_schema)],
+        )
+
+        assert result.exit_code == 0
+        assert "Schema is valid" in result.stdout
+
+    def test_validate_schema_verbose(self, runner, sample_schema):
+        """Test schema validation with verbose output."""
+        result = runner.invoke(
+            cli_app,
+            ["validate-schema", str(sample_schema), "--verbose"],
+        )
+
+        assert result.exit_code == 0
+        assert "Schema is valid" in result.stdout
+        assert "Schema Details:" in result.stdout
+        assert "Question Types:" in result.stdout
+
+    def test_validate_schema_with_compatible_rubric(self, runner, sample_schema, compatible_rubric):
+        """Test schema validation with compatible rubric."""
+        result = runner.invoke(
+            cli_app,
+            [
+                "validate-schema",
+                str(sample_schema),
+                "--rubric",
+                str(compatible_rubric),
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Schema is valid" in result.stdout
+        assert "Rubric is valid against schema" in result.stdout
+
+    def test_validate_schema_with_incompatible_rubric(
+        self, runner, sample_schema, incompatible_rubric
+    ):
+        """Test schema validation with incompatible rubric."""
+        result = runner.invoke(
+            cli_app,
+            [
+                "validate-schema",
+                str(sample_schema),
+                "--rubric",
+                str(incompatible_rubric),
+            ],
+        )
+
+        assert result.exit_code == 1
+        assert "Validation failed" in result.stdout
+        assert "Q99" in result.stdout or "not found" in result.stdout
+
+    def test_validate_invalid_schema(self, runner, invalid_schema):
+        """Test validating an invalid schema."""
+        result = runner.invoke(
+            cli_app,
+            ["validate-schema", str(invalid_schema)],
+        )
+
+        assert result.exit_code == 1
+        assert "Error:" in result.stdout
+
+    def test_validate_schema_nonexistent_file(self, runner):
+        """Test validating a nonexistent schema file."""
+        result = runner.invoke(
+            cli_app,
+            ["validate-schema", "nonexistent.yaml"],
+        )
+
+        assert result.exit_code != 0
+
+    def test_validate_schema_nonexistent_rubric(self, runner, sample_schema):
+        """Test validating with nonexistent rubric file."""
+        result = runner.invoke(
+            cli_app,
+            [
+                "validate-schema",
+                str(sample_schema),
+                "--rubric",
+                "nonexistent_rubric.yaml",
+            ],
+        )
+
+        assert result.exit_code != 0
+
+
+class TestSchemaWorkflows:
+    """Integration tests for schema-related workflows."""
+
+    def test_infer_then_validate_workflow(self, runner, sample_submissions, tmp_path):
+        """Test workflow: infer schema from submissions, then validate it."""
+        schema_file = tmp_path / "schema.yaml"
+
+        # First infer
+        infer_result = runner.invoke(
+            cli_app,
+            [
+                "infer-schema",
+                str(sample_submissions),
+                "--out",
+                str(schema_file),
+            ],
+        )
+        assert infer_result.exit_code == 0
+
+        # Then validate
+        validate_result = runner.invoke(
+            cli_app,
+            ["validate-schema", str(schema_file)],
+        )
+        assert validate_result.exit_code == 0
+        assert "Schema is valid" in validate_result.stdout
+
+    def test_infer_validate_with_rubric_workflow(
+        self, runner, sample_submissions, sample_rubric, tmp_path
+    ):
+        """Test workflow: infer schema, validate rubric against it."""
+        schema_file = tmp_path / "schema.yaml"
+
+        # Infer schema
+        infer_result = runner.invoke(
+            cli_app,
+            [
+                "infer-schema",
+                str(sample_submissions),
+                "--out",
+                str(schema_file),
+            ],
+        )
+        assert infer_result.exit_code == 0
+
+        # Validate rubric against schema
+        validate_result = runner.invoke(
+            cli_app,
+            [
+                "validate-schema",
+                str(schema_file),
+                "--rubric",
+                str(sample_rubric),
+            ],
+        )
+        # This might pass or fail depending on rubric/schema compatibility
+        # Just verify it runs without crashing
+        assert validate_result.exit_code in [0, 1]
+
+    def test_complete_workflow(self, runner, sample_submissions, tmp_path):
+        """Test complete workflow: infer schema, create rubric, validate, grade."""
+        schema_file = tmp_path / "schema.yaml"
+        rubric_file = tmp_path / "rubric.yaml"
+        output_file = tmp_path / "results.yaml"
+
+        # Step 1: Infer schema
+        infer_result = runner.invoke(
+            cli_app,
+            [
+                "infer-schema",
+                str(sample_submissions),
+                "--out",
+                str(schema_file),
+            ],
+        )
+        assert infer_result.exit_code == 0
+
+        # Step 2: Create compatible rubric
+        rubric_data = {
+            "name": "Test Rubric",
+            "rules": [
+                {
+                    "type": "EXACT_MATCH",
+                    "question_id": "Q1",
+                    "correct_answer": "Paris",
+                    "max_points": 10.0,
+                }
+            ],
+        }
+        with open(rubric_file, "w") as f:
+            yaml.dump(rubric_data, f)
+
+        # Step 3: Validate rubric against schema
+        validate_result = runner.invoke(
+            cli_app,
+            [
+                "validate-schema",
+                str(schema_file),
+                "--rubric",
+                str(rubric_file),
+            ],
+        )
+        assert validate_result.exit_code == 0
+
+        # Step 4: Grade with validated rubric
+        grade_result = runner.invoke(
+            cli_app,
+            [
+                "grade",
+                str(rubric_file),
+                str(sample_submissions),
+                "--out",
+                str(output_file),
+                "--quiet",
+            ],
+        )
+        assert grade_result.exit_code == 0
+        assert output_file.exists()

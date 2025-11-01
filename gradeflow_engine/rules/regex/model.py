@@ -1,8 +1,13 @@
 """Regex rule model definition."""
 
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, Field, field_validator
+
+from gradeflow_engine.types import QuestionType
+
+if TYPE_CHECKING:
+    from gradeflow_engine.schema import QuestionSchema
 
 
 class RegexRule(BaseModel):
@@ -13,8 +18,9 @@ class RegexRule(BaseModel):
     """
 
     type: Literal["REGEX"] = "REGEX"
+    compatible_types: set[QuestionType] = {"TEXT"}
     question_id: str = Field(description="Question ID to grade")
-    patterns: list[str] = Field(description="List of regex patterns to match")
+    patterns: list[str] = Field(description="List of regex patterns to match", min_length=1)
     points_per_match: float | list[float] = Field(
         description="Points per pattern match (single value or list matching patterns)"
     )
@@ -36,13 +42,6 @@ class RegexRule(BaseModel):
     )
     description: str | None = Field(None, description="Human-readable description of the rule")
 
-    @field_validator("patterns")
-    @classmethod
-    def validate_patterns(cls, v):
-        if len(v) < 1:
-            raise ValueError("At least one pattern is required")
-        return v
-
     @field_validator("points_per_match")
     @classmethod
     def validate_points(cls, v, info):
@@ -63,3 +62,16 @@ class RegexRule(BaseModel):
             return sum(self.points_per_match)
         else:
             return self.points_per_match * len(self.patterns)
+
+    def validate_against_schema(
+        self, question_id: str, schema: "QuestionSchema", rule_description: str
+    ) -> list[str]:
+        """Validate this rule against a question schema."""
+        from gradeflow_engine.rules.utils import validate_type_compatibility
+
+        return validate_type_compatibility(
+            schema=schema,
+            compatible_types=self.compatible_types,
+            rule_description=rule_description,
+            rule_name="RegexRule",
+        )

@@ -3,6 +3,11 @@ Tests for ProgrammableRule grading logic.
 """
 
 from gradeflow_engine import ProgrammableRule, Rubric, Submission, grade
+from gradeflow_engine.schema import (
+    ChoiceQuestionSchema,
+    NumericQuestionSchema,
+    TextQuestionSchema,
+)
 
 
 class TestProgrammableRule:
@@ -51,3 +56,43 @@ else:
             rubric, [Submission(student_id="s1", answers={"q1": " ".join(["word"] * 60)})]
         )
         assert result.results[0].total_points == 10.0
+
+
+class TestProgrammableSchemaValidation:
+    """Test ProgrammableRule schema validation."""
+
+    def test_validate_against_text_schema(self):
+        """Test that ProgrammableRule validates correctly against TEXT schema."""
+        rule = ProgrammableRule(
+            question_id="q1",
+            script="points_awarded = 10.0",
+            max_points=10.0,
+        )
+        schema = TextQuestionSchema(question_id="q1", max_length=100)
+
+        errors = rule.validate_against_schema("q1", schema, "Rule 1")
+        assert errors == []
+
+    def test_validate_against_choice_schema(self):
+        """Test that ProgrammableRule validates correctly against CHOICE schema."""
+        rule = ProgrammableRule(
+            question_id="q1",
+            script="points_awarded = 10.0 if answer == 'A' else 0.0",
+            max_points=10.0,
+        )
+        schema = ChoiceQuestionSchema(question_id="q1", options=["A", "B", "C"])
+
+        errors = rule.validate_against_schema("q1", schema, "Rule 1")
+        assert errors == []
+
+    def test_validate_against_numeric_schema(self):
+        """Test that ProgrammableRule validates correctly against NUMERIC schema."""
+        rule = ProgrammableRule(
+            question_id="q1",
+            script="points_awarded = 10.0 if float(answer) > 50 else 0.0",
+            max_points=10.0,
+        )
+        schema = NumericQuestionSchema(question_id="q1")
+
+        errors = rule.validate_against_schema("q1", schema, "Rule 1")
+        assert errors == []

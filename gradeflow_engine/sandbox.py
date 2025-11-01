@@ -131,7 +131,14 @@ SCRIPT_MAX_LINES = 1_000
 DEFAULT_TIMEOUT_MS = 5_000
 DEFAULT_MEMORY_MB = 50
 CONTAINER_INDICATORS = ["docker", "kubepods", "containerd", "lxc"]
-CONTAINER_ENV_VARS = ["DOCKER_CONTAINER", "KUBERNETES_SERVICE_HOST"]
+CONTAINER_ENV_VARS = [
+    "DOCKER_CONTAINER",
+    "KUBERNETES_SERVICE_HOST",
+    "GITHUB_ACTIONS",  # GitHub Actions CI environment
+    "GITLAB_CI",  # GitLab CI environment
+    "CIRCLECI",  # CircleCI environment
+    "TRAVIS",  # Travis CI environment
+]
 
 # Check platform at module import time
 if platform.system() == "Windows":
@@ -161,6 +168,7 @@ def _is_running_in_container() -> bool:
     Checks for common container indicators:
     - Docker: /.dockerenv file
     - Kubernetes/Docker: Environment variables
+    - CI/CD environments: GitHub Actions, GitLab CI, CircleCI, Travis CI
     - General: /proc/1/cgroup content
 
     Returns:

@@ -1,11 +1,14 @@
 """Composite rule model definition."""
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+from gradeflow_engine.types import QuestionType
+
 if TYPE_CHECKING:
     from gradeflow_engine.models import SingleQuestionRule
+    from gradeflow_engine.schema import QuestionSchema
     # Forward references to avoid circular imports
     # SingleQuestionRule will be defined in models.py
 
@@ -23,6 +26,7 @@ class CompositeRule(BaseModel):
     """
 
     type: Literal["COMPOSITE"] = "COMPOSITE"
+    compatible_types: set[QuestionType] = {"CHOICE", "NUMERIC", "TEXT"}  # Depends on sub-rules
     question_id: str = Field(description="Question ID to grade")
     mode: Literal["AND", "OR", "WEIGHTED"] = Field(
         description=(
@@ -83,3 +87,32 @@ class CompositeRule(BaseModel):
                 raise ValueError("Sum of weights must be > 0")
 
         return v
+
+    @property
+    def max_points(self) -> float:
+        """Calculate maximum possible points based on mode and sub-rules."""
+        if self.mode == "WEIGHTED":
+            # For weighted mode, combine weighted max points
+            if self.weights:
+                return sum(w * r.max_points for w, r in zip(self.weights, self.rules, strict=True))
+            return 0.0
+        else:
+            # For AND/OR mode, max points is the max of all sub-rules
+            return max((r.max_points for r in self.rules), default=0.0)
+
+    def validate_against_schema(
+        self, question_id: str, schema: "QuestionSchema", rule_description: str
+    ) -> list[str]:
+        """Validate this rule against a question schema."""
+        errors: list[str] = []
+
+        # Recursively validate all sub-rules
+        for i, sub_rule in enumerate(self.rules):
+            validate_method = getattr(sub_rule, "validate_against_schema", None)
+            if validate_method is not None and callable(validate_method):
+                sub_rule_desc = f"{rule_description} > Sub-rule {i + 1} ({sub_rule.type})"
+                sub_errors: Any = validate_method(question_id, schema, sub_rule_desc)
+                if isinstance(sub_errors, list):
+                    errors.extend(sub_errors)
+
+        return errors

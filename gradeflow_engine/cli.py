@@ -18,10 +18,17 @@ from .core import (
 from .io import (
     export_canvas_csv,
     load_rubric,
+    load_schema,
+    load_submissions_csv,
     save_results_csv,
     save_results_yaml,
+    save_schema,
 )
 from .models import GradeOutput
+from .schema import (
+    infer_schema_from_submissions,
+    validate_rubric_against_schema,
+)
 
 app = typer.Typer(
     name="gradeflow-engine",
@@ -272,6 +279,178 @@ def _display_summary_table(results: GradeOutput) -> None:
     if results.results:
         avg_percentage = sum(r.percentage for r in results.results) / len(results.results)
         console.print(f"\n[bold]Average:[/bold] {avg_percentage:.1f}%")
+
+
+@app.command()
+def infer_schema(
+    submissions: Path = typer.Argument(
+        ...,
+        help="Path to submissions CSV file",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+    ),
+    output: Path = typer.Option(
+        "schema.yaml",
+        "--out",
+        "-o",
+        help="Output path for inferred schema",
+    ),
+    name: str = typer.Option(
+        "Inferred Assessment",
+        "--name",
+        "-n",
+        help="Name for the inferred schema",
+    ),
+    student_id_col: str = typer.Option(
+        "student_id",
+        "--student-col",
+        "-s",
+        help="Name of student ID column in CSV",
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Show detailed schema info",
+    ),
+):
+    """
+    Infer assessment schema from submission data.
+
+    Analyzes submission patterns to automatically generate a schema
+    defining question types, options, and constraints.
+
+    Example:
+        gradeflow-engine infer-schema submissions.csv -o schema.yaml
+    """
+    try:
+        console.print(f"[bold blue]Loading submissions from:[/bold blue] {submissions}")
+
+        # Load submissions
+        submissions_list = load_submissions_csv(str(submissions), student_id_col=student_id_col)
+        console.print(f"[green]✓[/green] Loaded {len(submissions_list)} submissions")
+
+        # Infer schema
+        console.print("[bold blue]Inferring schema...[/bold blue]")
+        schema = infer_schema_from_submissions(submissions_list, name=name)
+        console.print(f"[green]✓[/green] Inferred schema with {len(schema.questions)} questions")
+
+        # Save schema
+        save_schema(schema, str(output))
+        console.print(f"[green]✓[/green] Schema saved to {output}")
+
+        # Display schema details if verbose
+        if verbose:
+            console.print("\n[bold]Schema Details:[/bold]")
+            console.print(f"  Name: {schema.name}")
+            console.print(f"  Questions: {len(schema.questions)}")
+
+            # Count question types
+            type_counts: dict[str, int] = {}
+            for q_schema in schema.questions.values():
+                q_type: str = q_schema.type
+                type_counts[q_type] = type_counts.get(q_type, 0) + 1
+
+            console.print("\n[bold]Question Types:[/bold]")
+            for q_type, count in type_counts.items():
+                console.print(f"  {q_type}: {count}")
+
+            # Show first few questions
+            console.print("\n[bold]Sample Questions:[/bold]")
+            from .schema import ChoiceQuestionSchema, NumericQuestionSchema
+
+            for q_id, q_schema in list(schema.questions.items())[:5]:
+                console.print(f"  {q_id}: {q_schema.type}")
+                if isinstance(q_schema, ChoiceQuestionSchema):
+                    console.print(f"    Options: {', '.join(q_schema.options[:5])}")
+                elif isinstance(q_schema, NumericQuestionSchema) and q_schema.numeric_range:
+                    min_val, max_val = q_schema.numeric_range
+                    console.print(f"    Range: [{min_val}, {max_val}]")
+
+            if len(schema.questions) > 5:
+                console.print("  ...")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {str(e)}")
+        raise typer.Exit(code=1) from e
+
+
+@app.command()
+def validate_schema(
+    schema_file: Path = typer.Argument(
+        ...,
+        help="Path to schema YAML file",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+    ),
+    rubric: Path | None = typer.Option(
+        None,
+        "--rubric",
+        "-r",
+        help="Optional rubric to validate against schema",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Show detailed validation info",
+    ),
+):
+    """
+    Validate an assessment schema file.
+
+    Optionally validate a rubric against the schema.
+
+    Examples:
+        gradeflow-engine validate-schema schema.yaml
+        gradeflow-engine validate-schema schema.yaml --rubric rubric.yaml
+    """
+    try:
+        console.print(f"[bold blue]Validating schema:[/bold blue] {schema_file}")
+
+        # Load and validate schema
+        schema = load_schema(str(schema_file))
+        console.print("[green]✓ Schema is valid![/green]")
+
+        if verbose:
+            console.print("\n[bold]Schema Details:[/bold]")
+            console.print(f"  Name: {schema.name}")
+            console.print(f"  Questions: {len(schema.questions)}")
+
+            # Count question types
+            type_counts: dict[str, int] = {}
+            for q_schema in schema.questions.values():
+                q_type: str = q_schema.type
+                type_counts[q_type] = type_counts.get(q_type, 0) + 1
+
+            console.print("\n[bold]Question Types:[/bold]")
+            for q_type, count in type_counts.items():
+                console.print(f"  {q_type}: {count}")
+
+        # Validate rubric against schema if provided
+        if rubric:
+            console.print(f"\n[bold blue]Validating rubric against schema:[/bold blue] {rubric}")
+            rubric_obj = load_rubric(str(rubric))
+
+            errors = validate_rubric_against_schema(rubric_obj, schema)
+            if errors:
+                console.print(
+                    f"[bold red]✗ Validation failed with {len(errors)} error(s):[/bold red]"
+                )
+                for error in errors:
+                    console.print(f"  [red]•[/red] {error}")
+                raise typer.Exit(code=1)
+            else:
+                console.print("[green]✓ Rubric is valid against schema![/green]")
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {str(e)}")
+        raise typer.Exit(code=1) from e
 
 
 if __name__ == "__main__":

@@ -3,6 +3,11 @@ Tests for NumericRangeRule grading logic.
 """
 
 from gradeflow_engine import NumericRangeRule, Rubric, Submission, grade
+from gradeflow_engine.schema import (
+    AssessmentSchema,
+    ChoiceQuestionSchema,
+    NumericQuestionSchema,
+)
 
 
 class TestNumericRangeRule:
@@ -132,3 +137,90 @@ class TestNumericRangeRule:
         result = grade(rubric, [Submission(student_id="s1", answers={"q1": "-0.0"})])
         assert result.results[0].total_points == 10.0
         assert result.results[0].total_points == 10.0
+
+
+class TestNumericRangeSchemaValidation:
+    """Test NumericRangeRule schema validation."""
+
+    def test_validate_against_numeric_schema(self):
+        """Test that NumericRangeRule validates correctly against NUMERIC schema."""
+        rule = NumericRangeRule(
+            question_id="q1",
+            min_value=0.0,
+            max_value=100.0,
+            max_points=10.0,
+            unit="points",
+            description="Test",
+        )
+        schema = AssessmentSchema(
+            name="Test",
+            questions={
+                "q1": NumericQuestionSchema(question_id="q1", numeric_range=(0.0, 100.0)),
+            },
+        )
+
+        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        assert errors == []
+
+    def test_validate_incompatible_choice_schema(self):
+        """Test that NumericRangeRule rejects CHOICE schema."""
+        rule = NumericRangeRule(
+            question_id="q1",
+            min_value=0.0,
+            max_value=100.0,
+            max_points=10.0,
+            unit="points",
+            description="Test",
+        )
+        schema = AssessmentSchema(
+            name="Test",
+            questions={
+                "q1": ChoiceQuestionSchema(question_id="q1", options=["A", "B", "C"]),
+            },
+        )
+
+        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        assert len(errors) == 1
+        assert "only compatible with" in errors[0]
+        assert "NUMERIC" in errors[0]
+
+    def test_validate_range_outside_schema(self):
+        """Test that NumericRangeRule validates range is within schema range."""
+        rule = NumericRangeRule(
+            question_id="q1",
+            min_value=-10.0,  # Outside schema range
+            max_value=110.0,  # Outside schema range
+            max_points=10.0,
+            unit="points",
+            description="Test",
+        )
+        schema = AssessmentSchema(
+            name="Test",
+            questions={
+                "q1": NumericQuestionSchema(question_id="q1", numeric_range=(0.0, 100.0)),
+            },
+        )
+
+        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        assert len(errors) == 1
+        assert "outside schema range" in errors[0]
+
+    def test_validate_no_schema_range(self):
+        """Test validation when schema has no range constraint."""
+        rule = NumericRangeRule(
+            question_id="q1",
+            min_value=0.0,
+            max_value=100.0,
+            max_points=10.0,
+            unit="points",
+            description="Test",
+        )
+        schema = AssessmentSchema(
+            name="Test",
+            questions={
+                "q1": NumericQuestionSchema(question_id="q1"),  # No range
+            },
+        )
+
+        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        assert errors == []

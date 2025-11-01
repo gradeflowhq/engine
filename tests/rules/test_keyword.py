@@ -3,6 +3,12 @@ Tests for KeywordRule grading logic.
 """
 
 from gradeflow_engine import KeywordRule, Rubric, Submission, grade
+from gradeflow_engine.schema import (
+    AssessmentSchema,
+    ChoiceQuestionSchema,
+    NumericQuestionSchema,
+    TextQuestionSchema,
+)
 
 
 class TestKeywordRule:
@@ -57,3 +63,62 @@ class TestKeywordRule:
         # All 4 keywords = 12 points, but capped at 6
         result = grade(rubric, [Submission(student_id="s1", answers={"q1": "a b c d"})])
         assert result.results[0].total_points == 6.0
+
+
+class TestKeywordSchemaValidation:
+    """Test KeywordRule schema validation."""
+
+    def test_validate_against_text_schema(self):
+        """Test that KeywordRule validates correctly against TEXT schema."""
+        rule = KeywordRule(
+            question_id="q1",
+            required_keywords=["python"],
+            points_per_required=5.0,
+        )
+        schema = AssessmentSchema(
+            name="Test",
+            questions={
+                "q1": TextQuestionSchema(question_id="q1", max_length=100),
+            },
+        )
+
+        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        assert errors == []
+
+    def test_validate_incompatible_choice_schema(self):
+        """Test that KeywordRule rejects CHOICE schema."""
+        rule = KeywordRule(
+            question_id="q1",
+            required_keywords=["keyword"],
+            points_per_required=5.0,
+        )
+        schema = AssessmentSchema(
+            name="Test",
+            questions={
+                "q1": ChoiceQuestionSchema(question_id="q1", options=["A", "B", "C"]),
+            },
+        )
+
+        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        assert len(errors) == 1
+        assert "only compatible with" in errors[0]
+        assert "CHOICE" in errors[0]
+
+    def test_validate_incompatible_numeric_schema(self):
+        """Test that KeywordRule rejects NUMERIC schema."""
+        rule = KeywordRule(
+            question_id="q1",
+            required_keywords=["keyword"],
+            points_per_required=5.0,
+        )
+        schema = AssessmentSchema(
+            name="Test",
+            questions={
+                "q1": NumericQuestionSchema(question_id="q1"),
+            },
+        )
+
+        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        assert len(errors) == 1
+        assert "only compatible with" in errors[0]
+        assert "NUMERIC" in errors[0]

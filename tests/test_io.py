@@ -19,10 +19,18 @@ from gradeflow_engine import (
 from gradeflow_engine.io import (
     export_canvas_csv,
     load_rubric,
+    load_schema,
     load_submissions_csv,
     save_results_csv,
     save_results_yaml,
     save_rubric,
+    save_schema,
+)
+from gradeflow_engine.schema import (
+    AssessmentSchema,
+    ChoiceQuestionSchema,
+    NumericQuestionSchema,
+    TextQuestionSchema,
 )
 
 
@@ -351,3 +359,185 @@ rules:
             reader = csv.reader(f)
             header = next(reader)
             assert header[1] == "Assignment"  # Default name
+
+
+class TestSchemaIO:
+    """Test assessment schema loading and saving."""
+
+    def test_save_and_load_schema(self, tmp_path):
+        """Test saving and loading an assessment schema."""
+        schema = AssessmentSchema(
+            name="Test Assessment",
+            questions={
+                "q1": ChoiceQuestionSchema(
+                    question_id="q1",
+                    options=["A", "B", "C", "D"],
+                    allow_multiple=False,
+                ),
+                "q2": NumericQuestionSchema(
+                    question_id="q2",
+                    numeric_range=(0.0, 100.0),
+                ),
+                "q3": TextQuestionSchema(
+                    question_id="q3",
+                    max_length=500,
+                ),
+            },
+        )
+
+        schema_file = tmp_path / "schema.yaml"
+        save_schema(schema, str(schema_file))
+
+        # Verify file was created
+        assert schema_file.exists()
+
+        # Load it back
+        loaded_schema = load_schema(str(schema_file))
+
+        # Verify contents
+        assert loaded_schema.name == "Test Assessment"
+        assert len(loaded_schema.questions) == 3
+        assert "q1" in loaded_schema.questions
+        assert "q2" in loaded_schema.questions
+        assert "q3" in loaded_schema.questions
+
+        # Verify question types
+        assert loaded_schema.questions["q1"].type == "CHOICE"
+        assert loaded_schema.questions["q2"].type == "NUMERIC"
+        assert loaded_schema.questions["q3"].type == "TEXT"
+
+        # Verify CHOICE question details
+        q1 = loaded_schema.questions["q1"]
+        assert isinstance(q1, ChoiceQuestionSchema)
+        assert q1.options == ["A", "B", "C", "D"]
+        assert q1.allow_multiple is False
+
+        # Verify NUMERIC question details
+        q2 = loaded_schema.questions["q2"]
+        assert isinstance(q2, NumericQuestionSchema)
+        assert q2.numeric_range == (0.0, 100.0)
+
+        # Verify TEXT question details
+        q3 = loaded_schema.questions["q3"]
+        assert isinstance(q3, TextQuestionSchema)
+        assert q3.max_length == 500
+
+    def test_load_schema_with_metadata(self, tmp_path):
+        """Test loading schema with metadata fields."""
+        yaml_content = """
+name: Quiz 1
+metadata:
+  course: CS101
+  semester: Fall 2024
+questions:
+  q1:
+    type: CHOICE
+    question_id: q1
+    options: ["True", "False"]
+    allow_multiple: false
+    metadata:
+      points: 5
+      difficulty: easy
+"""
+        schema_file = tmp_path / "schema.yaml"
+        schema_file.write_text(yaml_content)
+
+        schema = load_schema(str(schema_file))
+
+        assert schema.name == "Quiz 1"
+        assert schema.metadata["course"] == "CS101"
+        assert schema.metadata["semester"] == "Fall 2024"
+        assert schema.questions["q1"].metadata["points"] == 5
+        assert schema.questions["q1"].metadata["difficulty"] == "easy"
+
+    def test_load_schema_invalid_yaml(self, tmp_path):
+        """Test loading invalid YAML raises error."""
+        schema_file = tmp_path / "invalid.yaml"
+        schema_file.write_text("invalid: yaml: [")
+
+        with pytest.raises(ValueError, match="Invalid YAML"):
+            load_schema(str(schema_file))
+
+    def test_load_schema_missing_required_fields(self, tmp_path):
+        """Test loading schema with missing required fields."""
+        yaml_content = """
+name: Test
+questions:
+  q1:
+    type: CHOICE
+    question_id: q1
+    # Missing options field
+"""
+        schema_file = tmp_path / "invalid_schema.yaml"
+        schema_file.write_text(yaml_content)
+
+        with pytest.raises(Exception):  # noqa: B017 - Pydantic validation error
+            load_schema(str(schema_file))
+
+    def test_load_schema_question_id_mismatch(self, tmp_path):
+        """Test that question_id must match dictionary key."""
+        yaml_content = """
+name: Test
+questions:
+  q1:
+    type: CHOICE
+    question_id: q2  # Mismatch with key 'q1'
+    options: ["A", "B"]
+"""
+        schema_file = tmp_path / "mismatch.yaml"
+        schema_file.write_text(yaml_content)
+
+        with pytest.raises(ValueError, match="Question ID mismatch"):
+            load_schema(str(schema_file))
+
+    def test_save_schema_with_all_question_types(self, tmp_path):
+        """Test saving schema with all question types."""
+        schema = AssessmentSchema(
+            name="Comprehensive Test",
+            questions={
+                "choice_single": ChoiceQuestionSchema(
+                    question_id="choice_single",
+                    options=["Option A", "Option B"],
+                    allow_multiple=False,
+                ),
+                "choice_multiple": ChoiceQuestionSchema(
+                    question_id="choice_multiple",
+                    options=["1", "2", "3", "4"],
+                    allow_multiple=True,
+                ),
+                "numeric_with_range": NumericQuestionSchema(
+                    question_id="numeric_with_range",
+                    numeric_range=(0.0, 10.0),
+                ),
+                "numeric_no_range": NumericQuestionSchema(
+                    question_id="numeric_no_range",
+                ),
+                "text_with_limit": TextQuestionSchema(
+                    question_id="text_with_limit",
+                    max_length=1000,
+                ),
+                "text_no_limit": TextQuestionSchema(
+                    question_id="text_no_limit",
+                ),
+            },
+        )
+
+        schema_file = tmp_path / "comprehensive.yaml"
+        save_schema(schema, str(schema_file))
+
+        # Load and verify
+        loaded = load_schema(str(schema_file))
+        assert len(loaded.questions) == 6
+
+        # Verify each question type
+        assert loaded.questions["choice_single"].allow_multiple is False
+        assert loaded.questions["choice_multiple"].allow_multiple is True
+        assert loaded.questions["numeric_with_range"].numeric_range == (0.0, 10.0)
+        assert loaded.questions["numeric_no_range"].numeric_range is None
+        assert loaded.questions["text_with_limit"].max_length == 1000
+        assert loaded.questions["text_no_limit"].max_length is None
+
+    def test_schema_file_not_found(self):
+        """Test loading non-existent schema file."""
+        with pytest.raises(FileNotFoundError):
+            load_schema("/nonexistent/path/schema.yaml")

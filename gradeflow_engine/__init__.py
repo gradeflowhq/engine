@@ -14,9 +14,12 @@ from .core import (
 )
 from .io import (
     load_rubric,
+    load_schema,
     load_submissions_csv,
     save_results_csv,
     save_results_yaml,
+    save_rubric,
+    save_schema,
 )
 from .models import (
     AnswerSet,
@@ -42,6 +45,21 @@ from .models import (
     StudentResult,
     Submission,
 )
+from .protocols import SchemaValidatable
+from .schema import (
+    AssessmentSchema,
+    ChoiceQuestionSchema,
+    NumericQuestionSchema,
+    QuestionSchema,
+    SchemaValidationError,
+    TextQuestionSchema,
+    infer_mcq_options,
+    infer_numeric_range,
+    infer_schema_from_submissions,
+    validate_rubric_against_schema,
+    validate_rubric_against_schema_strict,
+)
+from .types import QuestionType
 
 __version__ = "0.1.0"
 
@@ -86,6 +104,9 @@ __all__ = [
     "grade_from_files",
     # I/O functions
     "load_rubric",
+    "save_rubric",
+    "load_schema",
+    "save_schema",
     "load_submissions_csv",
     "save_results_yaml",
     "save_results_csv",
@@ -115,8 +136,22 @@ __all__ = [
     "ConditionalRule",
     "AssumptionSetRule",
     "AnswerSet",
+    # Schema models and functions
+    "AssessmentSchema",
+    "QuestionSchema",
+    "QuestionType",
+    "ChoiceQuestionSchema",
+    "NumericQuestionSchema",
+    "TextQuestionSchema",
+    "SchemaValidationError",
+    "infer_schema_from_submissions",
+    "infer_mcq_options",
+    "infer_numeric_range",
+    "validate_rubric_against_schema",
+    "validate_rubric_against_schema_strict",
+    # Protocols
+    "SchemaValidatable",
     # Utilities
     "configure_logging",
-    # Version
     "__version__",
 ]

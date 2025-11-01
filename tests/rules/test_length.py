@@ -3,6 +3,12 @@ Tests for LengthRule grading logic.
 """
 
 from gradeflow_engine import LengthRule, Rubric, Submission, grade
+from gradeflow_engine.schema import (
+    AssessmentSchema,
+    ChoiceQuestionSchema,
+    NumericQuestionSchema,
+    TextQuestionSchema,
+)
 
 
 class TestLengthRule:
@@ -195,3 +201,65 @@ class TestLengthRule:
         result = grade(rubric, [Submission(student_id="s1", answers={"q1": "Hi"})])
         # Deduction would be 20.0 but capped at max_points (5.0)
         assert result.results[0].total_points == 0.0
+
+
+class TestLengthSchemaValidation:
+    """Test LengthRule schema validation."""
+
+    def test_validate_against_text_schema(self):
+        """Test that LengthRule validates correctly against TEXT schema."""
+        rule = LengthRule(
+            question_id="q1",
+            min_words=10,
+            max_words=50,
+            max_points=10.0,
+        )
+        schema = AssessmentSchema(
+            name="Test",
+            questions={
+                "q1": TextQuestionSchema(question_id="q1", max_length=500),
+            },
+        )
+
+        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        assert errors == []
+
+    def test_validate_incompatible_choice_schema(self):
+        """Test that LengthRule rejects CHOICE schema."""
+        rule = LengthRule(
+            question_id="q1",
+            min_chars=1,
+            max_chars=10,
+            max_points=10.0,
+        )
+        schema = AssessmentSchema(
+            name="Test",
+            questions={
+                "q1": ChoiceQuestionSchema(question_id="q1", options=["A", "B", "C"]),
+            },
+        )
+
+        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        assert len(errors) == 1
+        assert "only compatible with" in errors[0]
+        assert "CHOICE" in errors[0]
+
+    def test_validate_incompatible_numeric_schema(self):
+        """Test that LengthRule rejects NUMERIC schema."""
+        rule = LengthRule(
+            question_id="q1",
+            min_words=5,
+            max_words=10,
+            max_points=10.0,
+        )
+        schema = AssessmentSchema(
+            name="Test",
+            questions={
+                "q1": NumericQuestionSchema(question_id="q1"),
+            },
+        )
+
+        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        assert len(errors) == 1
+        assert "only compatible with" in errors[0]
+        assert "NUMERIC" in errors[0]

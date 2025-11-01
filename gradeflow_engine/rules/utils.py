@@ -4,6 +4,52 @@ Shared utilities for rule processors.
 Provides common functions for sanitization, validation, and feedback formatting.
 """
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from gradeflow_engine.schema import QuestionSchema
+    from gradeflow_engine.types import QuestionType
+
+
+def validate_type_compatibility(
+    schema: "QuestionSchema",
+    compatible_types: set["QuestionType"],
+    rule_description: str,
+    rule_name: str,
+) -> list[str]:
+    """
+    Validate that a question schema is compatible with a rule's supported types.
+
+    This is a common validation pattern used across multiple rules to check
+    type compatibility and generate consistent error messages.
+
+    Args:
+        schema: The question schema to validate against
+        compatible_types: Set of question types this rule supports
+        rule_description: Description of the rule instance (e.g., "Rule 1 (EXACT_MATCH)")
+        rule_name: Name of the rule type (e.g., "ExactMatchRule")
+
+    Returns:
+        List of validation error messages (empty if compatible)
+
+    Example:
+        >>> errors = validate_type_compatibility(
+        ...     schema=some_schema,
+        ...     compatible_types={"TEXT", "CHOICE"},
+        ...     rule_description="Rule 1 (EXACT_MATCH)",
+        ...     rule_name="ExactMatchRule"
+        ... )
+    """
+    errors: list[str] = []
+
+    if schema.type not in compatible_types:
+        errors.append(
+            f"{rule_description}: {rule_name} is only compatible with "
+            f"{compatible_types} questions, but schema has type {schema.type}"
+        )
+
+    return errors
+
 
 def sanitize_text(text: str, max_length: int = 500) -> str:
     """

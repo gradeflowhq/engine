@@ -17,6 +17,10 @@ A powerful Python library and CLI tool for automated grading digital exam data w
   - **Programmable**: Custom Python logic with sandboxed execution
   - **Composite**: Combine rules with AND/OR/WEIGHTED logic
 - **Recursive Composition**: Nest composite rules for complex grading scenarios
+- **Assessment Schema**: Define and validate question types, options, and constraints
+  - Automatic schema inference from submission data
+  - Rubric validation against schemas
+  - Support for CHOICE, NUMERIC, and TEXT question types
 - **YAML-First**: Human-readable rubric format with JSON support
 - **Multiple Export Formats**: YAML, CSV, and Canvas LMS-compatible formats
 - **Type-Safe**: Built with Pydantic v2 for robust validation and type checking
@@ -37,7 +41,7 @@ pip install -e ".[dev]"
 
 ## Requirements
 
-- **Python**: 3.14 or higher
+- **Python**: 3.11 or higher
 - **Platform**: Unix-like systems (Linux, macOS) for sandboxed programmable rules
   - Windows is **not supported** for programmable rules due to signal.SIGALRM limitations
   - All other rule types work on Windows
@@ -723,6 +727,206 @@ student003,93.50
 2. Specify assignment ID with `--canvas-assignment-id`
 3. Import the CSV into Canvas LMS gradebook
 
+## Assessment Schema
+
+The engine supports **assessment schemas** that define the structure and constraints of assessments. Schemas specify question types, valid options, and constraints, enabling:
+- Validation of rubrics against expected question types
+- Automatic schema inference from submission data
+- Type-safe assessment design
+
+### Schema Models
+
+#### Question Types
+
+**ChoiceQuestionSchema** - Multiple choice or multiple response questions:
+```python
+from gradeflow_engine import ChoiceQuestionSchema
+
+schema = ChoiceQuestionSchema(
+    type="CHOICE",
+    question_id="Q1",
+    options=["A", "B", "C", "D"],
+    allow_multiple=False  # True for MRQ, False for MCQ
+)
+```
+
+**NumericQuestionSchema** - Numeric answer questions:
+```python
+from gradeflow_engine import NumericQuestionSchema
+
+schema = NumericQuestionSchema(
+    type="NUMERIC",
+    question_id="Q2",
+    numeric_range=(9.5, 10.0)  # Optional expected range
+)
+```
+
+**TextQuestionSchema** - Free-text answer questions:
+```python
+from gradeflow_engine import TextQuestionSchema
+
+schema = TextQuestionSchema(
+    type="TEXT",
+    question_id="Q3",
+    max_length=500  # Optional character limit
+)
+```
+
+#### AssessmentSchema
+
+Complete schema for an assessment:
+```python
+from gradeflow_engine import (
+    AssessmentSchema,
+    ChoiceQuestionSchema,
+    NumericQuestionSchema,
+    TextQuestionSchema
+)
+
+schema = AssessmentSchema(
+    name="Final Exam 2024",
+    questions={
+        "Q1": ChoiceQuestionSchema(
+            question_id="Q1",
+            options=["A", "B", "C", "D"],
+            allow_multiple=False
+        ),
+        "Q2": NumericQuestionSchema(
+            question_id="Q2",
+            numeric_range=(9.5, 10.5)
+        ),
+        "Q3": TextQuestionSchema(
+            question_id="Q3",
+            max_length=1000
+        ),
+    }
+)
+```
+
+### Schema Inference
+
+Automatically infer schemas from submission data:
+
+```python
+from gradeflow_engine import infer_schema_from_submissions, load_submissions_csv
+
+# Load submissions
+submissions = load_submissions_csv("submissions.csv")
+
+# Infer schema from answer patterns
+schema = infer_schema_from_submissions(
+    submissions,
+    name="Inferred Assessment"
+)
+
+# Save for later use
+from gradeflow_engine import save_schema
+save_schema(schema, "schema.yaml")
+```
+
+**CLI Usage:**
+```bash
+# Infer schema from submissions
+gradeflow-engine infer-schema submissions.csv -o schema.yaml
+
+# With custom assessment name
+gradeflow-engine infer-schema submissions.csv \
+    -o schema.yaml \
+    --name "Midterm Exam"
+
+# Show detailed inference info
+gradeflow-engine infer-schema submissions.csv -o schema.yaml -v
+```
+
+### Schema Validation
+
+Validate rubrics against schemas to ensure compatibility:
+
+```python
+from gradeflow_engine import (
+    validate_rubric_against_schema,
+    load_rubric,
+    load_schema
+)
+
+# Load rubric and schema
+rubric = load_rubric("rubric.yaml")
+schema = load_schema("schema.yaml")
+
+# Validate
+errors = validate_rubric_against_schema(rubric, schema)
+
+if errors:
+    print("Validation errors:")
+    for error in errors:
+        print(f"  - {error}")
+else:
+    print("Rubric is valid!")
+```
+
+**CLI Usage:**
+```bash
+# Validate schema file
+gradeflow-engine validate-schema schema.yaml
+
+# Validate rubric against schema
+gradeflow-engine validate-schema schema.yaml --rubric rubric.yaml
+
+# Show detailed schema info
+gradeflow-engine validate-schema schema.yaml -v
+```
+
+### Schema YAML Format
+
+```yaml
+name: "Final Exam 2024"
+questions:
+  Q1:
+    type: CHOICE
+    question_id: Q1
+    options:
+      - A
+      - B
+      - C
+      - D
+    allow_multiple: false
+  Q2:
+    type: NUMERIC
+    question_id: Q2
+    numeric_range: [9.5, 10.5]
+  Q3:
+    type: TEXT
+    question_id: Q3
+    max_length: 1000
+metadata:
+  course: "PHYS 101"
+  semester: "Fall 2024"
+```
+
+### Inference Algorithm
+
+The schema inference system analyzes submission data to automatically detect:
+
+**Choice Questions:**
+- Few unique answers (≤10)
+- Very short answers (avg ≤2 characters)
+- Identifies whether multiple selections are allowed (comma/semicolon separated)
+
+**Numeric Questions:**
+- Answers are parseable as numbers (≥80% numeric)
+- Infers reasonable min/max range from data
+
+**Text Questions:**
+- Default for all other answer patterns
+- Longer, varied responses
+
+### Use Cases
+
+1. **Rubric Validation**: Ensure grading rules match expected question types
+2. **Assessment Design**: Define question structure before creating rubrics
+3. **LMS Integration**: Import assessment structure from external systems
+4. **Quality Assurance**: Verify submission data matches expected format
+
 ## API Reference
 
 ### Core Functions
@@ -782,6 +986,93 @@ Save results to CSV format.
 #### `export_canvas_csv(results, output_path, assignment_id, student_id_col='student_id', encoding='utf-8')`
 Export results in Canvas LMS-compatible format.
 
+#### `load_schema(file_path)`
+Load an assessment schema from a YAML file.
+
+**Returns:** `AssessmentSchema`
+
+**Example:**
+```python
+from gradeflow_engine import load_schema
+
+schema = load_schema("schema.yaml")
+print(f"Loaded schema with {len(schema.questions)} questions")
+```
+
+#### `save_schema(schema, file_path, indent=2)`
+Save an assessment schema to a YAML file.
+
+**Parameters:**
+- `schema` (AssessmentSchema): Schema to save
+- `file_path` (str): Output file path
+- `indent` (int): YAML indentation level
+
+**Example:**
+```python
+from gradeflow_engine import save_schema
+
+save_schema(schema, "schema.yaml")
+```
+
+### Schema Functions
+
+#### `infer_schema_from_submissions(submissions, name='Inferred Assessment')`
+Automatically infer assessment schema from submission data.
+
+**Parameters:**
+- `submissions` (list[Submission]): List of student submissions
+- `name` (str): Name for the inferred schema
+
+**Returns:** `AssessmentSchema` - Inferred schema with question types and constraints
+
+**Example:**
+```python
+from gradeflow_engine import infer_schema_from_submissions, load_submissions_csv
+
+submissions = load_submissions_csv("submissions.csv")
+schema = infer_schema_from_submissions(submissions, name="Final Exam")
+```
+
+#### `validate_rubric_against_schema(rubric, schema)`
+Validate a rubric against an assessment schema.
+
+**Parameters:**
+- `rubric` (Rubric): Rubric to validate
+- `schema` (AssessmentSchema): Schema to validate against
+
+**Returns:** `list[str]` - List of validation errors (empty if valid)
+
+**Example:**
+```python
+from gradeflow_engine import validate_rubric_against_schema, load_rubric, load_schema
+
+rubric = load_rubric("rubric.yaml")
+schema = load_schema("schema.yaml")
+errors = validate_rubric_against_schema(rubric, schema)
+
+if errors:
+    print("Validation failed:")
+    for error in errors:
+        print(f"  - {error}")
+```
+
+#### `infer_mcq_options(answers, min_frequency=0.05)`
+Infer multiple choice options from answer list.
+
+**Parameters:**
+- `answers` (list[str]): List of student answers
+- `min_frequency` (float): Minimum frequency for option inclusion (0.0-1.0)
+
+**Returns:** `list[str]` - Inferred options
+
+#### `infer_numeric_range(answers)`
+Infer reasonable numeric range from answer list.
+
+**Parameters:**
+- `answers` (list[str]): List of student answers
+
+**Returns:** `tuple[float, float] | None` - (min, max) range or None if not numeric
+
 ### Models
 
 #### `Rubric`
@@ -838,6 +1129,50 @@ Grading details for a single question.
 - `rule_applied` (str, optional): Rule that generated this result
 - `metadata` (dict, optional): Additional metadata
 
+#### `AssessmentSchema`
+Complete schema for an assessment defining question types and constraints.
+
+**Fields:**
+- `name` (str): Assessment name
+- `questions` (dict[str, QuestionSchema]): Map of question_id to question schema
+- `metadata` (dict, optional): Additional metadata
+
+#### `QuestionSchema`
+Base type for question schemas (discriminated union of all question types).
+
+Can be one of:
+- `ChoiceQuestionSchema`: Multiple choice questions
+- `NumericQuestionSchema`: Numeric answer questions
+- `TextQuestionSchema`: Free-text answer questions
+
+#### `ChoiceQuestionSchema`
+Schema for multiple choice or multiple response questions.
+
+**Fields:**
+- `type` (Literal["CHOICE"]): Always "CHOICE"
+- `question_id` (str): Question identifier
+- `options` (list[str]): Valid answer options
+- `allow_multiple` (bool): Whether multiple selections allowed (MRQ vs MCQ)
+- `metadata` (dict, optional): Additional metadata
+
+#### `NumericQuestionSchema`
+Schema for numeric answer questions.
+
+**Fields:**
+- `type` (Literal["NUMERIC"]): Always "NUMERIC"
+- `question_id` (str): Question identifier
+- `numeric_range` (tuple[float, float] | None): Expected range [min, max]
+- `metadata` (dict, optional): Additional metadata
+
+#### `TextQuestionSchema`
+Schema for free-text answer questions.
+
+**Fields:**
+- `type` (Literal["TEXT"]): Always "TEXT"
+- `question_id` (str): Question identifier
+- `max_length` (int | None): Maximum answer length in characters
+- `metadata` (dict, optional): Additional metadata
+
 ## CLI Commands
 
 ### `grade`
@@ -889,6 +1224,56 @@ gradeflow-engine validate-rubric RUBRIC_PATH [OPTIONS]
 gradeflow-engine validate-rubric rubric.yaml
 ```
 
+### `infer-schema`
+Automatically infer assessment schema from submission data.
+
+```bash
+gradeflow-engine infer-schema SUBMISSIONS_PATH [OPTIONS]
+```
+
+**Options:**
+- `-o, --output PATH`: Output schema YAML file path (default: schema.yaml)
+- `-n, --name NAME`: Assessment name (default: "Inferred Assessment")
+- `-s, --student-col NAME`: Student ID column name (default: student_id)
+- `-v, --verbose`: Show detailed schema information
+
+**Examples:**
+```bash
+# Basic schema inference
+gradeflow-engine infer-schema submissions.csv -o schema.yaml
+
+# With custom name
+gradeflow-engine infer-schema submissions.csv \
+    -o schema.yaml \
+    --name "Midterm Exam"
+
+# Verbose output
+gradeflow-engine infer-schema submissions.csv -o schema.yaml -v
+```
+
+### `validate-schema`
+Validate an assessment schema file and optionally validate a rubric against it.
+
+```bash
+gradeflow-engine validate-schema SCHEMA_PATH [OPTIONS]
+```
+
+**Options:**
+- `-r, --rubric PATH`: Optional rubric file to validate against schema
+- `-v, --verbose`: Show detailed validation information
+
+**Examples:**
+```bash
+# Validate schema file
+gradeflow-engine validate-schema schema.yaml
+
+# Validate rubric against schema
+gradeflow-engine validate-schema schema.yaml --rubric rubric.yaml
+
+# Verbose output
+gradeflow-engine validate-schema schema.yaml -v
+```
+
 ### Global Options
 
 - `--version`: Show version and exit
@@ -903,10 +1288,13 @@ engine/
 ├── gradeflow_engine/          # Main package
 │   ├── __init__.py            # Public API exports
 │   ├── core.py                # Core grading logic
-│   ├── models.py              # Pydantic models
+│   ├── models.py              # Pydantic models for rubrics and results
+│   ├── schema.py              # Assessment schema models and validation
 │   ├── io.py                  # File I/O utilities
 │   ├── cli.py                 # Command-line interface
 │   ├── sandbox.py             # Sandboxed execution for programmable rules
+│   ├── types.py               # Type definitions
+│   ├── protocols.py           # Protocol definitions
 │   └── rules/                 # Rule implementations
 │       ├── __init__.py        # Auto-discovery and exports
 │       ├── registry.py        # Rule registration system
@@ -1117,7 +1505,7 @@ For high-security environments or untrusted scripts:
 1. **Container Isolation**:
    ```dockerfile
    # Run engine in isolated Docker container
-   FROM python:3.14-slim
+   FROM python:3.11-slim
    RUN pip install gradeflow-engine
    # ... additional hardening
    ```

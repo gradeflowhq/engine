@@ -2,6 +2,7 @@
 Input/Output utilities for loading and saving data.
 
 Handles loading rubrics from YAML, submissions from CSV, and saving results.
+Also supports loading and saving assessment schemas.
 """
 
 import csv
@@ -11,6 +12,7 @@ import yaml
 from pydantic import ValidationError
 
 from .models import GradeOutput, Rubric, Submission
+from .schema import AssessmentSchema
 
 
 # Helper functions to reduce duplication
@@ -266,3 +268,65 @@ def export_canvas_csv(
                     f"{result.total_points:.2f}",
                 ]
             )
+
+
+# ============================================================================
+# Schema I/O
+# ============================================================================
+
+
+def load_schema(file_path: str) -> AssessmentSchema:
+    """
+    Load an assessment schema from a YAML file.
+
+    Args:
+        file_path: Path to YAML file containing schema (.yaml or .yml)
+
+    Returns:
+        AssessmentSchema object
+
+    Raises:
+        FileNotFoundError: If file doesn't exist
+        ValueError: If YAML is invalid or doesn't match schema
+    """
+    path = Path(file_path)
+
+    if not path.exists():
+        raise FileNotFoundError(f"Schema file not found: {file_path}")
+
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+
+        if not isinstance(data, dict):
+            raise ValueError(f"Invalid YAML format in {file_path}")
+
+        return AssessmentSchema.model_validate(data)
+
+    except ValidationError as e:
+        raise ValueError(f"Schema validation failed: {e}") from e
+    except yaml.YAMLError as e:
+        raise ValueError(f"Invalid YAML in {file_path}: {e}") from e
+
+
+def save_schema(schema: AssessmentSchema, file_path: str, indent: int = 2) -> None:
+    """
+    Save an assessment schema to a YAML file.
+
+    Args:
+        schema: AssessmentSchema to save
+        file_path: Path to save schema YAML file (.yaml or .yml)
+        indent: YAML indentation level (default: 2)
+
+    Example:
+        >>> schema = AssessmentSchema(name="Midterm", questions={...})
+        >>> save_schema(schema, "assessment_schema.yaml")
+    """
+    data = schema.model_dump(mode="python", exclude_none=True)
+
+    # Convert tuples to lists for YAML compatibility
+    for question_data in data.get("questions", {}).values():
+        if "numeric_range" in question_data and isinstance(question_data["numeric_range"], tuple):
+            question_data["numeric_range"] = list(question_data["numeric_range"])
+
+    _save_yaml(data, file_path, indent)
