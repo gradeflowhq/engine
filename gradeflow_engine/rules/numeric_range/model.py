@@ -32,7 +32,9 @@ class NumericRangeRule(BaseModel):
         """Ensure max_value >= min_value."""
         min_value = info.data.get("min_value")
         if min_value is not None and v < min_value:
-            raise ValueError(f"max_value ({v}) must be greater than or equal to min_value ({min_value})")
+            raise ValueError(
+                f"max_value ({v}) must be greater than or equal to min_value ({min_value})"
+            )
         return v
 
     @field_validator("partial_credit_ranges")

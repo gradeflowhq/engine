@@ -5,7 +5,7 @@ These models define the structure of rubrics, grading rules, submissions,
 and grading results. All models use Pydantic v2 for validation and serialization.
 """
 
-from typing import Annotated, Any, Union
+from typing import Annotated, Any
 
 from pydantic import BaseModel, Discriminator, Field
 
@@ -43,16 +43,16 @@ Metadata = dict[str, Any]
 # Rules that evaluate a single question independently
 
 # Basic single-question rules (non-composite)
-BasicSingleQuestionRule = Union[
-    ExactMatchRule,
-    NumericRangeRule,
-    MultipleChoiceRule,
-    LengthRule,
-    SimilarityRule,
-    KeywordRule,
-    RegexRule,
-    ProgrammableRule,
-]
+BasicSingleQuestionRule = (
+    ExactMatchRule
+    | NumericRangeRule
+    | MultipleChoiceRule
+    | LengthRule
+    | SimilarityRule
+    | KeywordRule
+    | RegexRule
+    | ProgrammableRule
+)
 
 # All single-question rules (including composite)
 SingleQuestionRule = Annotated[

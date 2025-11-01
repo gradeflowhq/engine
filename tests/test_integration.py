@@ -42,9 +42,7 @@ class TestEndToEndGrading:
             rules=[
                 ExactMatchRule(question_id="q1", correct_answer="Paris", max_points=10.0),
                 ExactMatchRule(question_id="q2", correct_answer="London", max_points=10.0),
-                NumericRangeRule(
-                    question_id="q3", min_value=40.0, max_value=44.0, max_points=15.0
-                ),
+                NumericRangeRule(question_id="q3", min_value=40.0, max_value=44.0, max_points=15.0),
             ],
         )
 
@@ -490,9 +488,7 @@ class TestComplexScenarios:
             name="Batch Test",
             rules=[
                 ExactMatchRule(question_id="q1", correct_answer="A", max_points=10.0),
-                NumericRangeRule(
-                    question_id="q2", min_value=45.0, max_value=55.0, max_points=10.0
-                ),
+                NumericRangeRule(question_id="q2", min_value=45.0, max_value=55.0, max_points=10.0),
             ],
         )
 

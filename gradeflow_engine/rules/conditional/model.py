@@ -52,7 +52,7 @@ class ConditionalRule(BaseModel):
         """Ensure then_rules don't overlap with if_rules."""
         if len(v) < 1:
             raise ValueError("At least one then-condition is required")
-        
+
         if_rules = info.data.get("if_rules", {})
         overlap = set(v.keys()) & set(if_rules.keys())
         if overlap:

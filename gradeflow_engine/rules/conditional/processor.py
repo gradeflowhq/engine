@@ -30,7 +30,7 @@ def process_conditional(
 
     # Evaluate all if-conditions
     condition_results = []
-    for question_id, condition_rule in rule.if_rules.items():
+    for _question_id, condition_rule in rule.if_rules.items():
         # Get the processor for this rule type
         processor = rule_registry.get_processor(condition_rule.type)
         if processor is None:
@@ -72,7 +72,7 @@ def process_conditional(
             then_rule_dict = then_rule.model_dump()
             then_rule_dict["question_id"] = question_id
             then_rule = type(then_rule)(**then_rule_dict)
-        
+
         # Get the processor for the then-rule
         then_processor = rule_registry.get_processor(then_rule.type)
         if then_processor is None:
@@ -91,5 +91,5 @@ def process_conditional(
         else:
             # Single result
             results.append(result)
-    
+
     return results if results else None

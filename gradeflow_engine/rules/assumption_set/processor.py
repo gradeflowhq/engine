@@ -131,11 +131,12 @@ def _update_feedback(detail: "GradeDetail", assumption_name: str) -> "GradeDetai
     detail_dict = detail.model_dump()
     current_feedback = detail_dict.get("feedback", "")
     assumption_feedback = f"Graded using assumption set: {assumption_name}"
-    
+
     if current_feedback:
         detail_dict["feedback"] = f"{current_feedback}\n{assumption_feedback}"
     else:
         detail_dict["feedback"] = assumption_feedback
-    
+
     from ...models import GradeDetail
+
     return GradeDetail(**detail_dict)

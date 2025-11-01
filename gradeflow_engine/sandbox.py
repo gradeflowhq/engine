@@ -236,14 +236,14 @@ def _safe_iter(obj: object) -> object:
 
     RestrictedPython requires explicit iterator support. This function
     enables for loops, comprehensions, and iteration operations.
-    
+
     Args:
         obj: Any iterable object (list, tuple, dict, set, range, etc.)
-        
+
     Returns:
         Iterator for the given object
     """
-    return iter(obj)
+    return iter(obj)  # type: ignore[call-overload]
 
 
 def _inplacevar(op: str, x: object, y: object) -> object:
@@ -428,7 +428,7 @@ def memory_limit(memory_mb: int, strict: bool = False):
 
     Uses resource.RLIMIT_AS to limit virtual memory allocation.
     Only works on Unix-like systems (Linux, macOS).
-    
+
     Automatically skips memory limits in containerized environments (Docker, Kubernetes, etc.)
     where resource limits may not work properly or cause MemoryErrors.
 
@@ -509,7 +509,7 @@ def execute_programmable_rule(
 
     Uses RestrictedPython to provide a sandboxed execution environment with
     time and memory limits.
-    
+
     Note: Memory limits are automatically skipped in containerized environments
     (Docker, Kubernetes, CI/CD) where they can cause MemoryErrors or fail to work properly.
 
