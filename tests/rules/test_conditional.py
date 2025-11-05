@@ -85,7 +85,7 @@ class TestConditionalSchemaValidation:
             },
         )
         # ConditionalRule validates against individual question schemas
-        schema_q1 = ChoiceQuestionSchema(question_id="q1", options=["A", "B", "C"])
+        schema_q1 = ChoiceQuestionSchema(options=["A", "B", "C"])
         errors = rule.validate_against_schema("q1", schema_q1, "Conditional Rule 1")
         # Since ConditionalRule currently passes the same schema to all sub-rules,
         # this may produce errors - we're just testing it doesn't crash
@@ -109,6 +109,6 @@ class TestConditionalSchemaValidation:
                 )
             },
         )
-        schema = TextQuestionSchema(question_id="q1", max_length=100)
+        schema = TextQuestionSchema()
         errors = rule.validate_against_schema("q1", schema, "Conditional Rule 1")
         assert isinstance(errors, list)

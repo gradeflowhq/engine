@@ -121,7 +121,7 @@ class TestAssumptionSetSchemaValidation:
             ],
         )
         # AssumptionSetRule validates against individual question schemas
-        schema = ChoiceQuestionSchema(question_id="q1", options=["A", "B", "C"])
+        schema = ChoiceQuestionSchema(options=["A", "B", "C"])
         errors = rule.validate_against_schema("q1", schema, "Assumption Set Rule 1")
         # Just test it doesn't crash and returns a list
         assert isinstance(errors, list)
@@ -143,6 +143,6 @@ class TestAssumptionSetSchemaValidation:
                 ),
             ],
         )
-        schema = TextQuestionSchema(question_id="q1", max_length=100)
+        schema = TextQuestionSchema()
         errors = rule.validate_against_schema("q1", schema, "Assumption Set Rule 1")
         assert isinstance(errors, list)

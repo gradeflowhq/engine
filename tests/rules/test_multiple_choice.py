@@ -142,7 +142,7 @@ class TestMultipleChoiceSchemaValidation:
         schema = AssessmentSchema(
             name="Test",
             questions={
-                "q1": ChoiceQuestionSchema(question_id="q1", options=["A", "B", "C", "D"]),
+                "q1": ChoiceQuestionSchema(options=["A", "B", "C", "D"]),
             },
         )
 
@@ -160,7 +160,7 @@ class TestMultipleChoiceSchemaValidation:
         schema = AssessmentSchema(
             name="Test",
             questions={
-                "q1": NumericQuestionSchema(question_id="q1"),
+                "q1": NumericQuestionSchema(),
             },
         )
 
@@ -180,7 +180,7 @@ class TestMultipleChoiceSchemaValidation:
         schema = AssessmentSchema(
             name="Test",
             questions={
-                "q1": TextQuestionSchema(question_id="q1"),
+                "q1": TextQuestionSchema(),
             },
         )
 
@@ -199,7 +199,7 @@ class TestMultipleChoiceSchemaValidation:
         schema = AssessmentSchema(
             name="Test",
             questions={
-                "q1": ChoiceQuestionSchema(question_id="q1", options=["A", "B", "C", "D"]),
+                "q1": ChoiceQuestionSchema(options=["A", "B", "C", "D"]),
             },
         )
 
@@ -219,7 +219,7 @@ class TestMultipleChoiceSchemaValidation:
         schema = AssessmentSchema(
             name="Test",
             questions={
-                "q1": ChoiceQuestionSchema(question_id="q1", options=["A", "B", "C"]),
+                "q1": ChoiceQuestionSchema(options=["A", "B", "C"]),
             },
         )
 

@@ -48,36 +48,15 @@ class NumericRangeRule(BaseModel):
     ) -> list[str]:
         """Validate this rule against a question schema."""
         from gradeflow_engine.rules.utils import validate_type_compatibility
-        from gradeflow_engine.schema import NumericQuestionSchema
 
         # Check type compatibility first
-        errors = validate_type_compatibility(
+        return validate_type_compatibility(
             schema=schema,
             compatible_types=self.compatible_types,
             rule_description=rule_description,
             rule_name="NumericRangeRule",
         )
-        if errors:
-            return errors
-
-        # Type-specific validation for NUMERIC questions
-        if not isinstance(schema, NumericQuestionSchema):
-            return errors
-
-        if schema.numeric_range is None:
-            return errors  # No range defined in schema, skip validation
-
-        schema_min, schema_max = schema.numeric_range
-
-        # Check if rule's acceptable range is within schema range
-        if not (schema_min <= self.min_value and self.max_value <= schema_max):
-            errors.append(
-                f"{rule_description}: Rule range [{self.min_value}, {self.max_value}] "
-                f"outside schema range [{schema_min}, {schema_max}]"
-            )
-
-        return errors
-
+    
     @field_validator("partial_credit_ranges")
     @classmethod
     def validate_partial_credit_ranges(cls, v, info):

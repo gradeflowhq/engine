@@ -358,15 +358,12 @@ def infer_schema(
 
             # Show first few questions
             console.print("\n[bold]Sample Questions:[/bold]")
-            from .schema import ChoiceQuestionSchema, NumericQuestionSchema
+            from .schema import ChoiceQuestionSchema
 
             for q_id, q_schema in list(schema.questions.items())[:5]:
                 console.print(f"  {q_id}: {q_schema.type}")
                 if isinstance(q_schema, ChoiceQuestionSchema):
                     console.print(f"    Options: {', '.join(q_schema.options[:5])}")
-                elif isinstance(q_schema, NumericQuestionSchema) and q_schema.numeric_range:
-                    min_val, max_val = q_schema.numeric_range
-                    console.print(f"    Range: [{min_val}, {max_val}]")
 
             if len(schema.questions) > 5:
                 console.print("  ...")

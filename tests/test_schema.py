@@ -22,7 +22,6 @@ from gradeflow_engine.schema import (
     SchemaValidationError,
     TextQuestionSchema,
     infer_mcq_options,
-    infer_numeric_range,
     infer_schema_from_submissions,
     validate_rubric_against_schema,
     validate_rubric_against_schema_strict,
@@ -35,13 +34,11 @@ class TestQuestionSchemas:
     def test_choice_question_schema(self):
         """Test ChoiceQuestionSchema creation and validation."""
         schema = ChoiceQuestionSchema(
-            question_id="q1",
             options=["A", "B", "C", "D"],
             allow_multiple=False,
         )
 
         assert schema.type == "CHOICE"
-        assert schema.question_id == "q1"
         assert schema.options == ["A", "B", "C", "D"]
         assert schema.allow_multiple is False
         assert schema.metadata == {}
@@ -49,7 +46,6 @@ class TestQuestionSchemas:
     def test_choice_question_with_metadata(self):
         """Test ChoiceQuestionSchema with metadata."""
         schema = ChoiceQuestionSchema(
-            question_id="q1",
             options=["True", "False"],
             allow_multiple=False,
             metadata={"difficulty": "easy", "topic": "logic"},
@@ -62,14 +58,12 @@ class TestQuestionSchemas:
         """Test that empty options list raises error."""
         with pytest.raises(ValueError, match="Options list cannot be empty"):
             ChoiceQuestionSchema(
-                question_id="q1",
                 options=[],
             )
 
     def test_choice_question_allow_multiple(self):
         """Test ChoiceQuestionSchema with multiple selections."""
         schema = ChoiceQuestionSchema(
-            question_id="mrq",
             options=["1", "2", "3", "4"],
             allow_multiple=True,
         )
@@ -78,57 +72,17 @@ class TestQuestionSchemas:
 
     def test_numeric_question_schema(self):
         """Test NumericQuestionSchema creation."""
-        schema = NumericQuestionSchema(
-            question_id="q2",
-            numeric_range=(0.0, 100.0),
-        )
+        schema = NumericQuestionSchema()
 
         assert schema.type == "NUMERIC"
-        assert schema.question_id == "q2"
-        assert schema.numeric_range == (0.0, 100.0)
         assert schema.metadata == {}
-
-    def test_numeric_question_no_range(self):
-        """Test NumericQuestionSchema without range constraint."""
-        schema = NumericQuestionSchema(
-            question_id="q2",
-        )
-
-        assert schema.numeric_range is None
 
     def test_text_question_schema(self):
         """Test TextQuestionSchema creation."""
-        schema = TextQuestionSchema(
-            question_id="q3",
-            max_length=500,
-        )
+        schema = TextQuestionSchema()
 
         assert schema.type == "TEXT"
-        assert schema.question_id == "q3"
-        assert schema.max_length == 500
         assert schema.metadata == {}
-
-    def test_text_question_no_length_limit(self):
-        """Test TextQuestionSchema without length constraint."""
-        schema = TextQuestionSchema(
-            question_id="q3",
-        )
-
-        assert schema.max_length is None
-
-    def test_text_question_invalid_max_length(self):
-        """Test that non-positive max_length raises error."""
-        with pytest.raises(ValueError, match="max_length must be positive"):
-            TextQuestionSchema(
-                question_id="q3",
-                max_length=0,
-            )
-
-        with pytest.raises(ValueError, match="max_length must be positive"):
-            TextQuestionSchema(
-                question_id="q3",
-                max_length=-10,
-            )
 
 
 class TestAssessmentSchema:
@@ -140,17 +94,10 @@ class TestAssessmentSchema:
             name="Midterm Exam",
             questions={
                 "q1": ChoiceQuestionSchema(
-                    question_id="q1",
                     options=["A", "B", "C"],
                 ),
-                "q2": NumericQuestionSchema(
-                    question_id="q2",
-                    numeric_range=(0.0, 10.0),
-                ),
-                "q3": TextQuestionSchema(
-                    question_id="q3",
-                    max_length=1000,
-                ),
+                "q2": NumericQuestionSchema(),
+                "q3": TextQuestionSchema(),
             },
         )
 
@@ -165,7 +112,7 @@ class TestAssessmentSchema:
         schema = AssessmentSchema(
             name="Quiz 1",
             questions={
-                "q1": ChoiceQuestionSchema(question_id="q1", options=["A", "B"]),
+                "q1": ChoiceQuestionSchema(options=["A", "B"]),
             },
             metadata={"course": "CS101", "semester": "Fall 2024"},
         )
@@ -181,27 +128,14 @@ class TestAssessmentSchema:
                 questions={},
             )
 
-    def test_assessment_schema_question_id_mismatch(self):
-        """Test that question_id must match dictionary key."""
-        with pytest.raises(ValueError, match="Question ID mismatch"):
-            AssessmentSchema(
-                name="Test",
-                questions={
-                    "q1": ChoiceQuestionSchema(
-                        question_id="q2",  # Mismatch!
-                        options=["A", "B"],
-                    ),
-                },
-            )
-
     def test_discriminated_union(self):
         """Test that discriminated union works correctly."""
         schema = AssessmentSchema(
             name="Test",
             questions={
-                "q1": ChoiceQuestionSchema(question_id="q1", options=["A"]),
-                "q2": NumericQuestionSchema(question_id="q2"),
-                "q3": TextQuestionSchema(question_id="q3"),
+                "q1": ChoiceQuestionSchema(options=["A"]),
+                "q2": NumericQuestionSchema(),
+                "q3": TextQuestionSchema(),
             },
         )
 
@@ -253,33 +187,6 @@ class TestSchemaInference:
         """Test MCQ option inference with empty answers."""
         assert infer_mcq_options([]) == []
         assert infer_mcq_options(["", "  ", ""]) == []
-
-    def test_infer_numeric_range(self):
-        """Test inferring numeric range from answers."""
-        answers = ["85.5", "90.0", "78.3", "92.1", "88.0"]
-
-        num_range = infer_numeric_range(answers)
-
-        assert num_range is not None
-        assert num_range[0] == 78.3  # min
-        assert num_range[1] == 92.1  # max
-
-    def test_infer_numeric_range_non_numeric(self):
-        """Test numeric range inference with non-numeric data."""
-        answers = ["hello", "world", "test"]
-
-        num_range = infer_numeric_range(answers)
-
-        assert num_range is None
-
-    def test_infer_numeric_range_mixed(self):
-        """Test numeric range with mixed numeric/non-numeric."""
-        answers = ["10", "20", "not a number", "30"]
-
-        num_range = infer_numeric_range(answers)
-
-        assert num_range is not None
-        assert num_range == (10.0, 30.0)
 
     def test_infer_schema_from_submissions(self):
         """Test inferring complete schema from submissions."""
@@ -348,13 +255,9 @@ class TestRubricValidation:
             name="Test",
             questions={
                 "q1": ChoiceQuestionSchema(
-                    question_id="q1",
                     options=["Paris", "London", "Berlin"],
                 ),
-                "q2": NumericQuestionSchema(
-                    question_id="q2",
-                    numeric_range=(0.0, 100.0),
-                ),
+                "q2": NumericQuestionSchema(),
             },
         )
 
@@ -386,7 +289,7 @@ class TestRubricValidation:
         schema = AssessmentSchema(
             name="Test",
             questions={
-                "q1": ChoiceQuestionSchema(question_id="q1", options=["A", "B"]),
+                "q1": ChoiceQuestionSchema( options=["A", "B"]),
             },
         )
 
@@ -412,7 +315,7 @@ class TestRubricValidation:
         schema = AssessmentSchema(
             name="Test",
             questions={
-                "q1": NumericQuestionSchema(question_id="q1"),  # NUMERIC question
+                "q1": NumericQuestionSchema(),  # NUMERIC question
             },
         )
 
@@ -439,7 +342,6 @@ class TestRubricValidation:
             name="Test",
             questions={
                 "q1": ChoiceQuestionSchema(
-                    question_id="q1",
                     options=["A", "B", "C"],
                 ),
             },
@@ -462,45 +364,12 @@ class TestRubricValidation:
         assert "not in schema options" in errors[0]
         assert "D" in errors[0]
 
-    def test_validate_numeric_range_outside_schema(self):
-        """Test validation with numeric range outside schema range."""
-        schema = AssessmentSchema(
-            name="Test",
-            questions={
-                "q1": NumericQuestionSchema(
-                    question_id="q1",
-                    numeric_range=(0.0, 100.0),
-                ),
-            },
-        )
-
-        rubric = Rubric(
-            name="Test Rubric",
-            rules=[
-                NumericRangeRule(
-                    question_id="q1",
-                    min_value=-10.0,  # Outside schema range!
-                    max_value=110.0,  # Outside schema range!
-                    max_points=10.0,
-                    unit="points",
-                    description="Test",
-                ),
-            ],
-        )
-
-        errors = validate_rubric_against_schema(rubric, schema)
-        assert len(errors) == 1
-        assert "outside schema range" in errors[0]
-
     def test_validate_text_rule_on_text_question(self):
         """Test validation with text rules on text questions."""
         schema = AssessmentSchema(
             name="Test",
             questions={
-                "essay": TextQuestionSchema(
-                    question_id="essay",
-                    max_length=5000,
-                ),
+                "essay": TextQuestionSchema(),
             },
         )
 
@@ -524,9 +393,9 @@ class TestRubricValidation:
         schema = AssessmentSchema(
             name="Test",
             questions={
-                "q1": ChoiceQuestionSchema(question_id="q1", options=["A"]),
-                "q2": NumericQuestionSchema(question_id="q2"),
-                "q3": TextQuestionSchema(question_id="q3"),
+                "q1": ChoiceQuestionSchema(options=["A"]),
+                "q2": NumericQuestionSchema(),
+                "q3": TextQuestionSchema(),
             },
         )
 
@@ -562,9 +431,9 @@ class TestRubricValidation:
         schema = AssessmentSchema(
             name="Test",
             questions={
-                "q1": ChoiceQuestionSchema(question_id="q1", options=["True", "False"]),
-                "q2": TextQuestionSchema(question_id="q2"),
-                "q3": NumericQuestionSchema(question_id="q3"),
+                "q1": ChoiceQuestionSchema(options=["True", "False"]),
+                "q2": TextQuestionSchema(),
+                "q3": NumericQuestionSchema(),
             },
         )
 
@@ -584,16 +453,18 @@ class TestRubricValidation:
         )
 
         errors = validate_rubric_against_schema(rubric, schema)
-        assert len(errors) == 1  # Only q3 should error
-        assert "q3" in errors[0] or "Rule 3" in errors[0]
+        assert len(errors) == 2  # q1, q3 should error
+        assert "q1" in errors[0] or "Rule 1" in errors[0]
         assert "only compatible with" in errors[0]
+        assert "q3" in errors[1] or "Rule 3" in errors[1]
+        assert "only compatible with" in errors[1]
 
     def test_validate_rubric_strict_raises_exception(self):
         """Test strict validation raises SchemaValidationError."""
         schema = AssessmentSchema(
             name="Test",
             questions={
-                "q1": ChoiceQuestionSchema(question_id="q1", options=["A"]),
+                "q1": ChoiceQuestionSchema(options=["A"]),
             },
         )
 
@@ -620,8 +491,8 @@ class TestRubricValidation:
         schema = AssessmentSchema(
             name="Test",
             questions={
-                "q1": ChoiceQuestionSchema(question_id="q1", options=["A", "B"]),
-                "q2": NumericQuestionSchema(question_id="q2", numeric_range=(0.0, 10.0)),
+                "q1": ChoiceQuestionSchema(options=["A", "B"]),
+                "q2": NumericQuestionSchema(),
             },
         )
 
@@ -642,7 +513,7 @@ class TestRubricValidation:
                 ),
                 NumericRangeRule(
                     question_id="q2",
-                    min_value=-5.0,  # Outside schema range
+                    min_value=-5.0,
                     max_value=15.0,
                     max_points=10.0,
                     unit="points",
@@ -652,7 +523,7 @@ class TestRubricValidation:
         )
 
         errors = validate_rubric_against_schema(rubric, schema)
-        assert len(errors) >= 3  # At least 3 errors
+        assert len(errors) >= 2  # At least 2 errors
 
 
 class TestCompatibleTypes:
@@ -688,7 +559,7 @@ class TestCompatibleTypes:
             max_points=10.0,
             description="Test",
         )
-        assert rule.compatible_types == {"CHOICE", "TEXT"}
+        assert rule.compatible_types == {"TEXT"}
 
     def test_keyword_compatible_types(self):
         """Test KeywordRule compatible types."""

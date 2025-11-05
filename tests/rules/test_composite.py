@@ -173,13 +173,13 @@ class TestCompositeSchemaValidation:
                 LengthRule(question_id="q1", min_words=1, max_words=10, max_points=5.0),
             ],
         )
-        schema = TextQuestionSchema(question_id="q1", max_length=100)
+        schema = TextQuestionSchema()
 
         errors = rule.validate_against_schema("q1", schema, "Rule 1")
         assert errors == []
 
-    def test_validate_against_choice_schema(self):
-        """Test that CompositeRule validates correctly against CHOICE schema."""
+    def test_validate_incompatible_choice_schema(self):
+        """Test that CompositeRule rejects CHOICE schema when sub-rules are incompatible."""
         rule = CompositeRule(
             question_id="q1",
             mode="OR",
@@ -188,10 +188,14 @@ class TestCompositeSchemaValidation:
                 ExactMatchRule(question_id="q1", correct_answer="B", max_points=10.0),
             ],
         )
-        schema = ChoiceQuestionSchema(question_id="q1", options=["A", "B", "C"])
+        schema = ChoiceQuestionSchema(options=["A", "B", "C"])
 
         errors = rule.validate_against_schema("q1", schema, "Rule 1")
-        assert errors == []
+        assert len(errors) == 2
+        for error in errors:
+            assert "only compatible with" in error
+            assert "TEXT" in error
+            assert "CHOICE" in error
 
     def test_validate_incompatible_numeric_schema(self):
         """Test that CompositeRule rejects NUMERIC schema when sub-rules are incompatible."""
@@ -202,7 +206,7 @@ class TestCompositeSchemaValidation:
                 ExactMatchRule(question_id="q1", correct_answer="text", max_points=5.0),
             ],
         )
-        schema = NumericQuestionSchema(question_id="q1")
+        schema = NumericQuestionSchema()
 
         errors = rule.validate_against_schema("q1", schema, "Rule 1")
         assert len(errors) > 0

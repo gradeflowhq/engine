@@ -122,15 +122,15 @@ class TestExactMatchSchemaValidation:
         schema = AssessmentSchema(
             name="Test",
             questions={
-                "q1": TextQuestionSchema(question_id="q1", max_length=100),
+                "q1": TextQuestionSchema(),
             },
         )
 
         errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
-        assert errors == []
+        assert len(errors) == 0
 
-    def test_validate_against_choice_schema(self):
-        """Test that ExactMatchRule validates correctly against CHOICE schema."""
+    def test_validate_incompatible_choice_schema(self):
+        """Test that ExactMatchRule rejects CHOICE schema."""
         rule = ExactMatchRule(
             question_id="q1",
             correct_answer="A",
@@ -140,12 +140,15 @@ class TestExactMatchSchemaValidation:
         schema = AssessmentSchema(
             name="Test",
             questions={
-                "q1": ChoiceQuestionSchema(question_id="q1", options=["A", "B", "C"]),
+                "q1": ChoiceQuestionSchema(options=["A", "B", "C"]),
             },
         )
 
         errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
-        assert errors == []
+        assert len(errors) == 1
+        assert "only compatible with" in errors[0]
+        assert "TEXT" in errors[0]
+        assert "CHOICE" in errors[0]
 
     def test_validate_incompatible_numeric_schema(self):
         """Test that ExactMatchRule rejects NUMERIC schema."""
@@ -158,31 +161,12 @@ class TestExactMatchSchemaValidation:
         schema = AssessmentSchema(
             name="Test",
             questions={
-                "q1": NumericQuestionSchema(question_id="q1"),
+                "q1": NumericQuestionSchema(),
             },
         )
 
         errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
         assert len(errors) == 1
         assert "only compatible with" in errors[0]
+        assert "TEXT" in errors[0]
         assert "NUMERIC" in errors[0]
-
-    def test_validate_choice_answer_in_options(self):
-        """Test that ExactMatchRule validates answer is in CHOICE options."""
-        rule = ExactMatchRule(
-            question_id="q1",
-            correct_answer="D",  # Not in options
-            max_points=10.0,
-            description="Invalid choice",
-        )
-        schema = AssessmentSchema(
-            name="Test",
-            questions={
-                "q1": ChoiceQuestionSchema(question_id="q1", options=["A", "B", "C"]),
-            },
-        )
-
-        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
-        assert len(errors) == 1
-        assert "not in schema options" in errors[0]
-        assert "D" in errors[0]

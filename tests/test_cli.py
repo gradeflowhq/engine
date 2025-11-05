@@ -804,19 +804,14 @@ class TestValidateSchemaCommand:
             "questions": {
                 "Q1": {
                     "type": "CHOICE",
-                    "question_id": "Q1",
                     "options": ["Paris", "London", "Berlin"],
                     "allow_multiple": False,
                 },
                 "Q2": {
                     "type": "NUMERIC",
-                    "question_id": "Q2",
-                    "numeric_range": [0.0, 100.0],
                 },
                 "Q3": {
                     "type": "TEXT",
-                    "question_id": "Q3",
-                    "max_length": 500,
                 },
             },
         }
@@ -855,7 +850,7 @@ class TestValidateSchemaCommand:
             "rules": [
                 {
                     "type": "EXACT_MATCH",
-                    "question_id": "Q1",
+                    "question_id": "Q3",
                     "correct_answer": "Paris",
                     "max_points": 10.0,
                 },
@@ -929,6 +924,8 @@ class TestValidateSchemaCommand:
                 str(compatible_rubric),
             ],
         )
+
+        print(result.stdout)
 
         assert result.exit_code == 0
         assert "Schema is valid" in result.stdout

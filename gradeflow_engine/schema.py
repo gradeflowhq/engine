@@ -26,7 +26,6 @@ class ChoiceQuestionSchema(BaseModel):
     """Schema for choice-based questions (MCQ, MRQ, True/False)."""
 
     type: Literal["CHOICE"] = "CHOICE"
-    question_id: str = Field(description="Unique question identifier")
     options: list[str] = Field(description="Valid answer options")
     allow_multiple: bool = Field(
         default=False, description="Whether multiple selections are allowed (MRQ vs MCQ)"
@@ -46,10 +45,6 @@ class NumericQuestionSchema(BaseModel):
     """Schema for numeric answer questions."""
 
     type: Literal["NUMERIC"] = "NUMERIC"
-    question_id: str = Field(description="Unique question identifier")
-    numeric_range: tuple[float, float] | None = Field(
-        default=None, description="Expected numeric range [min, max]"
-    )
     metadata: dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
 
 
@@ -57,17 +52,7 @@ class TextQuestionSchema(BaseModel):
     """Schema for free-text answer questions."""
 
     type: Literal["TEXT"] = "TEXT"
-    question_id: str = Field(description="Unique question identifier")
-    max_length: int | None = Field(default=None, description="Maximum answer length")
     metadata: dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
-
-    @field_validator("max_length")
-    @classmethod
-    def validate_max_length(cls, v: int | None) -> int | None:
-        """Validate that max_length is positive."""
-        if v is not None and v <= 0:
-            raise ValueError("max_length must be positive")
-        return v
 
 
 # Discriminated union of all question schema types
@@ -103,18 +88,6 @@ class AssessmentSchema(BaseModel):
         """Validate that at least one question is defined."""
         if len(v) == 0:
             raise ValueError("Assessment must have at least one question")
-        return v
-
-    @field_validator("questions")
-    @classmethod
-    def validate_question_ids_match(cls, v: dict[str, QuestionSchema]) -> dict[str, QuestionSchema]:
-        """Validate that dict keys match question_id in values."""
-        for key, schema in v.items():
-            if key != schema.question_id:
-                raise ValueError(
-                    f"Question ID mismatch: key '{key}' != "
-                    f"schema.question_id '{schema.question_id}'"
-                )
         return v
 
 
@@ -232,31 +205,6 @@ def infer_mcq_options(answers: list[str], min_frequency: float = 0.05) -> list[s
     return options
 
 
-def infer_numeric_range(answers: list[str]) -> tuple[float, float] | None:
-    """
-    Infer numeric range from numeric answers.
-
-    Args:
-        answers: List of student answers
-
-    Returns:
-        Tuple of (min, max) or None if not numeric
-    """
-    numeric_values: list[float] = []
-    for ans in answers:
-        if not ans.strip():
-            continue
-        try:
-            numeric_values.append(float(ans.strip()))
-        except ValueError:
-            pass
-
-    if not numeric_values:
-        return None
-
-    return (min(numeric_values), max(numeric_values))
-
-
 def infer_schema_from_submissions(
     submissions: list[Submission], name: str = "Inferred Assessment"
 ) -> AssessmentSchema:
@@ -297,15 +245,14 @@ def infer_schema_from_submissions(
         if q_type == "CHOICE":
             options = infer_mcq_options(answers)
             schema = ChoiceQuestionSchema(
-                question_id=question_id, options=options, allow_multiple=allow_multiple
+                options=options, allow_multiple=allow_multiple
             )
         elif q_type == "NUMERIC":
-            numeric_range = infer_numeric_range(answers)
-            schema = NumericQuestionSchema(question_id=question_id, numeric_range=numeric_range)
-        else:  # TEXT
-            non_empty = [a for a in answers if a.strip()]
-            max_len = max(len(a) for a in non_empty) if non_empty else None
-            schema = TextQuestionSchema(question_id=question_id, max_length=max_len)
+            schema = NumericQuestionSchema()
+        elif q_type == "TEXT":
+            schema = TextQuestionSchema()
+        else:
+            raise ValueError(f"Unsupported question type inferred: {q_type}")
 
         questions[question_id] = schema
 
@@ -418,7 +365,6 @@ __all__ = [
     "SchemaValidationError",
     # Inference functions
     "infer_mcq_options",
-    "infer_numeric_range",
     "infer_schema_from_submissions",
     # Validation functions
     "validate_rubric_against_schema",

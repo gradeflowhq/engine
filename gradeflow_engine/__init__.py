@@ -13,6 +13,7 @@ from .core import (
     grade_from_files,
 )
 from .io import (
+    export_results,
     load_rubric,
     load_schema,
     load_submissions_csv,
@@ -54,12 +55,11 @@ from .schema import (
     SchemaValidationError,
     TextQuestionSchema,
     infer_mcq_options,
-    infer_numeric_range,
     infer_schema_from_submissions,
     validate_rubric_against_schema,
     validate_rubric_against_schema_strict,
 )
-from .types import QuestionType
+from .types import ExportFormat, QuestionType
 
 __version__ = "0.1.0"
 
@@ -110,6 +110,7 @@ __all__ = [
     "load_submissions_csv",
     "save_results_yaml",
     "save_results_csv",
+    "export_results",
     # Models
     "Rubric",
     "Submission",
@@ -140,6 +141,7 @@ __all__ = [
     "AssessmentSchema",
     "QuestionSchema",
     "QuestionType",
+    "ExportFormat",
     "ChoiceQuestionSchema",
     "NumericQuestionSchema",
     "TextQuestionSchema",

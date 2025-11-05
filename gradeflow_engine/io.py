@@ -13,6 +13,7 @@ from pydantic import ValidationError
 
 from .models import GradeOutput, Rubric, Submission
 from .schema import AssessmentSchema
+from .types import ExportFormat
 
 
 # Helper functions to reduce duplication
@@ -270,6 +271,56 @@ def export_canvas_csv(
             )
 
 
+def export_results(
+    results: GradeOutput,
+    file_path: str,
+    format: ExportFormat,
+    encoding: str = "utf-8",
+    **kwargs,
+) -> None:
+    """
+    Export grading results in the specified format.
+    
+    This is the main export function that dispatches to format-specific exporters.
+    
+    Args:
+        results: GradeOutput object to export
+        file_path: Path to output file
+        format: Export format (yaml, csv_summary, csv_detailed, or canvas)
+        encoding: File encoding (default: "utf-8")
+        **kwargs: Additional format-specific options:
+            - indent: YAML indentation (for YAML format)
+            - student_id_field: Student ID column name (for Canvas format)
+            - assignment_name: Assignment name (for Canvas format)
+    
+    Raises:
+        ValueError: If format is not supported
+        
+    Example:
+        >>> export_results(results, "output.csv", "csv_summary")
+        >>> export_results(results, "output.yaml", "yaml", indent=4)
+    """
+    if format == "yaml":
+        indent = kwargs.get("indent", 2)
+        save_results_yaml(results, file_path, indent=indent)
+    elif format == "csv_summary":
+        save_results_csv(results, file_path, include_details=False, encoding=encoding)
+    elif format == "csv_detailed":
+        save_results_csv(results, file_path, include_details=True, encoding=encoding)
+    elif format == "canvas":
+        student_id_field = kwargs.get("student_id_field", "SIS User ID")
+        assignment_name = kwargs.get("assignment_name")
+        export_canvas_csv(
+            results,
+            file_path,
+            student_id_field=student_id_field,
+            assignment_name=assignment_name,
+            encoding=encoding,
+        )
+    else:
+        raise ValueError(f"Unsupported export format: {format}")
+
+
 # ============================================================================
 # Schema I/O
 # ============================================================================
@@ -323,10 +374,4 @@ def save_schema(schema: AssessmentSchema, file_path: str, indent: int = 2) -> No
         >>> save_schema(schema, "assessment_schema.yaml")
     """
     data = schema.model_dump(mode="python", exclude_none=True)
-
-    # Convert tuples to lists for YAML compatibility
-    for question_data in data.get("questions", {}).values():
-        if "numeric_range" in question_data and isinstance(question_data["numeric_range"], tuple):
-            question_data["numeric_range"] = list(question_data["numeric_range"])
-
     _save_yaml(data, file_path, indent)
