@@ -4,6 +4,7 @@ Shared utilities for rule processors.
 Provides common functions for sanitization, validation, and feedback formatting.
 """
 
+from collections.abc import Collection
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -13,7 +14,7 @@ if TYPE_CHECKING:
 
 def validate_type_compatibility(
     schema: "QuestionSchema",
-    compatible_types: set["QuestionType"],
+    compatible_types: Collection["QuestionType"],
     rule_description: str,
     rule_name: str,
 ) -> list[str]:
@@ -49,35 +50,6 @@ def validate_type_compatibility(
         )
 
     return errors
-
-
-def sanitize_text(text: str, max_length: int = 500) -> str:
-    """
-    Sanitize user input for safe display in feedback and logging.
-
-    Removes control characters, limits length, and prevents injection attacks.
-
-    Args:
-        text: Text to sanitize
-        max_length: Maximum length to truncate to
-
-    Returns:
-        Sanitized text safe for display
-    """
-    if not text:
-        return ""
-
-    # Truncate to max length
-    text = text[:max_length]
-
-    # Remove control characters but keep common whitespace
-    text = "".join(c for c in text if c.isprintable() or c in ("\n", "\t", " "))
-
-    # If truncated, add ellipsis
-    if len(text) >= max_length:
-        text = text[: max_length - 3] + "..."
-
-    return text
 
 
 def validate_question_id(question_id: str) -> str:
@@ -130,50 +102,7 @@ def format_feedback(
         prefix = "✗ Incorrect"
         parts = [prefix]
         if expected:
-            parts.append(f"Expected: {sanitize_text(expected, max_length=100)}")
+            parts.append(f"Expected: {expected}")
         if details:
             parts.append(details)
         return " - ".join(parts)
-
-
-def format_similarity_feedback(similarity: float, threshold: float) -> str:
-    """
-    Format feedback for similarity-based grading.
-
-    Args:
-        similarity: Similarity score (0-1)
-        threshold: Threshold for passing
-
-    Returns:
-        Formatted feedback string
-    """
-    if similarity >= threshold:
-        return f"✓ Match: {similarity:.0%} (threshold: {threshold:.0%})"
-    return f"✗ Insufficient similarity: {similarity:.0%} < {threshold:.0%}"
-
-
-def format_keyword_feedback(
-    found_required: list, missing_required: list, found_optional: list
-) -> str:
-    """
-    Format feedback for keyword-based grading.
-
-    Args:
-        found_required: List of required keywords found
-        missing_required: List of required keywords missing
-        found_optional: List of optional keywords found
-
-    Returns:
-        Formatted feedback string
-    """
-    parts = []
-
-    if missing_required:
-        parts.append(f"✗ Missing required: {', '.join(missing_required)}")
-    elif found_required:
-        parts.append("✓ Found all required keywords")
-
-    if found_optional:
-        parts.append(f"+ Bonus: {', '.join(found_optional)}")
-
-    return "; ".join(parts) if parts else "No keywords found"

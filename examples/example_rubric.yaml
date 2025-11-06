@@ -3,92 +3,88 @@ name: Final Exam 2024 - Example Rubric
 rules:
   - type: CONDITIONAL
     if_rules:
-      Q1:
-        type: EXACT_MATCH
+      - type: EXACT_MATCH
         question_id: Q1
-        correct_answer: A
+        answer: "A"
         max_points: 0
-        case_sensitive: false
+        config:
+          ignore_case: true
     then_rules:
-      Q2:
-        type: EXACT_MATCH
+      - type: EXACT_MATCH
         question_id: Q2
-        correct_answer: B
+        answer: "B"
         max_points: 5.0
-        case_sensitive: false
-    if_aggregation: AND
-    description: If Q1 answer is A, then Q2 should be B (dependent calculation)
+        config:
+          ignore_case: true
+    if_mode: and
+    description: "If Q1 answer is A, then Q2 should be B (dependent calculation)"
 
   - type: CONDITIONAL
     if_rules:
-      Q1:
-        type: EXACT_MATCH
+      - type: EXACT_MATCH
         question_id: Q1
-        correct_answer: C
+        answer: "C"
         max_points: 0
-        case_sensitive: false
+        config:
+          ignore_case: true
     then_rules:
-      Q2:
-        type: EXACT_MATCH
+      - type: EXACT_MATCH
         question_id: Q2
-        correct_answer: D
+        answer: "D"
         max_points: 5.0
-        case_sensitive: false
-    if_aggregation: AND
-    description: If Q1 answer is C, then Q2 should be D (alternative calculation)
+        config:
+          ignore_case: true
+    if_mode: and
+    description: "If Q1 answer is C, then Q2 should be D (alternative calculation)"
 
   - type: ASSUMPTION_SET
-    question_ids:
-      - Q3
-      - Q4
-      - Q5
-    answer_sets:
-      - name: Interpretation A - Classical Mechanics
-        answers:
-          Q3:
-            type: EXACT_MATCH
+    assumptions:
+      - name: "Interpretation A - Classical Mechanics"
+        rules:
+          - type: EXACT_MATCH
             question_id: Q3
-            correct_answer: kinetic
+            answer: "kinetic"
             max_points: 3.0
-            case_sensitive: false
-          Q4:
-            type: EXACT_MATCH
+            config:
+              ignore_case: true
+          - type: EXACT_MATCH
             question_id: Q4
-            correct_answer: increases
+            answer: "increases"
             max_points: 3.0
-            case_sensitive: false
-          Q5:
-            type: EXACT_MATCH
+            config:
+              ignore_case: true
+          - type: EXACT_MATCH
             question_id: Q5
-            correct_answer: parabolic
+            answer: "parabolic"
             max_points: 4.0
-            case_sensitive: false
-      - name: Interpretation B - Quantum Mechanics
-        answers:
-          Q3:
-            type: EXACT_MATCH
+            config:
+              ignore_case: true
+      - name: "Interpretation B - Quantum Mechanics"
+        rules:
+          - type: EXACT_MATCH
             question_id: Q3
-            correct_answer: potential
+            answer: "potential"
             max_points: 3.0
-            case_sensitive: false
-          Q4:
-            type: EXACT_MATCH
+            config:
+              ignore_case: true
+          - type: EXACT_MATCH
             question_id: Q4
-            correct_answer: quantized
+            answer: "quantized"
             max_points: 3.0
-            case_sensitive: false
-          Q5:
-            type: EXACT_MATCH
+            config:
+              ignore_case: true
+          - type: EXACT_MATCH
             question_id: Q5
-            correct_answer: discrete
+            answer: "discrete"
             max_points: 4.0
-            case_sensitive: false
-    mode: favor_best
-    description: Physics problem with two valid interpretations
+            config:
+              ignore_case: true
+    mode: best
+    description: "Physics problem with two valid interpretations"
 
   - type: PROGRAMMABLE
     question_id: Q6
-    script: |
+    code: |
       # Grade essay based on keywords
       required_keywords = ['algorithm', 'complexity', 'optimization']
       optional_keywords = ['dynamic programming', 'greedy', 'divide and conquer']
@@ -122,20 +118,11 @@ rules:
       else:
           feedback += ' - Needs improvement'
     max_points: 8.0
-    timeout_ms: 5000
-    memory_mb: 50
-    description: Essay question about algorithms (keyword-based grading)
+    description: "Essay question about algorithms (keyword-based grading)"
 
   - type: PROGRAMMABLE
     question_id: Q7
-    script: |
-      # Grade numerical answer with tolerance
-      # Note: This could also be done with NUMERIC_RANGE rule:
-      #   type: NUMERIC_RANGE
-      #   question_id: Q7
-      #   min_value: 42.0
-      #   max_value: 43.0
-      #   max_points: 5.0
+    code: |
       try:
           student_value = float(answer.strip())
           correct_value = 42.5
@@ -156,42 +143,32 @@ rules:
           points_awarded = 0.0
           feedback = 'Invalid number format'
     max_points: 5.0
-    timeout_ms: 5000
-    memory_mb: 50
-    description: Numerical answer with tolerance (Q7)
+    description: "Numerical answer with tolerance (Q7)"
 
   - type: KEYWORD
     question_id: Q8
-    required_keywords:
+    keywords:
       - mitochondria
       - energy
       - ATP
-    optional_keywords:
       - cellular respiration
       - powerhouse
       - glucose
-    points_per_required: 2.0
-    points_per_optional: 1.0
-    max_optional_points: 2.0
-    case_sensitive: false
-    partial_credit: true
-    description: Biology question about cell organelles
+    mode: partial
+    max_points: 10.0
+    config:
+      ignore_case: true
+    description: "Biology question about cell organelles"
 
   - type: REGEX
     question_id: Q9
-    patterns:
-      - '\b[A-Z]{2,}\b'  # Acronyms (2+ uppercase letters)
-      - '\d{4}'           # Year (4 digits)
-      - 'http[s]?://\S+'  # URL
-    points_per_match:
-      - 2.0
-      - 2.0
-      - 1.0
-    match_mode: count
-    case_sensitive: true
-    multiline: false
-    partial_credit: true
-    description: Check for proper formatting (acronyms, year, URL)
+    pattern: '^\\b[A-Z]{2,}\\b|\\d{4}|http[s]?://\\S+$'
+    max_points: 5.0
+    config:
+      ignore_case: false
+      multi_line: false
+      dotall: false
+    description: "Check for acronyms, year, or URL"
 
 metadata:
   course: CS 101

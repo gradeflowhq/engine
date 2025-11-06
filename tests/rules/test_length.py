@@ -18,8 +18,9 @@ class TestLengthRule:
         """Test exact word count."""
         rule = LengthRule(
             question_id="q1",
-            min_words=5,
-            max_words=5,
+            min_length=5,
+            max_length=5,
+            mode="words",
             max_points=10.0,
         )
         rubric = Rubric(name="Test", rules=[rule])
@@ -35,8 +36,9 @@ class TestLengthRule:
         """Test word count range."""
         rule = LengthRule(
             question_id="q1",
-            min_words=3,
-            max_words=7,
+            min_length=3,
+            max_length=7,
+            mode="words",
             max_points=10.0,
         )
         rubric = Rubric(name="Test", rules=[rule])
@@ -49,24 +51,24 @@ class TestLengthRule:
         """Test character count."""
         rule = LengthRule(
             question_id="q1",
-            min_chars=10,
-            max_chars=20,
+            min_length=10,
+            max_length=20,
+            mode="characters",
             max_points=10.0,
         )
         rubric = Rubric(name="Test", rules=[rule])
         result = grade(
             rubric, [Submission(student_id="s1", answers={"q1": "This is 15 char"})]
-        )  # 15 chars
+        )  # within 10..20 characters
         assert result.results[0].total_points == 10.0
 
     def test_sentence_count(self):
-        """Test with both word and char limits."""
+        """Test with a word-based limit for multi-sentence answer."""
         rule = LengthRule(
             question_id="q1",
-            min_words=2,
-            max_words=10,
-            min_chars=10,
-            max_chars=50,
+            min_length=2,
+            max_length=10,
+            mode="words",
             max_points=10.0,
         )
         rubric = Rubric(name="Test", rules=[rule])
@@ -80,8 +82,9 @@ class TestLengthRule:
         """Test with empty answer."""
         rule = LengthRule(
             question_id="q1",
-            min_words=5,
-            max_words=10,
+            min_length=5,
+            max_length=10,
+            mode="words",
             max_points=10.0,
         )
         rubric = Rubric(name="Test", rules=[rule])
@@ -92,8 +95,9 @@ class TestLengthRule:
         """Test with whitespace-only answer."""
         rule = LengthRule(
             question_id="q1",
-            min_words=1,
-            max_words=10,
+            min_length=1,
+            max_length=10,
+            mode="words",
             max_points=10.0,
         )
         rubric = Rubric(name="Test", rules=[rule])
@@ -104,8 +108,9 @@ class TestLengthRule:
         """Test with only character limit specified."""
         rule = LengthRule(
             question_id="q1",
-            min_chars=5,
-            max_chars=15,
+            min_length=5,
+            max_length=15,
+            mode="characters",
             max_points=10.0,
         )
         rubric = Rubric(name="Test", rules=[rule])
@@ -113,11 +118,12 @@ class TestLengthRule:
         assert result.results[0].total_points == 10.0
 
     def test_too_long(self):
-        """Test answer that's too long."""
+        """Test answer that's too long (word-based)."""
         rule = LengthRule(
             question_id="q1",
-            min_words=1,
-            max_words=3,
+            min_length=1,
+            max_length=3,
+            mode="words",
             max_points=10.0,
         )
         rubric = Rubric(name="Test", rules=[rule])
@@ -127,15 +133,17 @@ class TestLengthRule:
         assert result.results[0].total_points == 0.0
 
     def test_character_limits_min(self):
-        """Test minimum character limit."""
-        rule = LengthRule(question_id="q1", min_chars=20, max_points=10.0, description="Test")
+        """Test minimum character limit and feedback wording."""
+        rule = LengthRule(question_id="q1", min_length=20, mode="characters", max_points=10.0)
 
         rubric = Rubric(name="Test", rules=[rule])
 
         # Too few characters
         result = grade(rubric, [Submission(student_id="s1", answers={"q1": "Short"})])
         assert result.results[0].total_points == 0.0
-        assert "Too few characters" in result.results[0].grade_details[0].feedback
+        fb = result.results[0].grade_details[0].feedback or ""
+        assert "Too short" in fb
+        assert "characters" in fb  # expected string includes mode
 
         # Enough characters
         result = grade(
@@ -144,8 +152,8 @@ class TestLengthRule:
         assert result.results[0].total_points == 10.0
 
     def test_character_limits_max(self):
-        """Test maximum character limit."""
-        rule = LengthRule(question_id="q1", max_chars=10, max_points=10.0, description="Test")
+        """Test maximum character limit and feedback wording."""
+        rule = LengthRule(question_id="q1", max_length=10, mode="characters", max_points=10.0)
 
         rubric = Rubric(name="Test", rules=[rule])
 
@@ -154,52 +162,29 @@ class TestLengthRule:
             rubric, [Submission(student_id="s1", answers={"q1": "This is way too long"})]
         )
         assert result.results[0].total_points == 0.0
-        assert "Too many characters" in result.results[0].grade_details[0].feedback
+        fb = result.results[0].grade_details[0].feedback or ""
+        assert "Too long" in fb
+        assert "characters" in fb
 
         # Within limit
         result = grade(rubric, [Submission(student_id="s1", answers={"q1": "Short"})])
         assert result.results[0].total_points == 10.0
 
-    def test_deduct_per_violation(self):
-        """Test deducting points per violation."""
+    def test_multiple_violations_yield_zero(self):
+        """Multiple violations result in zero points (no per-violation deduction)."""
+        # Use a word-based rule with a range that will be violated
         rule = LengthRule(
             question_id="q1",
-            min_words=5,
-            max_words=10,
-            min_chars=20,
-            max_chars=50,
+            min_length=5,
+            max_length=10,
+            mode="words",
             max_points=10.0,
-            strict=False,
-            deduct_per_violation=2.0,
-            description="Test",
         )
 
         rubric = Rubric(name="Test", rules=[rule])
 
-        # Answer with 2 violations: too few words and too few chars
+        # Answer with too few words (and thus violates)
         result = grade(rubric, [Submission(student_id="s1", answers={"q1": "Hi"})])
-        # Should deduct 2.0 * 2 = 4.0 points
-        assert result.results[0].total_points == 6.0
-
-    def test_deduct_per_violation_max_cap(self):
-        """Test that deductions don't exceed max_points."""
-        rule = LengthRule(
-            question_id="q1",
-            min_words=5,
-            max_words=10,
-            min_chars=20,
-            max_chars=50,
-            max_points=5.0,
-            strict=False,
-            deduct_per_violation=10.0,  # Very high deduction
-            description="Test",
-        )
-
-        rubric = Rubric(name="Test", rules=[rule])
-
-        # Answer with violations
-        result = grade(rubric, [Submission(student_id="s1", answers={"q1": "Hi"})])
-        # Deduction would be 20.0 but capped at max_points (5.0)
         assert result.results[0].total_points == 0.0
 
 
@@ -210,8 +195,9 @@ class TestLengthSchemaValidation:
         """Test that LengthRule validates correctly against TEXT schema."""
         rule = LengthRule(
             question_id="q1",
-            min_words=10,
-            max_words=50,
+            min_length=10,
+            max_length=50,
+            mode="words",
             max_points=10.0,
         )
         schema = AssessmentSchema(
@@ -228,8 +214,9 @@ class TestLengthSchemaValidation:
         """Test that LengthRule rejects CHOICE schema."""
         rule = LengthRule(
             question_id="q1",
-            min_chars=1,
-            max_chars=10,
+            min_length=1,
+            max_length=10,
+            mode="characters",
             max_points=10.0,
         )
         schema = AssessmentSchema(
@@ -248,8 +235,9 @@ class TestLengthSchemaValidation:
         """Test that LengthRule rejects NUMERIC schema."""
         rule = LengthRule(
             question_id="q1",
-            min_words=5,
-            max_words=10,
+            min_length=5,
+            max_length=10,
+            mode="words",
             max_points=10.0,
         )
         schema = AssessmentSchema(

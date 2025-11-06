@@ -46,32 +46,6 @@ class TestNumericRangeRule:
         result = grade(rubric, [Submission(student_id="s3", answers={"q1": "94"})])
         assert result.results[0].total_points == 0.0
 
-    def test_partial_credit(self):
-        """Test partial credit ranges."""
-        rule = NumericRangeRule(
-            question_id="q1",
-            min_value=100.0,
-            max_value=100.0,
-            max_points=10.0,
-            partial_credit_ranges=[
-                {"min": 98.0, "max": 102.0, "points": 8.0},
-                {"min": 95.0, "max": 98.0, "points": 5.0},
-                {"min": 102.0, "max": 105.0, "points": 5.0},
-            ],
-        )
-        rubric = Rubric(name="Test", rules=[rule])
-        # Exact
-        result = grade(rubric, [Submission(student_id="s1", answers={"q1": "100"})])
-        assert result.results[0].total_points == 10.0
-
-        # First partial range (98-102, 8 points) - 101 is in range
-        result = grade(rubric, [Submission(student_id="s2", answers={"q1": "101"})])
-        assert result.results[0].total_points == 8.0
-
-        # Second partial range (95-98, 5 points) - 96 is in range
-        result = grade(rubric, [Submission(student_id="s3", answers={"q1": "96"})])
-        assert result.results[0].total_points == 5.0
-
     def test_invalid_input(self):
         """Test invalid numeric input."""
         rule = NumericRangeRule(
@@ -115,8 +89,6 @@ class TestNumericRangeRule:
             min_value=1e100 - 1e98,
             max_value=1e100 + 1e98,
             max_points=5.0,
-            description="Large number test",
-            unit="units",
         )
         rubric = Rubric(name="Test", rules=[rule])
         result = grade(rubric, [Submission(student_id="s1", answers={"q1": "1e100"})])
@@ -129,13 +101,10 @@ class TestNumericRangeRule:
             min_value=0.0,
             max_value=0.0,
             max_points=10.0,
-            description="Negative zero test",
-            unit="units",
         )
         rubric = Rubric(name="Test", rules=[rule])
         # -0.0 == 0.0 in Python
         result = grade(rubric, [Submission(student_id="s1", answers={"q1": "-0.0"})])
-        assert result.results[0].total_points == 10.0
         assert result.results[0].total_points == 10.0
 
 
@@ -149,8 +118,6 @@ class TestNumericRangeSchemaValidation:
             min_value=0.0,
             max_value=100.0,
             max_points=10.0,
-            unit="points",
-            description="Test",
         )
         schema = AssessmentSchema(
             name="Test",
@@ -169,8 +136,6 @@ class TestNumericRangeSchemaValidation:
             min_value=0.0,
             max_value=100.0,
             max_points=10.0,
-            unit="points",
-            description="Test",
         )
         schema = AssessmentSchema(
             name="Test",

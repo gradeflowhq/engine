@@ -1,8 +1,8 @@
 """Conditional rule model definition."""
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 from gradeflow_engine.types import QuestionType
 
@@ -12,80 +12,76 @@ if TYPE_CHECKING:
 
 
 class ConditionalRule(BaseModel):
-    """
-    A conditional grading rule: if question(s) satisfy certain rules, then other
-    question(s) should satisfy their rules.
+    """Conditional grading rule.
 
-    Supports both simple and complex conditional logic:
-    - Simple: if Q1 matches rule R1, then Q2 should match rule R2
-    - Complex: if multiple questions match their rules (with AND/OR logic),
-      then multiple questions should match their rules
+    Example: If Q1 match rule R1 and Q2 match rule R2, apply rule R3 for Q3.
 
-    Example: "If Q1 answer is 'recursion', then Q2 implementation should contain 'base case'"
+    Notes on semantics:
+    - `if_rules` is a list of single-question rules. At grading time each
+      if-rule will produce a numeric score; the condition interprets strictly
+      correct answer as a passed/True condition.
+    - `if_mode` controls how multiple if-conditions are combined:
+      * and: all if-rule are correct
+      * or: at least one if-rule is correct
+    - `then_rules` are applied when the condition is satisfied. There is no
+      restriction on which question ids the then-rules may target (they may
+      target the same questions used in if_rules or different ones).
     """
 
     type: Literal["CONDITIONAL"] = "CONDITIONAL"
-    compatible_types: set[QuestionType] = {"CHOICE", "NUMERIC", "TEXT"}  # Works across questions
-    if_rules: dict[str, "SingleQuestionRule"] = Field(  # type: ignore[name-defined]
-        description="Map of question_id -> rule for the if-condition(s)"
-    )
-    if_aggregation: Literal["AND", "OR"] = Field(
-        default="AND",
+    # Works across question types; keep as an immutable class-level constant.
+    compatible_types: ClassVar[frozenset[QuestionType]] = frozenset()
+
+    if_rules: list["SingleQuestionRule"] = Field(
+        ...,  # required
+        min_length=1,
+        description="List of single-question rules that form the if-condition",
+    )  # type: ignore[name-defined]
+
+    if_mode: Literal["and", "or"] = Field(
+        default="and",
         description=(
-            "How to combine multiple if-conditions: "
-            "AND requires all conditions to pass, "
-            "OR requires at least one to pass"
+            "How to combine multiple if-conditions: 'and' requires all to pass; "
+            "'or' requires at least one to pass (a rule is considered passing when its score > 0)."
         ),
     )
-    then_rules: dict[str, "SingleQuestionRule"] = Field(  # type: ignore[name-defined]
-        description="Map of question_id -> rule to apply when if-conditions are met"
-    )
-    description: str | None = Field(None, description="Human-readable description of the rule")
 
-    @field_validator("if_rules")
-    @classmethod
-    def validate_if_rules(cls, v):
-        """Ensure at least one if-condition is provided."""
-        if len(v) < 1:
-            raise ValueError("At least one if-condition is required")
-        return v
-
-    @field_validator("then_rules")
-    @classmethod
-    def validate_then_rules(cls, v, info):
-        """Ensure then_rules don't overlap with if_rules."""
-        if len(v) < 1:
-            raise ValueError("At least one then-condition is required")
-
-        if_rules = info.data.get("if_rules", {})
-        overlap = set(v.keys()) & set(if_rules.keys())
-        if overlap:
-            raise ValueError(
-                f"then_rules cannot overlap with if_rules (creates circular dependency): {overlap}"
-            )
-        return v
+    then_rules: list["SingleQuestionRule"] = Field(
+        ...,  # required
+        min_length=1,
+        description="List of single-question rules to apply when the condition matches",
+    )  # type: ignore[name-defined]
 
     def validate_against_schema(
         self, question_id: str, schema: "QuestionSchema", rule_description: str
     ) -> list[str]:
-        """Validate this rule against a question schema."""
+        """Validate this conditional rule and all nested single-question rules.
+
+        The provided `schema` is expected to be the global assessment/question
+        schema; nested rules are validated against the schema entry for their
+        own `question_id` by calling their `validate_against_schema` methods.
+        """
         errors: list[str] = []
 
         # Validate all if_rules
-        for q_id, rule in self.if_rules.items():
+        for rule in self.if_rules:
             validate_method = getattr(rule, "validate_against_schema", None)
             if validate_method is not None and callable(validate_method):
-                rule_desc = f"{rule_description} > If-condition for Q{q_id} ({rule.type})"
-                sub_errors: Any = validate_method(q_id, schema, rule_desc)
+                rule_desc = (
+                    f"{rule_description} > If-condition for Q{rule.question_id} ({rule.type})"
+                )
+                sub_errors: Any = validate_method(rule.question_id, schema, rule_desc)
                 if isinstance(sub_errors, list):
                     errors.extend(sub_errors)
 
         # Validate all then_rules
-        for q_id, rule in self.then_rules.items():
+        for rule in self.then_rules:
             validate_method = getattr(rule, "validate_against_schema", None)
             if validate_method is not None and callable(validate_method):
-                rule_desc = f"{rule_description} > Then-condition for Q{q_id} ({rule.type})"
-                sub_errors = validate_method(q_id, schema, rule_desc)
+                rule_desc = (
+                    f"{rule_description} > Then-condition for Q{rule.question_id} ({rule.type})"
+                )
+                sub_errors = validate_method(rule.question_id, schema, rule_desc)
                 if isinstance(sub_errors, list):
                     errors.extend(sub_errors)
 

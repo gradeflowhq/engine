@@ -6,168 +6,179 @@ description: "Comprehensive rubric demonstrating all available grading rule type
 rules:
   # 1. ExactMatch: Simple exact string matching
   - type: EXACT_MATCH
-    question_id: "q1_capital"
-    correct_answer: "Paris"
+    question_id: q1_capital
+    answer: "Paris"
     max_points: 5.0
-    case_sensitive: false
-    trim_whitespace: true
+    config:
+      ignore_case: true
+      trim_whitespace: true
     description: "What is the capital of France?"
-  
-  # 2. NumericRange: Numeric answers with tolerance and partial credit
+
+  # 2. NumericRange: Numeric answers within a specified range
   - type: NUMERIC_RANGE
-    question_id: "q2_pi"
+    question_id: q2_pi
     min_value: 3.13159
     max_value: 3.15159
-    unit: null
     max_points: 10.0
-    partial_credit_ranges:
-      - min: 2.5
-        max: 3.0
-        points: 3.0
-      - min: 3.2
-        max: 3.5
-        points: 3.0
     description: "What is the value of pi (π) to 5 decimal places?"
-  
+
   # 3. MultipleChoice: Single or multiple correct answers
   - type: MULTIPLE_CHOICE
-    question_id: "q3_colors"
-    correct_answers:
+    question_id: q3_colors
+    answers:
       - "Red"
       - "Blue"
       - "Yellow"
-    scoring_mode: "partial"
+    mode: partial
     max_points: 15.0
+    config:
+      delimiter: ","
     description: "Select all primary colors"
-  
+
   - type: MULTIPLE_CHOICE
-    question_id: "q4_capital_us"
-    correct_answers:
+    question_id: q4_capital_us
+    answers:
       - "Washington DC"
-    scoring_mode: "all_or_nothing"
+    mode: all
     max_points: 5.0
     description: "What is the capital of the United States?"
-  
+
   # 4. Length: Enforce word/character count constraints
   - type: LENGTH
-    question_id: "q5_essay"
-    min_words: 50
-    max_words: 200
-    min_chars: null
-    max_chars: 1000
+    question_id: q5_essay
+    min_length: 50
+    max_length: 200
+    mode: words
     max_points: 20.0
-    deduct_per_violation: 5.0
     description: "Write an essay (50-200 words)"
-  
-  # 5. Similarity: Fuzzy string matching with different algorithms
+
+  # 5. Similarity: Fuzzy string matching
   - type: SIMILARITY
-    question_id: "q6_definition"
-    reference_answers:
-      - "Photosynthesis is the process by which plants convert sunlight into energy"
-    algorithm: "levenshtein"
+    question_id: q6_definition
+    reference: "Photosynthesis is the process by which plants convert sunlight into energy"
     threshold: 0.7
-    partial_credit: true
     max_points: 15.0
+    config:
+      algorithm: levenshtein
+      ignore_case: true
     description: "Define photosynthesis"
-  
+
   - type: SIMILARITY
-    question_id: "q7_formula"
-    reference_answers:
-      - "E equals m c squared"
-    algorithm: "token_sort"
+    question_id: q7_formula
+    reference: "E equals m c squared"
     threshold: 0.8
-    partial_credit: false
     max_points: 10.0
+    config:
+      algorithm: token_sort
+      ignore_case: true
     description: "State Einstein's mass-energy equivalence formula in words"
-  
+
   # 6. Keyword: Award points for presence of specific keywords
   - type: KEYWORD
-    question_id: "q8_biology"
-    required_keywords:
-      - "mitochondria"
-      - "ATP"
-      - "energy"
-    optional_keywords:
-      - "cellular respiration"
-      - "glucose"
-      - "oxygen"
-    points_per_required: 3.0
-    points_per_optional: 1.0
-    case_sensitive: false
+    question_id: q8_biology
+    keywords:
+      - mitochondria
+      - ATP
+      - energy
+      - cellular respiration
+      - glucose
+      - oxygen
+    mode: partial
+    max_points: 10.0
+    config:
+      ignore_case: true
     description: "Explain the role of mitochondria (must mention key terms)"
-  
-  # 7. Regex: Pattern matching with regular expressions
+
+  # 7. Regex: Pattern matching
   - type: REGEX
-    question_id: "q9_email"
-    patterns:
-      - "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
-    match_mode: "any"
-    points_per_match: 10.0
+    question_id: q9_email
+    pattern: '^\\S+@\\S+\\.\\S+$'
+    max_points: 10.0
+    config:
+      ignore_case: false
+      multi_line: false
+      dotall: false
     description: "Provide a valid email address"
-  
+
   - type: REGEX
-    question_id: "q10_code"
-    patterns:
-      - "def\\s+\\w+\\("  # Function definition
-      - "return\\s+"      # Return statement
-      - "if\\s+.*:"       # If statement
-    match_mode: "all"
-    points_per_match: 3.0
-    description: "Write a Python function with conditional logic"
-  
+    question_id: q10_code
+    pattern: '\\bdef\\s+\\w+'
+    max_points: 3.0
+    config:
+      ignore_case: false
+      multi_line: false
+      dotall: false
+    description: "Detect a Python function definition"
+
   # 8. Conditional: Grade one question based on answer to another
   - type: CONDITIONAL
     if_rules:
-      q11_programming:
-        type: EXACT_MATCH
-        question_id: "q11_programming"
-        correct_answer: "Python"
+      - type: EXACT_MATCH
+        question_id: q11_programming
+        answer: "Python"
         max_points: 0
-        case_sensitive: false
+        config:
+          ignore_case: true
     then_rules:
-      q12_version:
-        type: EXACT_MATCH
-        question_id: "q12_version"
-        correct_answer: "3.x"
+      - type: EXACT_MATCH
+        question_id: q12_version
+        answer: "3.x"
         max_points: 5.0
-        case_sensitive: false
-    if_aggregation: "AND"
+        config:
+          ignore_case: true
+    if_mode: and
     description: "If you chose Python, specify the version"
-  
+
   # 9. AssumptionSet: Grade related questions together
   - type: ASSUMPTION_SET
-    question_ids:
-      - q13_calc_a
-      - q13_calc_b
-      - q13_calc_c
-    answer_sets:
-      - name: "Correct calculation path"
-        answers:
-          q13_calc_a:
-            type: EXACT_MATCH
-            question_id: "q13_calc_a"
-            correct_answer: "10"
+    assumptions:
+      - name: "Interpretation A - Classical Mechanics"
+        rules:
+          - type: EXACT_MATCH
+            question_id: q13_calc_a
+            answer: "10"
             max_points: 5.0
-            case_sensitive: false
-          q13_calc_b:
-            type: EXACT_MATCH
-            question_id: "q13_calc_b"
-            correct_answer: "20"
+            config:
+              ignore_case: true
+          - type: EXACT_MATCH
+            question_id: q13_calc_b
+            answer: "20"
             max_points: 5.0
-            case_sensitive: false
-          q13_calc_c:
-            type: EXACT_MATCH
-            question_id: "q13_calc_c"
-            correct_answer: "30"
+            config:
+              ignore_case: true
+          - type: EXACT_MATCH
+            question_id: q13_calc_c
+            answer: "30"
             max_points: 5.0
-            case_sensitive: false
-    mode: "favor_best"
+            config:
+              ignore_case: true
+      - name: "Interpretation B - Quantum Mechanics"
+        rules:
+          - type: EXACT_MATCH
+            question_id: q13_calc_a
+            answer: "potential"
+            max_points: 5.0
+            config:
+              ignore_case: true
+          - type: EXACT_MATCH
+            question_id: q13_calc_b
+            answer: "quantized"
+            max_points: 5.0
+            config:
+              ignore_case: true
+          - type: EXACT_MATCH
+            question_id: q13_calc_c
+            answer: "discrete"
+            max_points: 5.0
+            config:
+              ignore_case: true
+    mode: best
     description: "Multi-step calculation problem"
-  
-  # 10. Programmable: Custom Python logic
+
+  # 10. Programmable: Custom Python logic (code field)
   - type: PROGRAMMABLE
-    question_id: "q14_custom"
-    script: |
+    question_id: q14_custom
+    code: |
       # Custom grading logic
       answer_lower = answer.strip().lower()
       word_count = len(answer.split())
@@ -186,90 +197,110 @@ rules:
           points_awarded = 0.0
           feedback = "Answer too brief"
     max_points: 10.0
-    timeout_ms: 5000
     description: "Explain the concept (graded by length and depth)"
-  
-  # 11. Composite: Combine multiple rules with logical operators
+
+  - type: PROGRAMMABLE
+    question_id: q7_numeric_script
+    code: |
+      try:
+          student_value = float(answer.strip())
+          correct_value = 42.5
+          tolerance = 0.5
+          
+          if abs(student_value - correct_value) <= tolerance:
+              points_awarded = 5.0
+              feedback = f'Correct! ({student_value} is within tolerance of {correct_value})'
+          else:
+              diff = abs(student_value - correct_value)
+              if diff <= 2.0:
+                  points_awarded = 3.0
+                  feedback = f'Close! Off by {diff:.2f}'
+              else:
+                  points_awarded = 0.0
+                  feedback = f'Incorrect. Expected ~{correct_value}, got {student_value}'
+      except ValueError:
+          points_awarded = 0.0
+          feedback = 'Invalid number format'
+    max_points: 5.0
+    description: "Numerical answer with tolerance (script example)"
+
+  # 11. Composite: Combine multiple rules with mode
   - type: COMPOSITE
-    question_id: "q15_essay_graded"
-    mode: "AND"
+    question_id: q15_essay_graded
+    mode: min
     rules:
-      # Student must provide lengthy answer
       - type: LENGTH
-        question_id: "q15_essay_graded"
-        min_words: 100
-        max_words: 500
+        question_id: q15_essay_graded
+        min_length: 100
+        max_length: 500
+        mode: words
         max_points: 10.0
-        deduct_per_violation: 5.0
-      
-      # AND it must contain required keywords
       - type: KEYWORD
-        question_id: "q15_essay_graded"
-        required_keywords:
+        question_id: q15_essay_graded
+        keywords:
           - "climate change"
           - "carbon emissions"
           - "renewable energy"
-        points_per_required: 5.0
+        mode: all
+        max_points: 15.0
     description: "Essay must meet length AND keyword requirements"
-  
+
   - type: COMPOSITE
-    question_id: "q16_flexible"
-    mode: "OR"
+    question_id: q16_flexible
+    mode: max
     rules:
-      # Accept either exact match
       - type: EXACT_MATCH
-        question_id: "q16_flexible"
-        correct_answer: "United States"
+        question_id: q16_flexible
+        answer: "United States"
         max_points: 5.0
-        case_sensitive: false
-      
-      # OR a similar variant
+        config:
+          ignore_case: true
       - type: EXACT_MATCH
-        question_id: "q16_flexible"
-        correct_answer: "USA"
+        question_id: q16_flexible
+        answer: "USA"
         max_points: 5.0
-        case_sensitive: false
-      
-      # OR the abbreviation
+        config:
+          ignore_case: true
       - type: EXACT_MATCH
-        question_id: "q16_flexible"
-        correct_answer: "US"
+        question_id: q16_flexible
+        answer: "US"
         max_points: 5.0
-        case_sensitive: false
+        config:
+          ignore_case: true
     description: "Accept multiple valid answers for the same question"
-  
-  # Nested composite rules
+
+  # Nested composite rules (content + similarity)
   - type: COMPOSITE
-    question_id: "q17_research"
-    mode: "WEIGHTED"
-    weights: [0.6, 0.4]
+    question_id: q17_research
+    mode: average
     rules:
-      # 60% from content quality
       - type: COMPOSITE
-        question_id: "q17_research"
-        mode: "AND"
+        question_id: q17_research
+        mode: average
         rules:
           - type: LENGTH
-            question_id: "q17_research"
-            min_words: 200
-            max_words: 1000
+            question_id: q17_research
+            min_length: 200
+            max_length: 1000
+            mode: words
             max_points: 20.0
-          
           - type: KEYWORD
-            question_id: "q17_research"
-            required_keywords:
-              - "methodology"
-              - "results"
-              - "conclusion"
-            points_per_required: 10.0
-      
-      # 40% from style
+            question_id: q17_research
+            keywords:
+              - methodology
+              - results
+              - conclusion
+            mode: partial
+            max_points: 10.0
       - type: SIMILARITY
-        question_id: "q17_research"
-        reference_answers:
-          - "A well-structured research paper with clear methodology, comprehensive results, and insightful conclusions"
-        algorithm: "jaro_winkler"
+        question_id: q17_research
+        reference: "A well-structured research paper with clear methodology, comprehensive results, and insightful conclusions"
         threshold: 0.6
-        partial_credit: true
         max_points: 20.0
-    description: "Research paper graded on content (60%) and style (40%)"
+        config:
+          algorithm: jaro_winkler
+    description: "Research paper graded on content and style"
+
+metadata:
+  source: examples
+  generated_for: tests

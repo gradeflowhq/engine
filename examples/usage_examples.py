@@ -15,6 +15,8 @@ from gradeflow_engine import (
     save_results_yaml,
 )
 from gradeflow_engine.io import export_canvas_csv, save_results_csv
+from gradeflow_engine.models import GradeOutput
+from gradeflow_engine.rules.base import TextRuleConfig
 
 
 def example_1_basic_usage():
@@ -29,23 +31,23 @@ def example_1_basic_usage():
         rules=[
             ConditionalRule(
                 type="CONDITIONAL",
-                if_rules={
-                    "Q1": ExactMatchRule(
+                if_rules=[
+                    ExactMatchRule(
                         question_id="Q1",
-                        correct_answer="A",
+                        answer="A",
                         max_points=0,
-                        case_sensitive=False,
+                        config=TextRuleConfig(ignore_case=True),
                     )
-                },
-                then_rules={
-                    "Q2": ExactMatchRule(
+                ],
+                then_rules=[
+                    ExactMatchRule(
                         question_id="Q2",
-                        correct_answer="B",
+                        answer="B",
                         max_points=10.0,
-                        case_sensitive=False,
+                        config=TextRuleConfig(ignore_case=True),
                     )
-                },
-                if_aggregation="AND",
+                ],
+                if_mode="and",
             )
         ],
     )
@@ -104,7 +106,7 @@ def example_2_load_from_files():
     return results
 
 
-def example_3_export_results(results):
+def example_3_export_results(results: GradeOutput):
     """Example 3: Export results to various formats."""
     print("=" * 60)
     print("Example 3: Export Results")
@@ -153,7 +155,7 @@ def example_5_programmable_grading():
             ProgrammableRule(
                 type="PROGRAMMABLE",
                 question_id="essay",
-                script="""
+                code="""
 # Check for keywords
 keywords = ['python', 'programming', 'code']
 found = sum(1 for k in keywords if k in answer.lower())

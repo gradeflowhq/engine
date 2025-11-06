@@ -18,48 +18,36 @@ def process_exact_match(rule: "ExactMatchRule", submission: "Submission") -> "Gr
     """
     Apply an exact match rule to grade a submission.
 
-    Args:
-        rule: The ExactMatch rule to apply
-        submission: The student's submission
-
-    Returns:
-        GradeDetail with points awarded and feedback
+    Returns GradeDetail with max_points awarded and feedback.
     """
     # Import here to avoid circular dependency
-    from ..base import create_grade_detail, get_student_answer
+    from ..base import create_grade_detail, preprocess_text
 
-    logger.debug(f"Processing exact_match for question {rule.question_id}")
+    logger.debug("Processing exact_match for question %s", rule.question_id)
 
-    student_answer = get_student_answer(submission, rule.question_id, strip=rule.trim_whitespace)
+    student_answer_raw = submission.answers.get(rule.question_id, "")
 
-    # Apply transformations to both answers
-    correct = rule.correct_answer
-    student = student_answer
+    # normalize both answers consistently
+    correct_normalized = preprocess_text(rule.answer, rule.config)
+    student_normalized = preprocess_text(student_answer_raw, rule.config)
 
-    if rule.trim_whitespace:
-        correct = correct.strip()
-        # student already stripped by get_student_answer
-
-    if not rule.case_sensitive:
-        correct = correct.lower()
-        student = student.lower()
-
-    # Compare
-    is_correct = student == correct
+    is_correct = student_normalized == correct_normalized
     points_awarded = rule.max_points if is_correct else 0.0
 
     logger.debug(
-        f"Question {rule.question_id}: "
-        f"{'MATCH' if is_correct else 'NO MATCH'} - "
-        f"{points_awarded}/{rule.max_points} points"
+        "Question %s: %s - %s/%s max_points",
+        rule.question_id,
+        "MATCH" if is_correct else "NO MATCH",
+        points_awarded,
+        rule.max_points,
     )
 
-    feedback = "✓ Correct" if is_correct else f"✗ Expected: {rule.correct_answer}"
+    feedback = "✓ Correct" if is_correct else f"✗ Expected: {rule.answer}"
 
     return create_grade_detail(
         question_id=rule.question_id,
-        student_answer=student_answer,
-        correct_answer=rule.correct_answer,
+        student_answer=student_answer_raw,
+        correct_answer=rule.answer,
         points_awarded=points_awarded,
         max_points=rule.max_points,
         is_correct=is_correct,

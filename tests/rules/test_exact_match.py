@@ -3,6 +3,7 @@ Tests for ExactMatchRule grading logic.
 """
 
 from gradeflow_engine import ExactMatchRule, Rubric, Submission, grade
+from gradeflow_engine.rules.base import TextRuleConfig
 from gradeflow_engine.schema import (
     AssessmentSchema,
     ChoiceQuestionSchema,
@@ -18,9 +19,9 @@ class TestExactMatchRule:
         """Test case-insensitive exact matching."""
         rule = ExactMatchRule(
             question_id="q1",
-            correct_answer="Paris",
+            answer="Paris",
             max_points=10.0,
-            case_sensitive=False,
+            config=TextRuleConfig(ignore_case=True),
         )
         rubric = Rubric(name="Test", rules=[rule])
         # Should match regardless of case
@@ -35,9 +36,9 @@ class TestExactMatchRule:
         """Test case-sensitive exact matching."""
         rule = ExactMatchRule(
             question_id="q1",
-            correct_answer="Paris",
+            answer="Paris",
             max_points=10.0,
-            case_sensitive=True,
+            config=TextRuleConfig(ignore_case=False),
         )
         rubric = Rubric(name="Test", rules=[rule])
         # Exact case match
@@ -52,9 +53,9 @@ class TestExactMatchRule:
         """Test whitespace trimming."""
         rule = ExactMatchRule(
             question_id="q1",
-            correct_answer="Paris",
+            answer="Paris",
             max_points=10.0,
-            trim_whitespace=True,
+            config=TextRuleConfig(trim_whitespace=True),
         )
         rubric = Rubric(name="Test", rules=[rule])
         result = grade(rubric, [Submission(student_id="s1", answers={"q1": "  Paris  "})])
@@ -62,9 +63,7 @@ class TestExactMatchRule:
 
     def test_unicode_in_answers(self):
         """Test Unicode characters in answers."""
-        rule = ExactMatchRule(
-            question_id="q1", correct_answer="café", max_points=10.0, description="Unicode test"
-        )
+        rule = ExactMatchRule(question_id="q1", answer="café", max_points=10.0)
         rubric = Rubric(name="Test", rules=[rule])
         result = grade(rubric, [Submission(student_id="s1", answers={"q1": "café"})])
         assert result.results[0].total_points == 10.0
@@ -73,10 +72,9 @@ class TestExactMatchRule:
         """Test emoji in answers."""
         rule = ExactMatchRule(
             question_id="q1",
-            correct_answer="Hello 👋",
+            answer="Hello 👋",
             max_points=5.0,
-            case_sensitive=False,
-            description="Emoji test",
+            config=TextRuleConfig(ignore_case=True),
         )
         rubric = Rubric(name="Test", rules=[rule])
         result = grade(rubric, [Submission(student_id="s1", answers={"q1": "hello 👋"})])
@@ -86,9 +84,8 @@ class TestExactMatchRule:
         """Test that internal whitespace is preserved."""
         rule = ExactMatchRule(
             question_id="q1",
-            correct_answer="New York",
+            answer="New York",
             max_points=10.0,
-            description="Internal whitespace",
         )
         rubric = Rubric(name="Test", rules=[rule])
         result = grade(rubric, [Submission(student_id="s1", answers={"q1": "New York"})])
@@ -98,10 +95,9 @@ class TestExactMatchRule:
         """Test handling of tabs and newlines in trimming."""
         rule = ExactMatchRule(
             question_id="q1",
-            correct_answer="Answer",
+            answer="Answer",
             max_points=10.0,
-            trim_whitespace=True,
-            description="Tab/newline test",
+            config=TextRuleConfig(trim_whitespace=True),
         )
         rubric = Rubric(name="Test", rules=[rule])
         result = grade(rubric, [Submission(student_id="s1", answers={"q1": "\tAnswer\n"})])
@@ -115,9 +111,8 @@ class TestExactMatchSchemaValidation:
         """Test that ExactMatchRule validates correctly against TEXT schema."""
         rule = ExactMatchRule(
             question_id="q1",
-            correct_answer="Paris",
+            answer="Paris",
             max_points=10.0,
-            description="Text question",
         )
         schema = AssessmentSchema(
             name="Test",
@@ -133,9 +128,8 @@ class TestExactMatchSchemaValidation:
         """Test that ExactMatchRule rejects CHOICE schema."""
         rule = ExactMatchRule(
             question_id="q1",
-            correct_answer="A",
+            answer="A",
             max_points=10.0,
-            description="Choice question",
         )
         schema = AssessmentSchema(
             name="Test",
@@ -154,9 +148,8 @@ class TestExactMatchSchemaValidation:
         """Test that ExactMatchRule rejects NUMERIC schema."""
         rule = ExactMatchRule(
             question_id="q1",
-            correct_answer="42",
+            answer="42",
             max_points=10.0,
-            description="Numeric question",
         )
         schema = AssessmentSchema(
             name="Test",

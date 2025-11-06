@@ -40,8 +40,8 @@ class TestEndToEndGrading:
         rubric = Rubric(
             name="Simple Quiz",
             rules=[
-                ExactMatchRule(question_id="q1", correct_answer="Paris", max_points=10.0),
-                ExactMatchRule(question_id="q2", correct_answer="London", max_points=10.0),
+                ExactMatchRule(question_id="q1", answer="Paris", max_points=10.0),
+                ExactMatchRule(question_id="q2", answer="London", max_points=10.0),
                 NumericRangeRule(question_id="q3", min_value=40.0, max_value=44.0, max_points=15.0),
             ],
         )
@@ -77,23 +77,23 @@ class TestEndToEndGrading:
         rubric = Rubric(
             name="Conditional Quiz",
             rules=[
-                ExactMatchRule(question_id="q1", correct_answer="A", max_points=5.0),
+                ExactMatchRule(question_id="q1", answer="A", max_points=5.0),
                 ConditionalRule(
-                    if_rules={
-                        "q1": ExactMatchRule(
+                    if_rules=[
+                        ExactMatchRule(
                             question_id="q1",
-                            correct_answer="A",
+                            answer="A",
                             max_points=1.0,
                         )
-                    },
-                    then_rules={
-                        "q2": ExactMatchRule(
+                    ],
+                    if_mode="and",
+                    then_rules=[
+                        ExactMatchRule(
                             question_id="q2",
-                            correct_answer="B",
+                            answer="B",
                             max_points=10.0,
                         )
-                    },
-                    description="If q1 is A, then q2 should be B",
+                    ],
                 ),
             ],
         )
@@ -119,18 +119,19 @@ class TestEndToEndGrading:
             rules=[
                 CompositeRule(
                     question_id="essay",
-                    mode="WEIGHTED",
-                    weights=[0.5, 0.5],
+                    mode="average",
                     rules=[
                         KeywordRule(
                             question_id="essay",
-                            required_keywords=["python", "programming"],
-                            points_per_required=5.0,
+                            keywords=["python", "programming"],
+                            mode="partial",
+                            max_points=10.0,
                         ),
                         LengthRule(
                             question_id="essay",
-                            min_words=20,
-                            max_words=100,
+                            min_length=20,
+                            max_length=100,
+                            mode="words",
                             max_points=10.0,
                         ),
                     ],
@@ -168,7 +169,7 @@ name: Test Rubric
 rules:
   - type: EXACT_MATCH
     question_id: q1
-    correct_answer: Paris
+    answer: Paris
     max_points: 10.0
     case_sensitive: false
   - type: NUMERIC_RANGE
@@ -218,12 +219,13 @@ name: Integration Test Rubric
 rules:
   - type: EXACT_MATCH
     question_id: capital_france
-    correct_answer: Paris
+    answer: Paris
     max_points: 10.0
   - type: KEYWORD
     question_id: essay
-    required_keywords: ["python", "programming"]
-    points_per_required: 5.0
+    keywords: ["python", "programming"]
+    mode: partial
+    max_points: 10.0
 """
         rubric_file = tmp_path / "rubric.yaml"
         rubric_file.write_text(rubric_yaml)
@@ -272,11 +274,11 @@ class TestMultipleRulesPerQuestion:
         rubric = Rubric(
             name="Multi-Rule Test",
             rules=[
-                ExactMatchRule(question_id="q1", correct_answer="Paris", max_points=10.0),
-                KeywordRule(
-                    question_id="q1", required_keywords=["capital"], required_points_per_keyword=5.0
+                ExactMatchRule(question_id="q1", answer="Paris", max_points=10.0),
+                KeywordRule(question_id="q1", keywords=["capital"], mode="partial", max_points=5.0),
+                LengthRule(
+                    question_id="q1", min_length=3, max_length=10, mode="characters", max_points=3.0
                 ),
-                LengthRule(question_id="q1", min_chars=3, max_chars=10, max_points=3.0),
             ],
         )
 
@@ -291,7 +293,7 @@ class TestMultipleRulesPerQuestion:
         rubric = Rubric(
             name="Large Rubric",
             rules=[
-                ExactMatchRule(question_id=f"q{i}", correct_answer=f"answer{i}", max_points=5.0)
+                ExactMatchRule(question_id=f"q{i}", answer=f"answer{i}", max_points=5.0)
                 for i in range(10)
             ],
         )
@@ -317,7 +319,7 @@ class TestEdgeCasesIntegration:
         """Test grading with no submissions."""
         rubric = Rubric(
             name="Test",
-            rules=[ExactMatchRule(question_id="q1", correct_answer="A", max_points=10.0)],
+            rules=[ExactMatchRule(question_id="q1", answer="A", max_points=10.0)],
         )
 
         results = grade(rubric, [])
@@ -330,8 +332,8 @@ class TestEdgeCasesIntegration:
         rubric = Rubric(
             name="Test",
             rules=[
-                ExactMatchRule(question_id="q1", correct_answer="A", max_points=10.0),
-                ExactMatchRule(question_id="q2", correct_answer="B", max_points=10.0),
+                ExactMatchRule(question_id="q1", answer="A", max_points=10.0),
+                ExactMatchRule(question_id="q2", answer="B", max_points=10.0),
             ],
         )
 
@@ -346,7 +348,7 @@ class TestEdgeCasesIntegration:
         """Test submission with answers to questions not in rubric."""
         rubric = Rubric(
             name="Test",
-            rules=[ExactMatchRule(question_id="q1", correct_answer="A", max_points=10.0)],
+            rules=[ExactMatchRule(question_id="q1", answer="A", max_points=10.0)],
         )
 
         submission = Submission(
@@ -364,9 +366,9 @@ class TestEdgeCasesIntegration:
         rubric = Rubric(
             name="Test Unicode",
             rules=[
-                ExactMatchRule(question_id="q1", correct_answer="París", max_points=10.0),
+                ExactMatchRule(question_id="q1", answer="París", max_points=10.0),
                 KeywordRule(
-                    question_id="q2", required_keywords=["日本", "中国"], points_per_required=5.0
+                    question_id="q2", keywords=["日本", "中国"], mode="partial", max_points=10.0
                 ),
             ],
         )
@@ -385,9 +387,15 @@ class TestEdgeCasesIntegration:
         rubric = Rubric(
             name="Test Large Text",
             rules=[
-                LengthRule(question_id="essay", min_words=100, max_words=500, max_points=20.0),
+                LengthRule(
+                    question_id="essay",
+                    min_length=100,
+                    max_length=500,
+                    mode="words",
+                    max_points=20.0,
+                ),
                 KeywordRule(
-                    question_id="essay", required_keywords=["important"], points_per_required=5.0
+                    question_id="essay", keywords=["important"], mode="partial", max_points=5.0
                 ),
             ],
         )
@@ -411,41 +419,42 @@ class TestComplexScenarios:
             name="Progressive Quiz",
             rules=[
                 # Basic question
-                ExactMatchRule(question_id="q1_basics", correct_answer="yes", max_points=5.0),
+                ExactMatchRule(question_id="q1_basics", answer="yes", max_points=5.0),
                 # If they got basics right, check advanced (just checks for specific keyword)
                 ConditionalRule(
-                    if_rules={
-                        "q1_basics": ExactMatchRule(
+                    if_rules=[
+                        ExactMatchRule(
                             question_id="q1_basics",
-                            correct_answer="yes",
+                            answer="yes",
                             max_points=1.0,
                         )
-                    },
-                    then_rules={
-                        "q2_code": ExactMatchRule(
+                    ],
+                    if_mode="and",
+                    then_rules=[
+                        ExactMatchRule(
                             question_id="q2_code",
-                            correct_answer="function",
+                            answer="function",
                             max_points=10.0,
                         )
-                    },
+                    ],
                 ),
                 # Separately grade an essay question with composite rules
                 CompositeRule(
                     question_id="q3_essay",
-                    mode="WEIGHTED",
-                    weights=[0.5, 0.5],
+                    mode="average",
                     rules=[
                         LengthRule(
                             question_id="q3_essay",
-                            min_words=20,
-                            max_words=100,
+                            min_length=20,
+                            max_length=100,
+                            mode="words",
                             max_points=10.0,
                         ),
                         KeywordRule(
                             question_id="q3_essay",
-                            optional_keywords=["analysis", "detailed", "comprehensive"],
-                            points_per_optional=2.0,
-                            max_optional_points=6.0,
+                            keywords=["analysis", "detailed", "comprehensive"],
+                            mode="partial",
+                            max_points=6.0,
                         ),
                     ],
                 ),
@@ -487,7 +496,7 @@ class TestComplexScenarios:
         rubric = Rubric(
             name="Batch Test",
             rules=[
-                ExactMatchRule(question_id="q1", correct_answer="A", max_points=10.0),
+                ExactMatchRule(question_id="q1", answer="A", max_points=10.0),
                 NumericRangeRule(question_id="q2", min_value=45.0, max_value=55.0, max_points=10.0),
             ],
         )
@@ -524,7 +533,7 @@ class TestMetadataHandling:
         """Test that rubric metadata is preserved."""
         rubric = Rubric(
             name="Test",
-            rules=[ExactMatchRule(question_id="q1", correct_answer="A", max_points=10.0)],
+            rules=[ExactMatchRule(question_id="q1", answer="A", max_points=10.0)],
             metadata={"version": "2.0", "author": "Test Author", "tags": ["test", "demo"]},
         )
 
@@ -539,7 +548,7 @@ class TestMetadataHandling:
         """Test that submission metadata is preserved."""
         rubric = Rubric(
             name="Test",
-            rules=[ExactMatchRule(question_id="q1", correct_answer="A", max_points=10.0)],
+            rules=[ExactMatchRule(question_id="q1", answer="A", max_points=10.0)],
         )
 
         submission = Submission(
@@ -556,7 +565,7 @@ class TestMetadataHandling:
         """Test adding metadata to output."""
         rubric = Rubric(
             name="Test",
-            rules=[ExactMatchRule(question_id="q1", correct_answer="A", max_points=10.0)],
+            rules=[ExactMatchRule(question_id="q1", answer="A", max_points=10.0)],
         )
 
         submission = Submission(student_id="s1", answers={"q1": "A"})
@@ -577,8 +586,10 @@ class TestMultipleRules:
         rubric = Rubric(
             name="Test",
             rules=[
-                ExactMatchRule(question_id="q1", correct_answer="Paris", max_points=5.0),
-                LengthRule(question_id="q1", min_chars=3, max_chars=10, max_points=3.0),
+                ExactMatchRule(question_id="q1", answer="Paris", max_points=5.0),
+                LengthRule(
+                    question_id="q1", min_length=3, max_length=10, mode="characters", max_points=3.0
+                ),
             ],
         )
         result = grade(rubric, [Submission(student_id="s1", answers={"q1": "Paris"})])
@@ -589,9 +600,9 @@ class TestMultipleRules:
         rubric = Rubric(
             name="Test",
             rules=[
-                ExactMatchRule(question_id="q1", correct_answer="Paris", max_points=10.0),
-                ExactMatchRule(question_id="q2", correct_answer="London", max_points=15.0),
-                ExactMatchRule(question_id="q3", correct_answer="Berlin", max_points=20.0),
+                ExactMatchRule(question_id="q1", answer="Paris", max_points=10.0),
+                ExactMatchRule(question_id="q2", answer="London", max_points=15.0),
+                ExactMatchRule(question_id="q3", answer="Berlin", max_points=20.0),
             ],
         )
         result = grade(

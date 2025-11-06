@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from rapidfuzz import fuzz
@@ -13,6 +14,50 @@ if TYPE_CHECKING:
     from .model import SimilarityRule
 
 logger = logging.getLogger(__name__)
+
+
+def format_similarity_feedback(similarity: float, threshold: float) -> str:
+    """
+    Format feedback for similarity-based grading.
+
+    Args:
+        similarity: Similarity score (0-1)
+        threshold: Threshold for passing
+
+    Returns:
+        Formatted feedback string
+    """
+    if similarity >= threshold:
+        return f"✓ Match: {similarity:.0%} (threshold: {threshold:.0%})"
+    return f"✗ Insufficient similarity: {similarity:.0%} < {threshold:.0%}"
+
+
+def _select_similarity_func(algorithm: str) -> Callable[[str, str], float]:
+    """
+    Return a function that computes a normalized similarity in [0.0, 1.0]
+    for the given algorithm name.
+    """
+    alg = (algorithm or "levenshtein").lower()
+
+    if alg == "levenshtein":
+        return lambda a, b: Levenshtein.normalized_similarity(a, b)
+    if alg == "jaro_winkler":
+        return lambda a, b: JaroWinkler.normalized_similarity(a, b)
+    if alg == "token_sort":
+        return lambda a, b: fuzz.token_sort_ratio(a, b) / 100.0
+
+    # default fallback
+    return lambda a, b: Levenshtein.normalized_similarity(a, b)
+
+
+def _compute_similarity(a: str, b: str, algorithm: str) -> float:
+    """Compute similarity between two pre-normalized strings using algorithm."""
+    func = _select_similarity_func(algorithm)
+    try:
+        return float(func(a, b))
+    except Exception:
+        logger.exception("Error computing similarity using %s", algorithm)
+        return 0.0
 
 
 def process_similarity(rule: "SimilarityRule", submission: "Submission") -> "GradeDetail | None":
@@ -26,80 +71,53 @@ def process_similarity(rule: "SimilarityRule", submission: "Submission") -> "Gra
         submission: The student's submission
 
     Returns:
-        GradeDetail with points awarded and feedback
+        GradeDetail with max_points awarded and feedback
     """
     # Import here to avoid circular dependency
-    from ..base import create_grade_detail, get_student_answer
+    from ..base import create_grade_detail, preprocess_text
 
-    logger.debug(f"Processing similarity for question {rule.question_id} using {rule.algorithm}")
+    logger.debug(
+        f"Processing similarity for question {rule.question_id} using {rule.config.algorithm}"
+    )
 
-    student_answer = get_student_answer(submission, rule.question_id, strip=True)
+    # Get raw student answer (keep existing get_student_answer usage / semantics)
+    student_answer_raw = submission.answers.get(rule.question_id, "")
 
-    # Apply case sensitivity
-    if not rule.case_sensitive:
-        student_answer_check = student_answer.lower()
-        reference_answers = [ref.lower() for ref in rule.reference_answers]
+    # Normalize both student answer and reference using rule.config
+    student_answer_norm = preprocess_text(student_answer_raw, rule.config)
+    reference_norm = preprocess_text(rule.reference, rule.config)
+
+    # If both are empty, treat as exact match
+    if not student_answer_norm and not reference_norm:
+        similarity = 1.0
     else:
-        student_answer_check = student_answer
-        reference_answers = rule.reference_answers
+        similarity = _compute_similarity(student_answer_norm, reference_norm, rule.config.algorithm)
 
-    # Calculate maximum similarity against all reference answers
-    max_similarity = 0.0
-    best_reference = reference_answers[0] if reference_answers else ""
+    logger.debug("Computed similarity: %.2f (threshold: %.2f)", similarity, rule.threshold)
 
-    for ref_answer in reference_answers:
-        ref_answer = ref_answer.strip()
-
-        if rule.algorithm == "levenshtein":
-            similarity = Levenshtein.normalized_similarity(student_answer_check, ref_answer)
-        elif rule.algorithm == "jaro_winkler":
-            similarity = JaroWinkler.normalized_similarity(student_answer_check, ref_answer)
-        elif rule.algorithm == "token_sort":
-            similarity = fuzz.token_sort_ratio(student_answer_check, ref_answer) / 100.0
-        else:
-            # Default to Levenshtein
-            similarity = Levenshtein.normalized_similarity(student_answer_check, ref_answer)
-
-        if similarity > max_similarity:
-            max_similarity = similarity
-            best_reference = ref_answer
-
-    logger.debug(f"Best similarity: {max_similarity:.2%} (threshold: {rule.threshold:.0%})")
-
-    # Award points based on similarity threshold
-    if max_similarity >= rule.threshold:
-        if rule.partial_credit:
-            # Linear interpolation between threshold and 1.0
-            if max_similarity >= 1.0:
-                points_awarded = rule.max_points
-            else:
-                # Scale points based on how close to perfect match
-                # Range: [threshold, 1.0] -> [partial_credit_min * max_points, max_points]
-                points_awarded = rule.max_points * (
-                    rule.partial_credit_min
-                    + (1.0 - rule.partial_credit_min)
-                    * ((max_similarity - rule.threshold) / (1.0 - rule.threshold))
-                )
-        else:
-            points_awarded = rule.max_points
-
-        is_correct = max_similarity >= 0.95
-        feedback = f"✓ Match: {max_similarity:.0%} (threshold: {rule.threshold:.0%})"
+    if similarity >= rule.threshold:
+        points_awarded = rule.max_points
+        is_correct = similarity >= 0.95
+        feedback = format_similarity_feedback(similarity, rule.threshold)
         logger.debug(
-            f"Question {rule.question_id}: PASS - {points_awarded}/{rule.max_points} points"
+            "Question %s: PASS - %s/%s max_points",
+            rule.question_id,
+            points_awarded,
+            rule.max_points,
         )
     else:
         points_awarded = 0.0
         is_correct = False
-        feedback = f"✗ Insufficient similarity: {max_similarity:.0%} < {rule.threshold:.0%}"
-        logger.debug(f"Question {rule.question_id}: FAIL - below threshold")
+        feedback = format_similarity_feedback(similarity, rule.threshold)
+        logger.debug("Question %s: FAIL - below threshold", rule.question_id)
 
     return create_grade_detail(
         question_id=rule.question_id,
-        student_answer=student_answer,
-        correct_answer=best_reference,
+        student_answer=student_answer_raw,
+        correct_answer=rule.reference,
         points_awarded=points_awarded,
         max_points=rule.max_points,
         is_correct=is_correct,
         feedback=feedback,
+        rule_applied=getattr(rule, "type", None),
     )

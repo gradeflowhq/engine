@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 
 @lru_cache(maxsize=256)
-def _compile_regex(pattern: str, flags: int) -> Pattern:
+def _compile_regex(pattern: str, flags: int) -> Pattern[str]:
     """
     Compile and cache regex patterns for performance.
 
@@ -33,105 +33,63 @@ def _compile_regex(pattern: str, flags: int) -> Pattern:
     return re.compile(pattern, flags)
 
 
+def _build_regex_flags_from_rule(rule: "RegexRule") -> int:
+    """
+    Build regex flags from the rule.config. Assumes the model guarantees
+    the presence and types of the config fields (no legacy fallbacks).
+    """
+    cfg = rule.config
+    flags = 0
+    if cfg.ignore_case:
+        flags |= re.IGNORECASE
+    if cfg.multi_line:
+        flags |= re.MULTILINE
+    if cfg.dotall:
+        flags |= re.DOTALL
+    return flags
+
+
+def _search_pattern(pattern: str, text: str, flags: int) -> bool:
+    """Compile (cached) the pattern with flags and search the text."""
+    compiled = _compile_regex(pattern, flags)
+    return compiled.search(text) is not None
+
+
 def process_regex(rule: "RegexRule", submission: "Submission") -> "GradeDetail | None":
     """
-    Apply a regex-based grading rule to grade a submission.
+    Apply a single-pattern regex rule to a submission.
 
-    Uses LRU cache for compiled patterns to improve performance when
-    grading multiple submissions with the same rubric.
-
-    Args:
-        rule: The Regex rule to apply
-        submission: The student's submission
-
-    Returns:
-        GradeDetail with points awarded and feedback
+    Assumptions:
+    - RegexRule.pattern and RegexRule.config are present and validated by the model.
+    - Use submission.answers directly to avoid circular imports.
     """
-    # Import here to avoid circular dependency
-    from ..base import create_grade_detail, get_student_answer
+    # Import factory here to avoid circular dependency at module import time
+    from ..base import create_grade_detail
 
-    student_answer = get_student_answer(submission, rule.question_id, strip=False)
+    # Safely get the student's answer for the question (default to empty string)
+    student_answer = submission.answers.get(rule.question_id, "") or ""
 
-    # Build regex flags
-    flags = 0
-    if not rule.case_sensitive:
-        flags |= re.IGNORECASE
-    if rule.multiline:
-        flags |= re.MULTILINE
-    if rule.dotall:
-        flags |= re.DOTALL
+    # Build flags from the rule config (model guarantees fields)
+    flags = _build_regex_flags_from_rule(rule)
 
-    # Check each pattern (using cached compiled patterns)
-    matches = []
-    matched_patterns = []
-    for _i, pattern in enumerate(rule.patterns):
-        try:
-            compiled_pattern = _compile_regex(pattern, flags)
-            match = compiled_pattern.search(student_answer)
-            matches.append(match is not None)
-            if match:
-                matched_patterns.append(pattern)
-        except re.error as e:
-            # Invalid regex pattern
-            return create_grade_detail(
-                question_id=rule.question_id,
-                student_answer=student_answer,
-                correct_answer=None,
-                points_awarded=0.0,
-                max_points=rule.max_points,
-                is_correct=False,
-                feedback=f"✗ Invalid regex pattern '{pattern}': {str(e)}",
-            )
+    # Try to compile/search; model validation should prevent errors but handle defensively
+    try:
+        matched = _search_pattern(rule.pattern, student_answer, flags)
+    except re.error as e:
+        return create_grade_detail(
+            question_id=rule.question_id,
+            student_answer=student_answer,
+            correct_answer=None,
+            points_awarded=0.0,
+            max_points=rule.max_points,
+            is_correct=False,
+            feedback=f"✗ Invalid regex pattern '{rule.pattern}': {e}",
+            rule_applied=rule.type,
+        )
 
-    # Calculate points based on match mode
-    points_awarded = 0.0
-    is_correct = False
-
-    if rule.match_mode == "all":
-        # All patterns must match
-        if all(matches):
-            points_awarded = rule.max_points
-            is_correct = True
-        elif rule.partial_credit:
-            # Award partial credit
-            if isinstance(rule.points_per_match, list):
-                points_awarded = sum(
-                    rule.points_per_match[i] for i, matched in enumerate(matches) if matched
-                )
-            else:
-                points_awarded = sum(matches) * rule.points_per_match
-
-    elif rule.match_mode == "any":
-        # Any pattern match awards points
-        if any(matches):
-            if isinstance(rule.points_per_match, list):
-                points_awarded = max(
-                    rule.points_per_match[i] for i, matched in enumerate(matches) if matched
-                )
-            else:
-                points_awarded = rule.points_per_match
-            is_correct = True
-
-    elif rule.match_mode == "count":
-        # Award points for each match
-        if isinstance(rule.points_per_match, list):
-            points_awarded = sum(
-                rule.points_per_match[i] for i, matched in enumerate(matches) if matched
-            )
-        else:
-            points_awarded = sum(matches) * rule.points_per_match
-        is_correct = sum(matches) == len(rule.patterns)
-
-    # Build improved feedback
-    match_count = sum(matches)
-    total_patterns = len(rule.patterns)
-
-    if match_count == total_patterns:
-        feedback = f"✓ Matched all {total_patterns} pattern(s)"
-    elif match_count > 0:
-        feedback = f"Partial: matched {match_count}/{total_patterns} pattern(s)"
-    else:
-        feedback = "✗ No patterns matched"
+    points_awarded = float(rule.max_points) if matched else 0.0
+    is_correct = bool(matched)
+    feedback = "✓ Pattern matched" if matched else "✗ Pattern did not match"
 
     return create_grade_detail(
         question_id=rule.question_id,
@@ -141,4 +99,5 @@ def process_regex(rule: "RegexRule", submission: "Submission") -> "GradeDetail |
         max_points=rule.max_points,
         is_correct=is_correct,
         feedback=feedback,
+        rule_applied=rule.type,
     )

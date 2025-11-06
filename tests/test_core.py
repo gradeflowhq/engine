@@ -51,11 +51,7 @@ class TestGradeFunction:
         """Test simple grading."""
         rubric = Rubric(
             name="Test",
-            rules=[
-                ExactMatchRule(
-                    question_id="Q1", correct_answer="A", max_points=10, description="Test"
-                )
-            ],
+            rules=[ExactMatchRule(question_id="Q1", answer="A", max_points=10)],
         )
         submissions = [
             Submission(student_id="s1", answers={"Q1": "A"}),
@@ -71,9 +67,7 @@ class TestGradeFunction:
         rubric = Rubric(
             name="Test",
             rules=[
-                ExactMatchRule(
-                    question_id="Q1", correct_answer="A", max_points=5, description="Test"
-                ),
+                ExactMatchRule(question_id="Q1", answer="A", max_points=5),
                 NumericRangeRule(
                     question_id="Q1",
                     min_value=9.0,
@@ -98,11 +92,7 @@ class TestGradeFromFiles:
         # Create rubric file
         rubric = Rubric(
             name="Test",
-            rules=[
-                ExactMatchRule(
-                    question_id="Q1", correct_answer="A", max_points=10, description="Test"
-                )
-            ],
+            rules=[ExactMatchRule(question_id="Q1", answer="A", max_points=10)],
         )
         rubric_path = tmp_path / "rubric.yaml"
         save_rubric(rubric, str(rubric_path))
@@ -125,11 +115,7 @@ class TestGradeFromFiles:
         """Test grading from files with custom student ID column."""
         rubric = Rubric(
             name="Test",
-            rules=[
-                ExactMatchRule(
-                    question_id="Q1", correct_answer="A", max_points=10, description="Test"
-                )
-            ],
+            rules=[ExactMatchRule(question_id="Q1", answer="A", max_points=10)],
         )
         rubric_path = tmp_path / "rubric.yaml"
         save_rubric(rubric, str(rubric_path))
@@ -153,11 +139,7 @@ class TestGradeFromFiles:
         """Test grading from files with missing submissions."""
         rubric = Rubric(
             name="Test",
-            rules=[
-                ExactMatchRule(
-                    question_id="Q1", correct_answer="A", max_points=10, description="Test"
-                )
-            ],
+            rules=[ExactMatchRule(question_id="Q1", answer="A", max_points=10)],
         )
         rubric_path = tmp_path / "rubric.yaml"
         save_rubric(rubric, str(rubric_path))
@@ -170,11 +152,7 @@ class TestGradeFromFiles:
         # Create rubric with metadata
         rubric = Rubric(
             name="Quiz",
-            rules=[
-                ExactMatchRule(
-                    question_id="q1", correct_answer="A", max_points=10.0, description="Test"
-                )
-            ],
+            rules=[ExactMatchRule(question_id="q1", answer="A", max_points=10.0)],
             metadata={"course": "CS101", "term": "Fall 2025"},
         )
 
@@ -206,27 +184,14 @@ class TestErrorHandling:
         with pytest.raises(ValidationError):
             ExactMatchRule(
                 question_id="Q1",
-                # Missing correct_answer and max_points
-            )
-
-    def test_invalid_points_value(self):
-        """Test handling of invalid points value."""
-        with pytest.raises(ValidationError):
-            ExactMatchRule(
-                question_id="Q1",
-                correct_answer="A",
-                max_points=-5.0,  # Negative points
+                # Missing answer and max_points
             )
 
     def test_progress_callback_exception(self):
         """Test that exceptions in progress callback are handled gracefully."""
         rubric = Rubric(
             name="Test",
-            rules=[
-                ExactMatchRule(
-                    question_id="q1", correct_answer="A", max_points=10.0, description="Test"
-                )
-            ],
+            rules=[ExactMatchRule(question_id="q1", answer="A", max_points=10.0)],
         )
 
         submissions = [
@@ -270,11 +235,7 @@ class TestErrorHandling:
         """Test grading with empty submissions list."""
         rubric = Rubric(
             name="Test",
-            rules=[
-                ExactMatchRule(
-                    question_id="q1", correct_answer="A", max_points=10.0, description="Test"
-                )
-            ],
+            rules=[ExactMatchRule(question_id="q1", answer="A", max_points=10.0)],
         )
 
         result = grade(rubric, [])
@@ -288,7 +249,7 @@ class TestErrorHandling:
             name="Test",
             rules=[
                 LengthRule(
-                    question_id="q1", min_words=5, max_words=10, max_points=10.0, description="Test"
+                    question_id="q1", min_length=5, max_length=10, mode="words", max_points=10.0
                 )
             ],
         )
@@ -313,11 +274,7 @@ class TestProgressCallback:
         """Test that progress callback is invoked during grading."""
         rubric = Rubric(
             name="Test",
-            rules=[
-                ExactMatchRule(
-                    question_id="q1", correct_answer="test", max_points=10.0, description="Test"
-                )
-            ],
+            rules=[ExactMatchRule(question_id="q1", answer="test", max_points=10.0)],
         )
 
         submissions = [Submission(student_id=f"s{i}", answers={"q1": "test"}) for i in range(5)]

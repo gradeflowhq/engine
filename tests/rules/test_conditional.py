@@ -15,20 +15,20 @@ class TestConditionalRule:
     def test_condition_met(self):
         """Test conditional grading when condition is met."""
         rule = ConditionalRule(
-            if_rules={
-                "q1": ExactMatchRule(
+            if_rules=[
+                ExactMatchRule(
                     question_id="q1",
-                    correct_answer="A",
+                    answer="A",
                     max_points=1.0,
                 )
-            },
-            then_rules={
-                "q2": ExactMatchRule(
+            ],
+            then_rules=[
+                ExactMatchRule(
                     question_id="q2",
-                    correct_answer="B",
+                    answer="B",
                     max_points=10.0,
                 )
-            },
+            ],
         )
         rubric = Rubric(name="Test", rules=[rule])
         # Condition met, correct answer
@@ -42,20 +42,20 @@ class TestConditionalRule:
     def test_condition_not_met(self):
         """Test conditional grading when condition is not met."""
         rule = ConditionalRule(
-            if_rules={
-                "q1": ExactMatchRule(
+            if_rules=[
+                ExactMatchRule(
                     question_id="q1",
-                    correct_answer="A",
+                    answer="A",
                     max_points=1.0,
                 )
-            },
-            then_rules={
-                "q2": ExactMatchRule(
+            ],
+            then_rules=[
+                ExactMatchRule(
                     question_id="q2",
-                    correct_answer="B",
+                    answer="B",
                     max_points=10.0,
                 )
-            },
+            ],
         )
         rubric = Rubric(name="Test", rules=[rule])
         # Condition not met - rule doesn't apply
@@ -69,20 +69,20 @@ class TestConditionalSchemaValidation:
     def test_validate_against_schema(self):
         """Test that ConditionalRule validates correctly against schema."""
         rule = ConditionalRule(
-            if_rules={
-                "q1": ExactMatchRule(
+            if_rules=[
+                ExactMatchRule(
                     question_id="q1",
-                    correct_answer="A",
+                    answer="A",
                     max_points=1.0,
                 )
-            },
-            then_rules={
-                "q2": ExactMatchRule(
+            ],
+            then_rules=[
+                ExactMatchRule(
                     question_id="q2",
-                    correct_answer="B",
+                    answer="B",
                     max_points=10.0,
                 )
-            },
+            ],
         )
         # ConditionalRule validates against individual question schemas
         schema_q1 = ChoiceQuestionSchema(options=["A", "B", "C"])
@@ -94,20 +94,20 @@ class TestConditionalSchemaValidation:
     def test_validate_with_text_schema(self):
         """Test that ConditionalRule works with TEXT schema."""
         rule = ConditionalRule(
-            if_rules={
-                "q1": ExactMatchRule(
+            if_rules=[
+                ExactMatchRule(
                     question_id="q1",
-                    correct_answer="Yes",
+                    answer="Yes",
                     max_points=1.0,
                 )
-            },
-            then_rules={
-                "q2": ExactMatchRule(
+            ],
+            then_rules=[
+                ExactMatchRule(
                     question_id="q2",
-                    correct_answer="Answer",
+                    answer="Answer",
                     max_points=10.0,
                 )
-            },
+            ],
         )
         schema = TextQuestionSchema()
         errors = rule.validate_against_schema("q1", schema, "Conditional Rule 1")

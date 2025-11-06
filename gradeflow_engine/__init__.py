@@ -23,7 +23,6 @@ from .io import (
     save_schema,
 )
 from .models import (
-    AnswerSet,
     AssumptionSetRule,
     BasicSingleQuestionRule,
     ComposableRule,
@@ -136,7 +135,6 @@ __all__ = [
     # Multiple-question rule models
     "ConditionalRule",
     "AssumptionSetRule",
-    "AnswerSet",
     # Schema models and functions
     "AssessmentSchema",
     "QuestionSchema",
@@ -148,7 +146,6 @@ __all__ = [
     "SchemaValidationError",
     "infer_schema_from_submissions",
     "infer_mcq_options",
-    "infer_numeric_range",
     "validate_rubric_against_schema",
     "validate_rubric_against_schema_strict",
     # Protocols

@@ -45,7 +45,7 @@ name: Test Rubric
 rules:
   - type: EXACT_MATCH
     question_id: Q1
-    correct_answer: Paris
+    answer: Paris
     max_points: 10.0
 """
         yaml_file.write_text(yaml_content)
@@ -91,7 +91,7 @@ class TestSaveRubric:
         """Test saving a rubric to YAML."""
         rubric = Rubric(
             name="Test Rubric",
-            rules=[ExactMatchRule(question_id="Q1", correct_answer="Paris", max_points=10.0)],
+            rules=[ExactMatchRule(question_id="Q1", answer="Paris", max_points=10.0)],
         )
 
         output_path = tmp_path / "rubric.yaml"

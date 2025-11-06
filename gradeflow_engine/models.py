@@ -11,7 +11,7 @@ from pydantic import BaseModel, Discriminator, Field
 
 # Import all rule models from the rules/ directory (auto-discovered)
 from .rules import (
-    AnswerSet,
+    Assumption,
     AssumptionSetRule,
     CompositeRule,
     ConditionalRule,
@@ -107,7 +107,7 @@ GradingRule = Annotated[
 # Update model references to properly reference SingleQuestionRule
 CompositeRule.model_rebuild()
 ConditionalRule.model_rebuild()
-AnswerSet.model_rebuild()
+Assumption.model_rebuild()
 AssumptionSetRule.model_rebuild()
 
 
@@ -124,7 +124,9 @@ class Rubric(BaseModel):
     """
 
     name: str = Field(description="Human-readable name")
-    rules: list[GradingRule] = Field(default_factory=list, description="List of grading rules")
+    rules: list[GradingRule] = Field(
+        default_factory=list[GradingRule], description="List of grading rules"
+    )
     metadata: Metadata = Field(default_factory=dict, description="Additional metadata")
 
 
@@ -184,7 +186,6 @@ class GradeOutput(BaseModel):
 
 
 __all__ = [
-    "AnswerSet",
     "AssumptionSetRule",
     "BasicSingleQuestionRule",
     "ComposableRule",

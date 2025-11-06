@@ -17,7 +17,7 @@ class TestProgrammableRule:
         """Test simple programmable grading script."""
         rule = ProgrammableRule(
             question_id="q1",
-            script="""
+            code="""
 points_awarded = 10.0 if 'python' in answer.lower() else 0.0
 feedback = 'Contains Python' if points_awarded > 0 else 'Missing Python'
 """,
@@ -34,7 +34,7 @@ feedback = 'Contains Python' if points_awarded > 0 else 'Missing Python'
         """Test complex grading logic."""
         rule = ProgrammableRule(
             question_id="q1",
-            script="""
+            code="""
 words = answer.split()
 word_count = len(words)
 
@@ -65,7 +65,7 @@ class TestProgrammableSchemaValidation:
         """Test that ProgrammableRule validates correctly against TEXT schema."""
         rule = ProgrammableRule(
             question_id="q1",
-            script="points_awarded = 10.0",
+            code="points_awarded = 10.0",
             max_points=10.0,
         )
         schema = TextQuestionSchema()
@@ -77,7 +77,7 @@ class TestProgrammableSchemaValidation:
         """Test that ProgrammableRule validates correctly against CHOICE schema."""
         rule = ProgrammableRule(
             question_id="q1",
-            script="points_awarded = 10.0 if answer == 'A' else 0.0",
+            code="points_awarded = 10.0 if answer == 'A' else 0.0",
             max_points=10.0,
         )
         schema = ChoiceQuestionSchema(options=["A", "B", "C"])
@@ -89,7 +89,7 @@ class TestProgrammableSchemaValidation:
         """Test that ProgrammableRule validates correctly against NUMERIC schema."""
         rule = ProgrammableRule(
             question_id="q1",
-            script="points_awarded = 10.0 if float(answer) > 50 else 0.0",
+            code="points_awarded = 10.0 if float(answer) > 50 else 0.0",
             max_points=10.0,
         )
         schema = NumericQuestionSchema()

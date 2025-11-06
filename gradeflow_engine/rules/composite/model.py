@@ -1,118 +1,57 @@
 """Composite rule model definition."""
 
-from typing import TYPE_CHECKING, Any, Literal
+from collections.abc import Callable
+from typing import TYPE_CHECKING, ClassVar, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field
 
 from gradeflow_engine.types import QuestionType
+
+from ..base import BaseSingleQuestionRule, QuestionConstraint
 
 if TYPE_CHECKING:
     from gradeflow_engine.models import SingleQuestionRule
     from gradeflow_engine.schema import QuestionSchema
-    # Forward references to avoid circular imports
-    # SingleQuestionRule will be defined in models.py
 
 
-class CompositeRule(BaseModel):
-    """
-    Composite rule that combines multiple rules with AND/OR logic.
+class CompositeRule(BaseSingleQuestionRule):
+    """CompositeRule composes multiple single-question rules and aggregates their results.
 
-    Evaluates multiple grading criteria for a single question and combines
-    their results based on the specified mode (AND/OR/WEIGHTED).
-    Can recursively contain other composite rules for complex grading scenarios.
-
-    Note: Only single-question evaluation rules can be composed. ConditionalRule
-    and AssumptionSetRule are excluded as they operate on multiple questions.
+    Fields:
+      - rules: list[SingleQuestionRule]
+      - mode: one of [max, min, sum, average, multiply]
     """
 
     type: Literal["COMPOSITE"] = "COMPOSITE"
-    compatible_types: set[QuestionType] = {"CHOICE", "NUMERIC", "TEXT"}  # Depends on sub-rules
-    question_id: str = Field(description="Question ID to grade")
-    mode: Literal["AND", "OR", "WEIGHTED"] = Field(
-        description=(
-            "AND: all rules must pass; "
-            "OR: at least one rule must pass; "
-            "WEIGHTED: weighted average of all rules"
-        )
+
+    # No single compatible_types constant - compatibility is determined by sub-rules.
+    compatible_types: ClassVar[frozenset[QuestionType]] = frozenset()
+    constraints: ClassVar[frozenset[QuestionConstraint]] = frozenset()
+
+    rules: list["SingleQuestionRule"] = Field(
+        ..., description="List of single-question rules to combine", min_length=1
     )
-    rules: list["SingleQuestionRule"] = Field(  # type: ignore[name-defined]
-        description=(
-            "List of single-question rules to combine "
-            "(excludes ConditionalRule and AssumptionSetRule)"
-        )
+    mode: Literal["max", "min", "sum", "average", "multiply"] = Field(
+        ..., description="Aggregation function to apply to sub-rule scores"
     )
-    weights: list[float] | None = Field(
-        None, description="Weights for each rule (required for WEIGHTED mode)"
-    )
-    min_passing: int | None = Field(
-        None, description="Minimum number of passing rules (for OR mode)"
-    )
-    correctness_threshold: float = Field(
-        default=0.95,
-        description="Threshold for considering weighted result correct (0.0-1.0)",
-        ge=0.0,
-        le=1.0,
-    )
-    description: str | None = Field(None, description="Human-readable description of the rule")
-
-    @field_validator("rules")
-    @classmethod
-    def validate_rules(cls, v):
-        if len(v) < 1:
-            raise ValueError("At least one rule is required")
-        return v
-
-    @field_validator("weights")
-    @classmethod
-    def validate_weights(cls, v, info):
-        mode = info.data.get("mode")
-
-        # WEIGHTED mode requires weights
-        if mode == "WEIGHTED" and v is None:
-            raise ValueError("weights are required when mode is WEIGHTED")
-
-        if v is not None:
-            rules = info.data.get("rules", [])
-            if len(v) != len(rules):
-                raise ValueError("weights list must match rules list length")
-            if any(w < 0 for w in v):
-                raise ValueError("All weights must be >= 0")
-
-            # Weights must sum to 1.0 for WEIGHTED mode
-            total = sum(v)
-            if mode == "WEIGHTED":
-                if abs(total - 1.0) > 1e-6:  # Use small epsilon for floating point comparison
-                    raise ValueError(f"For WEIGHTED mode, weights must sum to 1.0 (got {total})")
-            elif total == 0:
-                raise ValueError("Sum of weights must be > 0")
-
-        return v
-
-    @property
-    def max_points(self) -> float:
-        """Calculate maximum possible points based on mode and sub-rules."""
-        if self.mode == "WEIGHTED":
-            # For weighted mode, combine weighted max points
-            if self.weights:
-                return sum(w * r.max_points for w, r in zip(self.weights, self.rules, strict=True))
-            return 0.0
-        else:
-            # For AND/OR mode, max points is the max of all sub-rules
-            return max((r.max_points for r in self.rules), default=0.0)
 
     def validate_against_schema(
         self, question_id: str, schema: "QuestionSchema", rule_description: str
     ) -> list[str]:
-        """Validate this rule against a question schema."""
+        """Delegate schema validation to each sub-rule."""
         errors: list[str] = []
-
-        # Recursively validate all sub-rules
         for i, sub_rule in enumerate(self.rules):
-            validate_method = getattr(sub_rule, "validate_against_schema", None)
-            if validate_method is not None and callable(validate_method):
-                sub_rule_desc = f"{rule_description} > Sub-rule {i + 1} ({sub_rule.type})"
-                sub_errors: Any = validate_method(question_id, schema, sub_rule_desc)
-                if isinstance(sub_errors, list):
-                    errors.extend(sub_errors)
+            # Type the validator if present: Callable[[question_id, schema, desc], list[str] | None]
+            validate_method: Callable[[str, "QuestionSchema", str], list[str] | None] | None = (
+                getattr(sub_rule, "validate_against_schema", None)
+            )
+            if validate_method is None:
+                continue
 
+            # model fields are guaranteed, access directly
+            sub_rule_desc = f"{rule_description} > Sub-rule {i + 1} ({sub_rule.type})"
+            sub_errors = validate_method(question_id, schema, sub_rule_desc)
+            if sub_errors:
+                # sub_errors is expected to be a list[str]
+                errors.extend(sub_errors)
         return errors

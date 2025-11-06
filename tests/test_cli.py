@@ -36,7 +36,7 @@ def sample_rubric(tmp_path):
             {
                 "type": "EXACT_MATCH",
                 "question_id": "Q1",
-                "correct_answer": "Paris",
+                "answer": "Paris",
                 "max_points": 10.0,
             },
             {
@@ -84,7 +84,7 @@ def invalid_rubric(tmp_path):
             {
                 "type": "EXACT_MATCH",
                 "question_id": "Q1",
-                # Missing required field: correct_answer
+                # Missing required field: answer
                 "max_points": 10.0,
             }
         ],
@@ -851,7 +851,7 @@ class TestValidateSchemaCommand:
                 {
                     "type": "EXACT_MATCH",
                     "question_id": "Q3",
-                    "correct_answer": "Paris",
+                    "answer": "Paris",
                     "max_points": 10.0,
                 },
                 {
@@ -879,7 +879,7 @@ class TestValidateSchemaCommand:
                 {
                     "type": "EXACT_MATCH",
                     "question_id": "Q99",  # Question not in schema
-                    "correct_answer": "Paris",
+                    "answer": "Paris",
                     "max_points": 10.0,
                 }
             ],
@@ -1067,7 +1067,7 @@ class TestSchemaWorkflows:
                 {
                     "type": "EXACT_MATCH",
                     "question_id": "Q1",
-                    "correct_answer": "Paris",
+                    "answer": "Paris",
                     "max_points": 10.0,
                 }
             ],

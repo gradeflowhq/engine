@@ -16,7 +16,7 @@ The Similarity rule implements fuzzy text matching using various string similari
 
 - **Multiple Algorithms**: Levenshtein distance, Jaro-Winkler, Token Sort Ratio
 - **Configurable Threshold**: Set minimum similarity for full credit
-- **Partial Credit**: Award proportional points based on similarity score
+- **Partial Credit**: Award proportional max_points based on similarity score
 - **Multiple Reference Answers**: Compare against multiple valid answers
 - **Case Sensitivity Control**: Optionally ignore case differences
 
@@ -27,7 +27,7 @@ The Similarity rule implements fuzzy text matching using various string similari
 - `type`: Must be `"SIMILARITY"`
 - `question_id`: The ID of the question to grade
 - `reference_answers`: List of acceptable answer(s) to compare against
-- `max_points`: Maximum points available
+- `max_points`: Maximum max_points available
 
 ### Optional Fields
 
@@ -37,7 +37,7 @@ The Similarity rule implements fuzzy text matching using various string similari
   - `"token_sort"`: Token-based comparison (order-independent words)
 - `threshold` (default: `0.8`): Similarity score (0.0-1.0) required for full credit
 - `partial_credit` (default: `true`): Award partial credit for scores below threshold
-- `partial_credit_min` (default: `0.5`): Minimum percentage of points to award (0.0-1.0)
+- `partial_credit_min` (default: `0.5`): Minimum percentage of max_points to award (0.0-1.0)
 - `case_sensitive` (default: `false`): Whether comparison is case-sensitive
 - `description`: Human-readable description of the rule
 
@@ -117,20 +117,20 @@ description: "Definition of photosynthesis - word order flexible"
 4. **Award Points**:
    - If `similarity >= threshold` → full `max_points`
    - If `partial_credit=true` and `similarity < threshold`:
-     - Scale points between 0 and `max_points`
+     - Scale max_points between 0 and `max_points`
      - Minimum: `partial_credit_min × max_points`
-   - Otherwise → 0 points
+   - Otherwise → 0 max_points
 
 ### Partial Credit Formula
 
 ```python
 if similarity >= threshold:
-    points = max_points
+    max_points = max_points
 elif partial_credit and similarity > 0:
     # Linear scaling from partial_credit_min to 1.0
-    points = max_points * max(similarity, partial_credit_min)
+    max_points = max_points * max(similarity, partial_credit_min)
 else:
-    points = 0
+    max_points = 0
 ```
 
 ## Examples
@@ -308,7 +308,7 @@ rules:
   
   - type: KEYWORD
     required_keywords: [ATP, glucose, oxygen]
-    points_per_required: 2.0
+    max_points_per_required: 2.0
 ```
 
 Student must have similar phrasing AND mention key terms.

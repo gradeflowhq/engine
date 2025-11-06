@@ -3,13 +3,13 @@ Tests for AssumptionSetRule grading logic.
 """
 
 from gradeflow_engine import (
-    AnswerSet,
     AssumptionSetRule,
     ExactMatchRule,
     Rubric,
     Submission,
     grade,
 )
+from gradeflow_engine.rules.assumption_set.model import Assumption
 from gradeflow_engine.schema import (
     ChoiceQuestionSchema,
     TextQuestionSchema,
@@ -22,37 +22,36 @@ class TestAssumptionSetRule:
     def test_matching_assumption_set(self):
         """Test grading with matching assumption set."""
         rule = AssumptionSetRule(
-            question_ids=["q1", "q2"],
-            answer_sets=[
-                AnswerSet(
+            assumptions=[
+                Assumption(
                     name="Set 1",
-                    answers={
-                        "q1": ExactMatchRule(
+                    rules=[
+                        ExactMatchRule(
                             question_id="q1",
-                            correct_answer="A",
+                            answer="A",
                             max_points=5.0,
                         ),
-                        "q2": ExactMatchRule(
+                        ExactMatchRule(
                             question_id="q2",
-                            correct_answer="X",
+                            answer="X",
                             max_points=5.0,
                         ),
-                    },
+                    ],
                 ),
-                AnswerSet(
+                Assumption(
                     name="Set 2",
-                    answers={
-                        "q1": ExactMatchRule(
+                    rules=[
+                        ExactMatchRule(
                             question_id="q1",
-                            correct_answer="B",
+                            answer="B",
                             max_points=5.0,
                         ),
-                        "q2": ExactMatchRule(
+                        ExactMatchRule(
                             question_id="q2",
-                            correct_answer="Y",
+                            answer="Y",
                             max_points=5.0,
                         ),
-                    },
+                    ],
                 ),
             ],
         )
@@ -69,22 +68,21 @@ class TestAssumptionSetRule:
     def test_no_matching_assumption_set(self):
         """Test when no assumption set matches."""
         rule = AssumptionSetRule(
-            question_ids=["q1", "q2"],
-            answer_sets=[
-                AnswerSet(
+            assumptions=[
+                Assumption(
                     name="Set 1",
-                    answers={
-                        "q1": ExactMatchRule(
+                    rules=[
+                        ExactMatchRule(
                             question_id="q1",
-                            correct_answer="A",
+                            answer="A",
                             max_points=5.0,
                         ),
-                        "q2": ExactMatchRule(
+                        ExactMatchRule(
                             question_id="q2",
-                            correct_answer="X",
+                            answer="X",
                             max_points=5.0,
                         ),
-                    },
+                    ],
                 ),
             ],
         )
@@ -94,6 +92,76 @@ class TestAssumptionSetRule:
         result = grade(rubric, [Submission(student_id="s1", answers={"q1": "C", "q2": "Z"})])
         assert result.results[0].total_points == 0.0
 
+    def test_mode_best(self):
+        """Mode 'best' should pick the assumption with the highest total."""
+        assumptions = [
+            Assumption(
+                name="A1",
+                rules=[
+                    ExactMatchRule(question_id="q1", answer="A", max_points=5.0),
+                    ExactMatchRule(question_id="q2", answer="X", max_points=5.0),
+                ],
+            ),
+            Assumption(
+                name="A2",
+                rules=[
+                    ExactMatchRule(question_id="q1", answer="A", max_points=5.0),
+                    ExactMatchRule(question_id="q2", answer="Y", max_points=5.0),
+                ],
+            ),
+        ]
+        rule = AssumptionSetRule(assumptions=assumptions, mode="best")
+        rubric = Rubric(name="BestMode", rules=[rule])
+        sub = Submission(student_id="s_best", answers={"q1": "A", "q2": "X"})
+        res = grade(rubric, [sub])
+        assert res.results[0].total_points == 10.0
+
+    def test_mode_worst(self):
+        """Mode 'worst' should pick the assumption with the lowest total."""
+        assumptions = [
+            Assumption(
+                name="B1",
+                rules=[
+                    ExactMatchRule(question_id="q1", answer="A", max_points=5.0),
+                ],
+            ),
+            Assumption(
+                name="B2",
+                rules=[
+                    ExactMatchRule(question_id="q1", answer="B", max_points=5.0),
+                ],
+            ),
+        ]
+        # student matches only B1 -> totals: B1=5, B2=0 -> worst picks B2 => 0
+        rule = AssumptionSetRule(assumptions=assumptions, mode="worst")
+        rubric = Rubric(name="WorstMode", rules=[rule])
+        sub = Submission(student_id="s_worst", answers={"q1": "A"})
+        res = grade(rubric, [sub])
+        assert res.results[0].total_points == 0.0
+
+    def test_mode_average(self):
+        """Mode 'average' should average points per question across assumptions."""
+        assumptions = [
+            Assumption(
+                name="C1",
+                rules=[
+                    ExactMatchRule(question_id="q1", answer="A", max_points=4.0),
+                ],
+            ),
+            Assumption(
+                name="C2",
+                rules=[
+                    ExactMatchRule(question_id="q1", answer="B", max_points=4.0),
+                ],
+            ),
+        ]
+        # student matches C1 only -> per-question average = (4 + 0) / 2 = 2.0
+        rule = AssumptionSetRule(assumptions=assumptions, mode="average")
+        rubric = Rubric(name="AvgMode", rules=[rule])
+        sub = Submission(student_id="s_avg", answers={"q1": "A"})
+        res = grade(rubric, [sub])
+        assert res.results[0].total_points == 2.0
+
 
 class TestAssumptionSetSchemaValidation:
     """Test AssumptionSetRule schema validation."""
@@ -101,22 +169,21 @@ class TestAssumptionSetSchemaValidation:
     def test_validate_against_schema(self):
         """Test that AssumptionSetRule validates correctly against schema."""
         rule = AssumptionSetRule(
-            question_ids=["q1", "q2"],
-            answer_sets=[
-                AnswerSet(
+            assumptions=[
+                Assumption(
                     name="Set 1",
-                    answers={
-                        "q1": ExactMatchRule(
+                    rules=[
+                        ExactMatchRule(
                             question_id="q1",
-                            correct_answer="A",
+                            answer="A",
                             max_points=5.0,
                         ),
-                        "q2": ExactMatchRule(
+                        ExactMatchRule(
                             question_id="q2",
-                            correct_answer="X",
+                            answer="X",
                             max_points=5.0,
                         ),
-                    },
+                    ],
                 ),
             ],
         )
@@ -129,17 +196,16 @@ class TestAssumptionSetSchemaValidation:
     def test_validate_with_text_schema(self):
         """Test that AssumptionSetRule works with TEXT schema."""
         rule = AssumptionSetRule(
-            question_ids=["q1"],
-            answer_sets=[
-                AnswerSet(
+            assumptions=[
+                Assumption(
                     name="Set 1",
-                    answers={
-                        "q1": ExactMatchRule(
+                    rules=[
+                        ExactMatchRule(
                             question_id="q1",
-                            correct_answer="Answer",
+                            answer="Answer",
                             max_points=10.0,
                         ),
-                    },
+                    ],
                 ),
             ],
         )

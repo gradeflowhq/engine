@@ -1,6 +1,7 @@
 """AssumptionSet rule model definition."""
 
-from typing import TYPE_CHECKING, Any, Literal
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -11,68 +12,78 @@ if TYPE_CHECKING:
     from gradeflow_engine.schema import QuestionSchema
 
 
-class AnswerSet(BaseModel):
-    """
-    A named set of grading rules for a group of questions.
+class Assumption(BaseModel):
+    """A named assumption containing a list of rules.
 
-    Each question in the answer set is evaluated using its own grading rule,
-    allowing for complex grading logic within assumption sets.
+    Fields:
+      - name: str
+      - rules: list[GradingRule]
     """
 
-    name: str = Field(description="Name/label for this answer set")
-    answers: dict[str, "SingleQuestionRule"] = Field(  # type: ignore[name-defined]
-        description="Map of question_id -> grading rule to apply"
-    )
+    name: str = Field(..., description="Name/label for this assumption")
+    rules: list["SingleQuestionRule"] = Field(..., description="List of rules for this assumption")  # type: ignore[name-defined]
 
 
 class AssumptionSetRule(BaseModel):
-    """
-    Assumption-based grading: define multiple valid answer sets and apply
-    the most favorable one to each student.
+    """Assumption-based grading aggregation.
 
-    Each answer set contains grading rules for questions, allowing complex
-    evaluation scenarios (e.g., different interpretations of a problem that
-    lead to different correct answers with different validation logic).
-
-    Example: A physics problem that can be solved with different assumptions
-    about friction, where each assumption leads to different numeric ranges
-    for the final answer.
+    The rule holds multiple `Assumption` entries. For each student, the engine
+    evaluates every assumption and combines scores according to `mode`:
+      - best: pick the assumption with the highest total
+      - worst: pick the assumption with the lowest total
+      - average: average across assumptions
     """
 
     type: Literal["ASSUMPTION_SET"] = "ASSUMPTION_SET"
-    compatible_types: set[QuestionType] = {"CHOICE", "NUMERIC", "TEXT"}  # Works across questions
-    question_ids: list[str] = Field(description="List of question IDs in this group")
-    answer_sets: list[AnswerSet] = Field(description="List of valid answer sets")
-    mode: Literal["favor_best", "first_match"] = Field(
-        default="favor_best",
-        description="favor_best: pick set with highest score; first_match: use first matching set",
-    )
-    description: str | None = Field(None, description="Human-readable description of the rule")
+    compatible_types: set[QuestionType] = {"CHOICE", "NUMERIC", "TEXT"}
 
-    @field_validator("answer_sets")
-    @classmethod
-    def validate_answer_sets(cls, v):
-        if len(v) < 1:
-            raise ValueError("At least one answer set is required")
-        return v
+    assumptions: list[Assumption] = Field(
+        ..., description="List of named assumptions", min_length=1
+    )
+    mode: Literal["best", "worst", "average"] = Field(
+        default="best",
+        description="Aggregation mode for assumption evaluation: best|worst|average",
+    )
 
     def validate_against_schema(
         self, question_id: str, schema: "QuestionSchema", rule_description: str
     ) -> list[str]:
-        """Validate this rule against a question schema."""
+        """Validate every rule in each assumption against the provided schema."""
         errors: list[str] = []
 
-        # Validate all answer sets
-        for answer_set in self.answer_sets:
-            for q_id, rule in answer_set.answers.items():
-                validate_method = getattr(rule, "validate_against_schema", None)
-                if validate_method is not None and callable(validate_method):
-                    rule_desc = (
-                        f"{rule_description} > Answer set '{answer_set.name}' > "
-                        f"Q{q_id} ({rule.type})"
-                    )
-                    sub_errors: Any = validate_method(q_id, schema, rule_desc)
-                    if isinstance(sub_errors, list):
-                        errors.extend(sub_errors)
+        for assumption in self.assumptions:
+            for idx, rule in enumerate(assumption.rules):
+                validate_method: Callable[[str, "QuestionSchema", str], list[str] | None] | None = (
+                    getattr(rule, "validate_against_schema", None)
+                )
+                if validate_method is None:
+                    continue
+
+                rule_desc = (
+                    f"{rule_description} > Assumption '{assumption.name}' > Rule {idx + 1} "
+                    f"({getattr(rule, 'type', '<unknown>')})"
+                )
+                sub_errors = validate_method(question_id, schema, rule_desc)
+                if sub_errors:
+                    errors.extend(sub_errors)
 
         return errors
+
+    @field_validator("assumptions", mode="after")
+    @classmethod
+    def validate_unique_assumption_names(cls, v: list[Assumption]) -> list[Assumption]:
+        """Ensure assumption names are unique within the set."""
+        names = [a.name for a in v]
+        seen: set[str] = set()
+        duplicates: list[str] = []
+        for name in names:
+            if name in seen:
+                if name not in duplicates:
+                    duplicates.append(name)
+            else:
+                seen.add(name)
+        if duplicates:
+            raise ValueError(
+                f"Assumption names must be unique; duplicates: {', '.join(duplicates)}"
+            )
+        return v

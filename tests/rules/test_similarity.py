@@ -3,6 +3,7 @@ Tests for SimilarityRule grading logic.
 """
 
 from gradeflow_engine import Rubric, SimilarityRule, Submission, grade
+from gradeflow_engine.rules.similarity.model import SimilarityRuleConfig
 from gradeflow_engine.schema import (
     AssessmentSchema,
     ChoiceQuestionSchema,
@@ -16,28 +17,36 @@ class TestSimilarityRule:
 
     def test_levenshtein_similarity(self):
         """Test Levenshtein distance similarity."""
-        rule = SimilarityRule(
+        # Exact match should pass with threshold 0.8
+        rule_exact = SimilarityRule(
             question_id="q1",
-            reference_answers=["The quick brown fox"],
-            algorithm="levenshtein",
+            reference="The quick brown fox",
+            config=SimilarityRuleConfig(algorithm="levenshtein"),
             threshold=0.8,
             max_points=10.0,
         )
-        rubric = Rubric(name="Test", rules=[rule])
-        # Very similar
+        rubric = Rubric(name="Test", rules=[rule_exact])
         result = grade(rubric, [Submission(student_id="s1", answers={"q1": "The quick brown fox"})])
         assert result.results[0].total_points == 10.0
 
-        # Somewhat similar
+        # Somewhat similar: use a lower threshold so similarity awards points (no partial credit)
+        rule_somewhat = SimilarityRule(
+            question_id="q1",
+            reference="The quick brown fox",
+            config=SimilarityRuleConfig(algorithm="levenshtein"),
+            threshold=0.5,
+            max_points=10.0,
+        )
+        rubric = Rubric(name="Test", rules=[rule_somewhat])
         result = grade(rubric, [Submission(student_id="s2", answers={"q1": "The quick brown dog"})])
-        assert result.results[0].total_points > 0.0
+        assert result.results[0].total_points == 10.0
 
     def test_token_sort_similarity(self):
         """Test token sort similarity."""
         rule = SimilarityRule(
             question_id="q1",
-            reference_answers=["brown fox quick"],
-            algorithm="token_sort",
+            reference="brown fox quick",
+            config=SimilarityRuleConfig(algorithm="token_sort"),
             threshold=0.9,
             max_points=10.0,
         )
@@ -50,23 +59,23 @@ class TestSimilarityRule:
         """Test Jaro-Winkler similarity algorithm."""
         rule = SimilarityRule(
             question_id="q1",
-            reference_answers=["hello world"],
-            algorithm="jaro_winkler",
+            reference="hello world",
+            config=SimilarityRuleConfig(algorithm="jaro_winkler"),
             threshold=0.8,
             max_points=10.0,
         )
         rubric = Rubric(name="Test", rules=[rule])
         result = grade(rubric, [Submission(student_id="s1", answers={"q1": "hello worlld"})])
-        assert result.results[0].total_points > 0.0
+        assert result.results[0].total_points == 10.0
 
     def test_case_insensitive_similarity(self):
         """Test case-insensitive similarity matching."""
+        # TextRuleConfig.ignore_case defaults to True, so omit or set explicitly
         rule = SimilarityRule(
             question_id="q1",
-            reference_answers=["Python Programming"],
-            algorithm="levenshtein",
+            reference="Python Programming",
+            config=SimilarityRuleConfig(algorithm="levenshtein", ignore_case=True),
             threshold=0.95,
-            case_sensitive=False,
             max_points=10.0,
         )
         rubric = Rubric(name="Test", rules=[rule])
@@ -77,8 +86,8 @@ class TestSimilarityRule:
         """Test answer below similarity threshold."""
         rule = SimilarityRule(
             question_id="q1",
-            reference_answers=["correct answer"],
-            algorithm="levenshtein",
+            reference="correct answer",
+            config=SimilarityRuleConfig(algorithm="levenshtein"),
             threshold=0.9,
             max_points=10.0,
         )
@@ -96,8 +105,8 @@ class TestSimilaritySchemaValidation:
         """Test that SimilarityRule validates correctly against TEXT schema."""
         rule = SimilarityRule(
             question_id="q1",
-            reference_answers=["The answer"],
-            algorithm="levenshtein",
+            reference="The answer",
+            config=SimilarityRuleConfig(algorithm="levenshtein"),
             threshold=0.8,
             max_points=10.0,
         )
@@ -115,8 +124,8 @@ class TestSimilaritySchemaValidation:
         """Test that SimilarityRule rejects CHOICE schema."""
         rule = SimilarityRule(
             question_id="q1",
-            reference_answers=["A"],
-            algorithm="levenshtein",
+            reference="A",
+            config=SimilarityRuleConfig(algorithm="levenshtein"),
             threshold=0.8,
             max_points=10.0,
         )
@@ -136,8 +145,8 @@ class TestSimilaritySchemaValidation:
         """Test that SimilarityRule rejects NUMERIC schema."""
         rule = SimilarityRule(
             question_id="q1",
-            reference_answers=["42"],
-            algorithm="levenshtein",
+            reference="42",
+            config=SimilarityRuleConfig(algorithm="levenshtein"),
             threshold=0.8,
             max_points=10.0,
         )

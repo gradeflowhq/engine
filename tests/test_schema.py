@@ -266,7 +266,7 @@ class TestRubricValidation:
             rules=[
                 MultipleChoiceRule(
                     question_id="q1",
-                    correct_answers=["Paris"],
+                    answers=["Paris"],
                     max_points=10.0,
                     description="Capital of France",
                 ),
@@ -289,7 +289,7 @@ class TestRubricValidation:
         schema = AssessmentSchema(
             name="Test",
             questions={
-                "q1": ChoiceQuestionSchema( options=["A", "B"]),
+                "q1": ChoiceQuestionSchema(options=["A", "B"]),
             },
         )
 
@@ -298,7 +298,7 @@ class TestRubricValidation:
             rules=[
                 MultipleChoiceRule(
                     question_id="q99",  # Not in schema!
-                    correct_answers=["A"],
+                    answers=["A"],
                     max_points=10.0,
                     description="Test",
                 ),
@@ -324,7 +324,7 @@ class TestRubricValidation:
             rules=[
                 MultipleChoiceRule(  # But using CHOICE rule!
                     question_id="q1",
-                    correct_answers=["A"],
+                    answers=["A"],
                     max_points=10.0,
                     description="Test",
                 ),
@@ -352,7 +352,7 @@ class TestRubricValidation:
             rules=[
                 MultipleChoiceRule(
                     question_id="q1",
-                    correct_answers=["D"],  # Not in schema options!
+                    answers=["D"],  # Not in schema options!
                     max_points=10.0,
                     description="Test",
                 ),
@@ -378,9 +378,8 @@ class TestRubricValidation:
             rules=[
                 KeywordRule(
                     question_id="essay",
-                    required_keywords=["analysis", "conclusion"],
-                    points_per_required=5.0,
-                    description="Essay keywords",
+                    keywords=["analysis", "conclusion"],
+                    max_points=10.0,
                 ),
             ],
         )
@@ -404,21 +403,18 @@ class TestRubricValidation:
             rules=[
                 ProgrammableRule(
                     question_id="q1",
-                    script="points_awarded = 10.0",
+                    code="points_awarded = 10.0",
                     max_points=10.0,
-                    description="Custom logic for q1",
                 ),
                 ProgrammableRule(
                     question_id="q2",
-                    script="points_awarded = 10.0",
+                    code="points_awarded = 10.0",
                     max_points=10.0,
-                    description="Custom logic for q2",
                 ),
                 ProgrammableRule(
                     question_id="q3",
-                    script="points_awarded = 10.0",
+                    code="points_awarded = 10.0",
                     max_points=10.0,
-                    description="Custom logic for q3",
                 ),
             ],
         )
@@ -441,13 +437,13 @@ class TestRubricValidation:
             name="Test Rubric",
             rules=[
                 ExactMatchRule(
-                    question_id="q1", correct_answer="True", max_points=5.0, description="Boolean"
+                    question_id="q1", answer="True", max_points=5.0, description="Boolean"
                 ),
                 ExactMatchRule(
-                    question_id="q2", correct_answer="answer", max_points=5.0, description="Text"
+                    question_id="q2", answer="answer", max_points=5.0, description="Text"
                 ),
                 ExactMatchRule(
-                    question_id="q3", correct_answer="42", max_points=5.0, description="Number"
+                    question_id="q3", answer="42", max_points=5.0, description="Number"
                 ),  # Invalid!
             ],
         )
@@ -473,7 +469,7 @@ class TestRubricValidation:
             rules=[
                 MultipleChoiceRule(
                     question_id="q99",  # Not in schema
-                    correct_answers=["A"],
+                    answers=["A"],
                     max_points=10.0,
                     description="Test strict validation",
                 ),
@@ -501,13 +497,13 @@ class TestRubricValidation:
             rules=[
                 MultipleChoiceRule(
                     question_id="q1",
-                    correct_answers=["Z"],  # Invalid option
+                    answers=["Z"],  # Invalid option
                     max_points=10.0,
                     description="Invalid option test",
                 ),
                 MultipleChoiceRule(
                     question_id="q99",  # Question doesn't exist
-                    correct_answers=["A"],
+                    answers=["A"],
                     max_points=10.0,
                     description="Missing question test",
                 ),
@@ -533,7 +529,7 @@ class TestCompatibleTypes:
         """Test MultipleChoiceRule compatible types."""
         rule = MultipleChoiceRule(
             question_id="q1",
-            correct_answers=["A"],
+            answers=["A"],
             max_points=10.0,
             description="Test",
         )
@@ -555,7 +551,7 @@ class TestCompatibleTypes:
         """Test ExactMatchRule compatible types."""
         rule = ExactMatchRule(
             question_id="q1",
-            correct_answer="test",
+            answer="test",
             max_points=10.0,
             description="Test",
         )
@@ -565,9 +561,8 @@ class TestCompatibleTypes:
         """Test KeywordRule compatible types."""
         rule = KeywordRule(
             question_id="q1",
-            required_keywords=["test"],
-            points_per_required=5.0,
-            description="Test",
+            keywords=["test"],
+            max_points=5.0,
         )
         assert rule.compatible_types == {"TEXT"}
 
@@ -575,8 +570,7 @@ class TestCompatibleTypes:
         """Test ProgrammableRule compatible types."""
         rule = ProgrammableRule(
             question_id="q1",
-            script="points_awarded = 10.0",
+            code="points_awarded = 10.0",
             max_points=10.0,
-            description="Test",
         )
         assert rule.compatible_types == {"CHOICE", "NUMERIC", "TEXT"}

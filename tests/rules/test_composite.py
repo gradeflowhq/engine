@@ -21,143 +21,131 @@ from gradeflow_engine.schema import (
 class TestCompositeRule:
     """Test CompositeRule grading logic."""
 
-    def test_and_mode(self):
-        """Test AND composition - all rules must pass."""
+    def test_sum_mode(self):
+        """Test SUM mode - sum of sub-rule points."""
         rule = CompositeRule(
             question_id="q1",
-            mode="AND",
+            mode="sum",
             rules=[
-                ExactMatchRule(question_id="q1", correct_answer="Paris", max_points=5.0),
+                ExactMatchRule(question_id="q1", answer="Paris", max_points=5.0),
                 LengthRule(
-                    question_id="q1",
-                    length_type="character",
-                    min_length=3,
-                    max_length=10,
-                    max_points=5.0,
+                    question_id="q1", min_length=1, max_length=10, mode="words", max_points=5.0
                 ),
             ],
         )
         rubric = Rubric(name="Test", rules=[rule])
-        # Both rules pass
+
+        # Both rules pass -> 5 + 5 = 10
         result = grade(rubric, [Submission(student_id="s1", answers={"q1": "Paris"})])
         assert result.results[0].total_points == 10.0
 
-        # First rule fails
+        # Only length rule passes -> 0 + 5 = 5
+        result = grade(rubric, [Submission(student_id="s2", answers={"q1": "London"})])
+        assert result.results[0].total_points == 5.0
+
+    def test_max_mode(self):
+        """Test MAX mode - best single sub-rule determines points."""
+        rule = CompositeRule(
+            question_id="q1",
+            mode="max",
+            rules=[
+                ExactMatchRule(question_id="q1", answer="Paris", max_points=10.0),
+                ExactMatchRule(question_id="q1", answer="France", max_points=8.0),
+            ],
+        )
+        rubric = Rubric(name="Test", rules=[rule])
+
+        # Best match awards 10
+        result = grade(rubric, [Submission(student_id="s1", answers={"q1": "Paris"})])
+        assert result.results[0].total_points == 10.0
+
+        # No match -> 0
         result = grade(rubric, [Submission(student_id="s2", answers={"q1": "London"})])
         assert result.results[0].total_points == 0.0
 
-    def test_or_mode(self):
-        """Test OR composition - any rule passing awards points."""
+    def test_average_mode(self):
+        """Test AVERAGE mode - average of sub-rule points."""
         rule = CompositeRule(
             question_id="q1",
-            mode="OR",
+            mode="average",
             rules=[
-                ExactMatchRule(question_id="q1", correct_answer="Paris", max_points=10.0),
-                ExactMatchRule(question_id="q1", correct_answer="France", max_points=10.0),
-            ],
-        )
-        rubric = Rubric(name="Test", rules=[rule])
-        # First rule passes
-        result = grade(rubric, [Submission(student_id="s1", answers={"q1": "Paris"})])
-        assert result.results[0].total_points == 10.0
-
-        # Second rule passes
-        result = grade(rubric, [Submission(student_id="s2", answers={"q1": "France"})])
-        assert result.results[0].total_points == 10.0
-
-        # No rules pass
-        result = grade(rubric, [Submission(student_id="s3", answers={"q1": "London"})])
-        assert result.results[0].total_points == 0.0
-
-    def test_weighted_mode(self):
-        """Test WEIGHTED composition - weighted average of all rules."""
-        rule = CompositeRule(
-            question_id="q1",
-            mode="WEIGHTED",
-            rules=[
-                KeywordRule(
-                    question_id="q1",
-                    required_keywords=["python"],
-                    points_per_required=5.0,
-                ),
+                KeywordRule(question_id="q1", keywords=["python"], max_points=5.0),
                 LengthRule(
-                    question_id="q1",
-                    min_words=3,
-                    max_words=10,
-                    max_points=3.0,
+                    question_id="q1", min_length=3, max_length=10, mode="characters", max_points=3.0
                 ),
             ],
-            weights=[0.5, 0.5],
         )
         rubric = Rubric(name="Test", rules=[rule])
-        # Both rules award points: keyword=5.0, length=3.0
-        # Weighted with [0.5, 0.5]:
-        # points = 5.0*0.5 + 3.0*0.5 = 4.0
-        # max = 5.0*0.5 + 3.0*0.5 = 4.0
-        result = grade(
-            rubric, [Submission(student_id="s1", answers={"q1": "I love Python programming"})]
-        )
+
+        # Both sub-rules match -> (5 + 3) / 2 = 4.0
+        result = grade(rubric, [Submission(student_id="s1", answers={"q1": "python 3"})])
         assert result.results[0].total_points == 4.0
+
+    def test_multiply_mode(self):
+        """Test MULTIPLY mode - product of normalized scores scaled by avg max."""
+        rule = CompositeRule(
+            question_id="q1",
+            mode="multiply",
+            rules=[
+                KeywordRule(question_id="q1", keywords=["city"], max_points=5.0),
+                LengthRule(
+                    question_id="q1", min_length=1, max_length=10, mode="characters", max_points=5.0
+                ),
+            ],
+        )
+        rubric = Rubric(name="Test", rules=[rule])
+
+        # If both fully match, product_fraction == 1 -> points = avg_max = (5+3)/2 = 4.0
+        result = grade(rubric, [Submission(student_id="s1", answers={"q1": "city car"})])
+        assert result.results[0].total_points == 25.0
+
+    def test_min_mode(self):
+        """Test MIN mode - weakest sub-rule determines points."""
+        rule = CompositeRule(
+            question_id="q1",
+            mode="min",
+            rules=[
+                ExactMatchRule(question_id="q1", answer="Paris", max_points=5.0),
+                LengthRule(
+                    question_id="q1", min_length=1, max_length=10, mode="words", max_points=5.0
+                ),
+            ],
+        )
+        rubric = Rubric(name="Test", rules=[rule])
+
+        # Both pass -> min(5,5) = 5
+        result = grade(rubric, [Submission(student_id="s1", answers={"q1": "Paris"})])
+        assert result.results[0].total_points == 5.0
+
+        # Exact match fails but length passes -> min(0,5) = 0
+        result = grade(rubric, [Submission(student_id="s2", answers={"q1": "London"})])
+        assert result.results[0].total_points == 0.0
 
     def test_nested_composite(self):
         """Test nested composite rules."""
-        rule = CompositeRule(
+        inner = CompositeRule(
             question_id="q1",
-            mode="AND",
+            mode="max",
             rules=[
-                ExactMatchRule(
-                    question_id="q1", correct_answer="Paris", max_points=5.0, case_sensitive=False
+                LengthRule(
+                    question_id="q1", min_length=5, max_length=10, mode="characters", max_points=5.0
                 ),
-                CompositeRule(
-                    question_id="q1",
-                    mode="OR",
-                    rules=[
-                        LengthRule(
-                            question_id="q1",
-                            length_type="character",
-                            min_length=5,
-                            max_length=5,
-                            max_points=5.0,
-                        ),
-                        KeywordRule(
-                            question_id="q1",
-                            required_keywords=["city"],
-                            required_points_per_keyword=5.0,
-                        ),
-                    ],
-                ),
+                ExactMatchRule(question_id="q1", answer="city", max_points=5.0),
             ],
         )
-        rubric = Rubric(name="Test", rules=[rule])
-        # Outer AND: needs "Paris" AND (length=5 OR keyword="city")
-        # This should pass: "Paris" matches and length is 5
+        outer = CompositeRule(
+            question_id="q1",
+            mode="sum",
+            rules=[
+                ExactMatchRule(question_id="q1", answer="Paris", max_points=5.0),
+                inner,
+            ],
+        )
+        rubric = Rubric(name="Test", rules=[outer])
+
+        # "Paris" has length 5 and matches exact -> inner max=5, outer sum = 5 + 5 = 10
         result = grade(rubric, [Submission(student_id="s1", answers={"q1": "Paris"})])
         assert result.results[0].total_points == 10.0
-
-    def test_composite_with_min_passing(self):
-        """Test composite rule with min_passing requirement in OR mode."""
-        rule = CompositeRule(
-            question_id="q1",
-            mode="OR",
-            min_passing=2,
-            description="At least 2 rules must pass",
-            rules=[
-                ExactMatchRule(
-                    question_id="q1", correct_answer="A", max_points=10.0, description="Option A"
-                ),
-                ExactMatchRule(
-                    question_id="q1", correct_answer="B", max_points=10.0, description="Option B"
-                ),
-                ExactMatchRule(
-                    question_id="q1", correct_answer="C", max_points=10.0, description="Option C"
-                ),
-            ],
-        )
-        rubric = Rubric(name="Test", rules=[rule])
-
-        # Only 1 rule can pass with single answer "A", but min_passing requires 2
-        result = grade(rubric, [Submission(student_id="s1", answers={"q1": "A"})])
-        assert result.results[0].total_points == 0.0
 
 
 class TestCompositeSchemaValidation:
@@ -167,10 +155,12 @@ class TestCompositeSchemaValidation:
         """Test that CompositeRule validates correctly against TEXT schema."""
         rule = CompositeRule(
             question_id="q1",
-            mode="AND",
+            mode="sum",
             rules=[
-                ExactMatchRule(question_id="q1", correct_answer="Paris", max_points=5.0),
-                LengthRule(question_id="q1", min_words=1, max_words=10, max_points=5.0),
+                ExactMatchRule(question_id="q1", answer="Paris", max_points=5.0),
+                LengthRule(
+                    question_id="q1", min_length=1, max_length=10, mode="words", max_points=5.0
+                ),
             ],
         )
         schema = TextQuestionSchema()
@@ -182,10 +172,10 @@ class TestCompositeSchemaValidation:
         """Test that CompositeRule rejects CHOICE schema when sub-rules are incompatible."""
         rule = CompositeRule(
             question_id="q1",
-            mode="OR",
+            mode="max",
             rules=[
-                ExactMatchRule(question_id="q1", correct_answer="A", max_points=10.0),
-                ExactMatchRule(question_id="q1", correct_answer="B", max_points=10.0),
+                ExactMatchRule(question_id="q1", answer="A", max_points=10.0),
+                ExactMatchRule(question_id="q1", answer="B", max_points=10.0),
             ],
         )
         schema = ChoiceQuestionSchema(options=["A", "B", "C"])
@@ -201,9 +191,9 @@ class TestCompositeSchemaValidation:
         """Test that CompositeRule rejects NUMERIC schema when sub-rules are incompatible."""
         rule = CompositeRule(
             question_id="q1",
-            mode="AND",
+            mode="sum",
             rules=[
-                ExactMatchRule(question_id="q1", correct_answer="text", max_points=5.0),
+                ExactMatchRule(question_id="q1", answer="text", max_points=5.0),
             ],
         )
         schema = NumericQuestionSchema()

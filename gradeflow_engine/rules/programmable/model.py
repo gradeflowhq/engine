@@ -1,44 +1,61 @@
 """Programmable rule model definition."""
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, ClassVar, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from gradeflow_engine.types import QuestionType
+
+from ..base import BaseSingleQuestionRule, QuestionConstraint
 
 if TYPE_CHECKING:
     from gradeflow_engine.schema import QuestionSchema
 
 
-class ProgrammableRule(BaseModel):
+class ProgrammableRule(BaseSingleQuestionRule):
     """
-    Programmable grading: execute custom Python script to evaluate answers.
+    Programmable grading rule - user-provided code is stored in `code`.
 
-    The script has access to:
-    - student_answers: Dict[str, str] - all student's answers
-    - question_id: str - the current question being graded
-    - answer: str - the student's answer to this question
+    The `code` string should contain a small Python fragment that evaluates
+    the student's answer for the target `question_id` and sets the following
+    variables as its outputs (the processor will read these after execution):
 
-    The script must set:
-    - points_awarded: float - points to award (0 to max points)
-    - feedback: str (optional) - feedback message
+    Required outputs (must be set by the code):
+      - points_awarded: float
+          Number of max_points to award for this question (can be 0.0).
+
+    Optional outputs (may be set by the code):
+      - feedback: str
+          Human readable feedback for the student.
+
+    Available inputs / helper variables provided to the execution environment:
+      - student_answers: dict[str, str]
+          All answers from the student's submission (question_id -> answer string).
+      - question_id: str
+          The question id this rule targets.
+      - answer: str
+          The student's answer for the current question (equivalent to
+          student_answers[question_id]).
     """
 
     type: Literal["PROGRAMMABLE"] = "PROGRAMMABLE"
-    compatible_types: set[QuestionType] = {"CHOICE", "NUMERIC", "TEXT"}  # Works with all types
-    question_id: str = Field(description="Question ID to grade")
-    script: str = Field(description="Python script to execute for grading")
-    max_points: float = Field(description="Maximum points available", ge=0)
-    timeout_ms: int = Field(
-        default=5000, description="Script execution timeout in milliseconds", ge=100, le=30000
+
+    # Programmable rules are compatible with all core question types
+    compatible_types: ClassVar[frozenset[QuestionType]] = frozenset({"CHOICE", "NUMERIC", "TEXT"})
+    constraints: ClassVar[frozenset[QuestionConstraint]] = frozenset()
+
+    code: str = Field(
+        ...,
+        description=(
+            "Python code fragment to evaluate the student's answer. The code "
+            "will run in a sandboxed environment with access to `student_answers`, "
+            "`question_id`, `answer`, and `rule`. It MUST set `points_awarded` (float) "
+            "and may optionally set `feedback` (str)."
+        ),
     )
-    memory_mb: int = Field(default=50, description="Memory limit in MB", ge=10, le=500)
-    description: str | None = Field(None, description="Human-readable description of the rule")
 
     def validate_against_schema(
         self, question_id: str, schema: "QuestionSchema", rule_description: str
     ) -> list[str]:
-        """Validate this rule against a question schema."""
-        # ProgrammableRule can work with any question type since it's fully customizable
-        # No specific validation needed
+        # ProgrammableRule can work with any question type; no type-specific validation
         return []

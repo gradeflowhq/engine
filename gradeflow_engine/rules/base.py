@@ -1,37 +1,78 @@
-"""Base utilities for rule processors to reduce code duplication."""
+"""Base utilities and base rule models for rule processors to reduce code duplication.
+
+This module contains small helper functions used by rule processors as well as
+shared base Pydantic models used by rule implementations.
+"""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, ClassVar
 
-from .utils import sanitize_text
+from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
-    from ..models import GradeDetail, Submission
+    from ..models import GradeDetail
+    from ..types import QuestionType
 
 
-__all__ = ["sanitize_text", "get_student_answer", "create_grade_detail"]
+__all__ = [
+    "create_grade_detail",
+    "QuestionConstraint",
+    "TextRuleConfig",
+    "BaseRule",
+    "BaseSingleQuestionRule",
+]
 
 
-def get_student_answer(
-    submission: "Submission", question_id: str, default: str = "", strip: bool = True
-) -> str:
+@dataclass(frozen=True)
+class QuestionConstraint:
+    """Immutable metadata describing a rule <-> question field relationship.
+
+    Use simple dataclass to keep these lightweight, hashable, and easy to
+    construct at import time for use as class-level metadata.
     """
-    Safely extract student answer from submission.
 
-    Args:
-        submission: The student's submission
-        question_id: Question ID to retrieve
-        default: Default value if question not found
-        strip: Whether to strip whitespace from answer
+    type: "QuestionType"
+    source: str
+    target: str
 
-    Returns:
-        Student's answer as a string
+
+class TextRuleConfig(BaseModel):
+    """Configuration options for text-based rules.
+
+    - ignore_case: whether matching should be case-insensitive
+    - trim_whitespace: whether to strip leading/trailing whitespace before matching
     """
-    answer = submission.answers.get(question_id, default)
-    if strip:
-        return answer.strip()
-    return answer
+
+    ignore_case: bool = Field(
+        default=True, description="Ignore case when comparing text (default: True)"
+    )
+    trim_whitespace: bool = Field(
+        default=True, description="Trim leading/trailing whitespace before matching"
+    )
+
+
+class BaseRule(BaseModel):
+    """Base class for all rules.
+
+    Rules should set `compatible_types` and `constraints` as class variables
+    (ClassVar) so they are constant and not modifiable via model input.
+    """
+
+    # Class-level constant describing which question types the rule supports.
+    # Use an immutable frozenset to enforce the 'constant' intent.
+    compatible_types: ClassVar[frozenset["QuestionType"]] = frozenset()
+
+    # Schema constraints the rule relies on (class-level constant, immutable)
+    constraints: ClassVar[frozenset["QuestionConstraint"]] = frozenset()
+
+
+class BaseSingleQuestionRule(BaseRule):
+    """Common fields for single-question rules."""
+
+    question_id: str = Field(..., description="Target question id")
+    max_points: float = Field(default=1.0, description="Maximum points for the question")
 
 
 def create_grade_detail(
@@ -55,7 +96,7 @@ def create_grade_detail(
         student_answer: Student's answer
         correct_answer: Expected correct answer (if applicable)
         points_awarded: Points awarded for this question
-        max_points: Maximum points possible
+        max_points: Maximum max_points possible
         is_correct: Whether the answer is correct
         feedback: Optional feedback message
         rule_applied: Optional rule identifier
@@ -75,3 +116,21 @@ def create_grade_detail(
         feedback=feedback,
         rule_applied=rule_applied,
     )
+
+
+def preprocess_text(text: str, config: TextRuleConfig) -> str:
+    """
+    Preprocess text according to the given TextRuleConfig.
+
+    Args:
+        text: The text to preprocess
+        config: TextRuleConfig with preprocessing options
+
+    Returns:
+        Preprocessed text
+    """
+    if config.trim_whitespace:
+        text = text.strip()
+    if config.ignore_case:
+        text = text.lower()
+    return text

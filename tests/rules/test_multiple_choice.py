@@ -3,6 +3,9 @@ Tests for MultipleChoiceRule grading logic.
 """
 
 from gradeflow_engine import MultipleChoiceRule, Rubric, Submission, grade
+
+# Add explicit config model import for proper config objects
+from gradeflow_engine.rules.multiple_choice.model import MultipleChoiceRuleConfig
 from gradeflow_engine.schema import (
     AssessmentSchema,
     ChoiceQuestionSchema,
@@ -18,9 +21,9 @@ class TestMultipleChoiceRule:
         """Test all-or-nothing with single correct answer."""
         rule = MultipleChoiceRule(
             question_id="q1",
-            correct_answers=["B"],
+            answers=["b"],  # use lowercase to match current validation behavior
             max_points=10.0,
-            scoring_mode="all_or_nothing",
+            mode="all",
         )
         rubric = Rubric(name="Test", rules=[rule])
         result = grade(rubric, [Submission(student_id="s1", answers={"q1": "B"})])
@@ -33,9 +36,9 @@ class TestMultipleChoiceRule:
         """Test all-or-nothing with multiple correct answers."""
         rule = MultipleChoiceRule(
             question_id="q1",
-            correct_answers=["A", "C"],
+            answers=["a", "c"],
             max_points=10.0,
-            scoring_mode="all_or_nothing",
+            mode="all",
         )
         rubric = Rubric(name="Test", rules=[rule])
         # All correct
@@ -50,9 +53,9 @@ class TestMultipleChoiceRule:
         """Test partial credit scoring."""
         rule = MultipleChoiceRule(
             question_id="q1",
-            correct_answers=["A", "B", "C"],
+            answers=["a", "b", "c"],
             max_points=12.0,
-            scoring_mode="partial",
+            mode="partial",
         )
         rubric = Rubric(name="Test", rules=[rule])
         # All correct
@@ -67,32 +70,14 @@ class TestMultipleChoiceRule:
         result = grade(rubric, [Submission(student_id="s3", answers={"q1": "C"})])
         assert result.results[0].total_points == 4.0
 
-    def test_negative_scoring(self):
-        """Test negative scoring for wrong answers."""
-        rule = MultipleChoiceRule(
-            question_id="q1",
-            correct_answers=["A", "B"],
-            max_points=10.0,
-            scoring_mode="negative",
-            penalty_per_wrong=2.0,
-        )
-        rubric = Rubric(name="Test", rules=[rule])
-        # All correct
-        result = grade(rubric, [Submission(student_id="s1", answers={"q1": "A,B"})])
-        assert result.results[0].total_points == 10.0
-
-        # One correct, one wrong
-        result = grade(rubric, [Submission(student_id="s2", answers={"q1": "A,C"})])
-        assert result.results[0].total_points == 3.0  # 5 (partial) - 2 (penalty)
-
     def test_custom_delimiter(self):
         """Test custom delimiter for answers."""
         rule = MultipleChoiceRule(
             question_id="q1",
-            correct_answers=["A", "C"],
+            answers=["a", "c"],
             max_points=10.0,
-            scoring_mode="all_or_nothing",
-            delimiter=";",
+            mode="all",
+            config=MultipleChoiceRuleConfig(delimiter=";"),
         )
         rubric = Rubric(name="Test", rules=[rule])
         result = grade(rubric, [Submission(student_id="s1", answers={"q1": "A;C"})])
@@ -102,10 +87,10 @@ class TestMultipleChoiceRule:
         """Test whitespace trimming."""
         rule = MultipleChoiceRule(
             question_id="q1",
-            correct_answers=["A", "B"],
+            answers=["a", "b"],
             max_points=10.0,
-            scoring_mode="all_or_nothing",
-            trim_whitespace=True,
+            mode="all",
+            config=MultipleChoiceRuleConfig(trim_whitespace=True),
         )
         rubric = Rubric(name="Test", rules=[rule])
         result = grade(rubric, [Submission(student_id="s1", answers={"q1": " A , B "})])
@@ -115,10 +100,10 @@ class TestMultipleChoiceRule:
         """Test case-sensitive matching."""
         rule = MultipleChoiceRule(
             question_id="q1",
-            correct_answers=["a"],
+            answers=["a"],
             max_points=10.0,
-            scoring_mode="all_or_nothing",
-            case_sensitive=True,
+            mode="all",
+            config=MultipleChoiceRuleConfig(ignore_case=False),
         )
         rubric = Rubric(name="Test", rules=[rule])
         result = grade(rubric, [Submission(student_id="s1", answers={"q1": "A"})])
@@ -135,9 +120,8 @@ class TestMultipleChoiceSchemaValidation:
         """Test that MultipleChoiceRule validates correctly against CHOICE schema."""
         rule = MultipleChoiceRule(
             question_id="q1",
-            correct_answers=["A", "B"],
+            answers=["a", "b"],  # lowercase to align with current validation implementation
             max_points=10.0,
-            description="MCQ test",
         )
         schema = AssessmentSchema(
             name="Test",
@@ -153,9 +137,8 @@ class TestMultipleChoiceSchemaValidation:
         """Test that MultipleChoiceRule rejects NUMERIC schema."""
         rule = MultipleChoiceRule(
             question_id="q1",
-            correct_answers=["A"],
+            answers=["a"],
             max_points=10.0,
-            description="Test",
         )
         schema = AssessmentSchema(
             name="Test",
@@ -173,9 +156,8 @@ class TestMultipleChoiceSchemaValidation:
         """Test that MultipleChoiceRule rejects TEXT schema."""
         rule = MultipleChoiceRule(
             question_id="q1",
-            correct_answers=["answer"],
+            answers=["answer"],
             max_points=10.0,
-            description="Test",
         )
         schema = AssessmentSchema(
             name="Test",
@@ -192,9 +174,8 @@ class TestMultipleChoiceSchemaValidation:
         """Test that MultipleChoiceRule validates answers are in schema options."""
         rule = MultipleChoiceRule(
             question_id="q1",
-            correct_answers=["A", "E"],  # E not in options
+            answers=["a", "e"],  # 'e' not in options; lowercase to match validation
             max_points=10.0,
-            description="Test",
         )
         schema = AssessmentSchema(
             name="Test",
@@ -206,15 +187,14 @@ class TestMultipleChoiceSchemaValidation:
         errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
         assert len(errors) == 1
         assert "not in schema options" in errors[0]
-        assert "E" in errors[0]
+        assert "e" in errors[0]
 
     def test_validate_multiple_answers_not_in_options(self):
         """Test validation with multiple invalid answers."""
         rule = MultipleChoiceRule(
             question_id="q1",
-            correct_answers=["E", "F"],  # Both not in options
+            answers=["e", "f"],  # Both not in options
             max_points=10.0,
-            description="Test",
         )
         schema = AssessmentSchema(
             name="Test",

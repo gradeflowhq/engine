@@ -280,9 +280,9 @@ def export_results(
 ) -> None:
     """
     Export grading results in the specified format.
-    
+
     This is the main export function that dispatches to format-specific exporters.
-    
+
     Args:
         results: GradeOutput object to export
         file_path: Path to output file
@@ -292,10 +292,10 @@ def export_results(
             - indent: YAML indentation (for YAML format)
             - student_id_field: Student ID column name (for Canvas format)
             - assignment_name: Assignment name (for Canvas format)
-    
+
     Raises:
         ValueError: If format is not supported
-        
+
     Example:
         >>> export_results(results, "output.csv", "csv_summary")
         >>> export_results(results, "output.yaml", "yaml", indent=4)

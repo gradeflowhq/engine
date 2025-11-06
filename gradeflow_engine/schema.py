@@ -244,9 +244,7 @@ def infer_schema_from_submissions(
         schema: QuestionSchema
         if q_type == "CHOICE":
             options = infer_mcq_options(answers)
-            schema = ChoiceQuestionSchema(
-                options=options, allow_multiple=allow_multiple
-            )
+            schema = ChoiceQuestionSchema(options=options, allow_multiple=allow_multiple)
         elif q_type == "NUMERIC":
             schema = NumericQuestionSchema()
         elif q_type == "TEXT":
