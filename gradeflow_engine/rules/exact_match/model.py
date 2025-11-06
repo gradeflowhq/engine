@@ -8,7 +8,7 @@ from pydantic import Field
 
 from gradeflow_engine.types import QuestionType
 
-from ..base import BaseSingleQuestionRule, QuestionConstraint, TextRuleConfig
+from ..base import BaseSingleQuestionRule, TextRuleConfig
 
 if TYPE_CHECKING:
     from gradeflow_engine.schema import QuestionSchema
@@ -20,9 +20,6 @@ class ExactMatchRule(BaseSingleQuestionRule):
     type: Literal["EXACT_MATCH"] = "EXACT_MATCH"
 
     compatible_types: frozenset[QuestionType] = frozenset({"TEXT"})
-    constraints: frozenset[QuestionConstraint] = frozenset(
-        {QuestionConstraint(type="TEXT", source="metadata", target="answer")}
-    )
 
     answer: str = Field(..., description="Expected exact answer")
     config: TextRuleConfig = Field(
