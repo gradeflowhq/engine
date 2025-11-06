@@ -1,6 +1,6 @@
 """Keyword rule model definition."""
 
-from typing import TYPE_CHECKING, ClassVar, Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import Field
 
@@ -16,7 +16,7 @@ class KeywordRule(BaseSingleQuestionRule):
     """Keyword rule matching"""
 
     type: Literal["KEYWORD"] = "KEYWORD"
-    compatible_types: ClassVar[frozenset[QuestionType]] = frozenset({"TEXT"})
+    compatible_types: frozenset[QuestionType] = frozenset({"TEXT"})
 
     keywords: list[str] = Field(..., min_length=1, description="Keywords to look for")
     mode: Literal["all", "partial", "any"] = Field(

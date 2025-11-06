@@ -5,7 +5,7 @@ This rule matches a single regex pattern against a text answer. The
 """
 
 import re
-from typing import TYPE_CHECKING, Any, ClassVar, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -28,7 +28,7 @@ class RegexRule(BaseSingleQuestionRule):
     """Regex-based grading for text answers using a single pattern."""
 
     type: Literal["REGEX"] = "REGEX"
-    compatible_types: ClassVar[frozenset[QuestionType]] = frozenset({"TEXT"})
+    compatible_types: frozenset[QuestionType] = frozenset({"TEXT"})
 
     pattern: str = Field(..., description="Regex pattern to match against the student's answer")
     config: RegexRuleConfig = Field(default_factory=RegexRuleConfig)

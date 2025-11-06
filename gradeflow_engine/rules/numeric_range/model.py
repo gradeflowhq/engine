@@ -1,6 +1,6 @@
 """NumericRange rule model definition."""
 
-from typing import TYPE_CHECKING, Any, ClassVar, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import Field, field_validator
 
@@ -16,7 +16,7 @@ class NumericRangeRule(BaseSingleQuestionRule):
     """Numeric answer grading with inclusive [min_value, max_value]."""
 
     type: Literal["NUMERIC_RANGE"] = "NUMERIC_RANGE"
-    compatible_types: ClassVar[frozenset[QuestionType]] = frozenset({"NUMERIC"})
+    compatible_types: frozenset[QuestionType] = frozenset({"NUMERIC"})
 
     min_value: float = Field(..., description="Minimum acceptable value for full credit")
     max_value: float = Field(..., description="Maximum acceptable value for full credit")

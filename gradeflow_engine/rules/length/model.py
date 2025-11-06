@@ -1,6 +1,6 @@
 """Length rule model definition."""
 
-from typing import TYPE_CHECKING, Any, ClassVar, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import Field, field_validator
 
@@ -16,7 +16,7 @@ class LengthRule(BaseSingleQuestionRule):
     """Grade an answer based on length constraints."""
 
     type: Literal["LENGTH"] = "LENGTH"
-    compatible_types: ClassVar[frozenset[QuestionType]] = frozenset({"TEXT"})
+    compatible_types: frozenset[QuestionType] = frozenset({"TEXT"})
 
     min_length: int | None = Field(
         default=None, ge=0, description="Minimum length (chars or words)"

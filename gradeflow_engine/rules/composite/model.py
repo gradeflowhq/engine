@@ -1,13 +1,13 @@
 """Composite rule model definition."""
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING, ClassVar, Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import Field
 
 from gradeflow_engine.types import QuestionType
 
-from ..base import BaseSingleQuestionRule, QuestionConstraint
+from ..base import BaseSingleQuestionRule
 
 if TYPE_CHECKING:
     from gradeflow_engine.models import SingleQuestionRule
@@ -23,16 +23,13 @@ class CompositeRule(BaseSingleQuestionRule):
     """
 
     type: Literal["COMPOSITE"] = "COMPOSITE"
-
-    # No single compatible_types constant - compatibility is determined by sub-rules.
-    compatible_types: ClassVar[frozenset[QuestionType]] = frozenset()
-    constraints: ClassVar[frozenset[QuestionConstraint]] = frozenset()
+    compatible_types: frozenset[QuestionType] =  frozenset({"CHOICE", "NUMERIC", "TEXT"})
 
     rules: list["SingleQuestionRule"] = Field(
         ..., description="List of single-question rules to combine", min_length=1
     )
     mode: Literal["max", "min", "sum", "average", "multiply"] = Field(
-        ..., description="Aggregation function to apply to sub-rule scores"
+        default="sum", description="Aggregation function to apply to sub-rule scores"
     )
 
     def validate_against_schema(

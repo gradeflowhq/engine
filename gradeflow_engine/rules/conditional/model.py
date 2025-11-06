@@ -1,6 +1,6 @@
 """Conditional rule model definition."""
 
-from typing import TYPE_CHECKING, Any, ClassVar, Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, Field
 
@@ -29,8 +29,7 @@ class ConditionalRule(BaseModel):
     """
 
     type: Literal["CONDITIONAL"] = "CONDITIONAL"
-    # Works across question types; keep as an immutable class-level constant.
-    compatible_types: ClassVar[frozenset[QuestionType]] = frozenset()
+    compatible_types: frozenset[QuestionType] = frozenset({"CHOICE", "NUMERIC", "TEXT"})
 
     if_rules: list["SingleQuestionRule"] = Field(
         ...,  # required
@@ -65,24 +64,22 @@ class ConditionalRule(BaseModel):
 
         # Validate all if_rules
         for rule in self.if_rules:
-            validate_method = getattr(rule, "validate_against_schema", None)
+            validate_method = rule.validate_against_schema
             if validate_method is not None and callable(validate_method):
                 rule_desc = (
                     f"{rule_description} > If-condition for Q{rule.question_id} ({rule.type})"
                 )
-                sub_errors: Any = validate_method(rule.question_id, schema, rule_desc)
-                if isinstance(sub_errors, list):
-                    errors.extend(sub_errors)
+                sub_errors: list[str] = validate_method(rule.question_id, schema, rule_desc)
+                errors.extend(sub_errors)
 
         # Validate all then_rules
         for rule in self.then_rules:
-            validate_method = getattr(rule, "validate_against_schema", None)
+            validate_method = rule.validate_against_schema
             if validate_method is not None and callable(validate_method):
                 rule_desc = (
                     f"{rule_description} > Then-condition for Q{rule.question_id} ({rule.type})"
                 )
-                sub_errors = validate_method(rule.question_id, schema, rule_desc)
-                if isinstance(sub_errors, list):
-                    errors.extend(sub_errors)
+                sub_errors: list[str] = validate_method(rule.question_id, schema, rule_desc)
+                errors.extend(sub_errors)
 
         return errors

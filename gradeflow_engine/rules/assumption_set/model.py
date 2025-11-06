@@ -35,7 +35,7 @@ class AssumptionSetRule(BaseModel):
     """
 
     type: Literal["ASSUMPTION_SET"] = "ASSUMPTION_SET"
-    compatible_types: set[QuestionType] = {"CHOICE", "NUMERIC", "TEXT"}
+    compatible_types: frozenset[QuestionType] = frozenset({"CHOICE", "NUMERIC", "TEXT"})
 
     assumptions: list[Assumption] = Field(
         ..., description="List of named assumptions", min_length=1

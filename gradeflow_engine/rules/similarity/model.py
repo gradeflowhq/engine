@@ -1,6 +1,6 @@
 """Similarity rule model definition."""
 
-from typing import TYPE_CHECKING, ClassVar, Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import Field
 
@@ -23,10 +23,10 @@ class SimilarityRule(BaseSingleQuestionRule):
     """Fuzzy text matching using configured similarity algorithm."""
 
     type: Literal["SIMILARITY"] = "SIMILARITY"
-    compatible_types: ClassVar[frozenset[QuestionType]] = frozenset({"TEXT"})
+    compatible_types: frozenset[QuestionType] = frozenset({"TEXT"})
 
     reference: str = Field(..., description="Reference text to compare against")
-    threshold: float = Field(..., ge=0.0, le=1.0, description="Similarity threshold (0.0-1.0)")
+    threshold: float = Field(default=0.8, ge=0.0, le=1.0, description="Similarity threshold (0.0-1.0)")
     config: SimilarityRuleConfig = Field(default_factory=SimilarityRuleConfig)
 
     def validate_against_schema(

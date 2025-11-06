@@ -1,12 +1,12 @@
 """Programmable rule model definition."""
 
-from typing import TYPE_CHECKING, ClassVar, Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import Field
 
 from gradeflow_engine.types import QuestionType
 
-from ..base import BaseSingleQuestionRule, QuestionConstraint
+from ..base import BaseSingleQuestionRule
 
 if TYPE_CHECKING:
     from gradeflow_engine.schema import QuestionSchema
@@ -41,8 +41,7 @@ class ProgrammableRule(BaseSingleQuestionRule):
     type: Literal["PROGRAMMABLE"] = "PROGRAMMABLE"
 
     # Programmable rules are compatible with all core question types
-    compatible_types: ClassVar[frozenset[QuestionType]] = frozenset({"CHOICE", "NUMERIC", "TEXT"})
-    constraints: ClassVar[frozenset[QuestionConstraint]] = frozenset()
+    compatible_types: frozenset[QuestionType] = frozenset({"CHOICE", "NUMERIC", "TEXT"})
 
     code: str = Field(
         ...,

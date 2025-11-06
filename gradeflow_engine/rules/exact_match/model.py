@@ -2,7 +2,7 @@
 Exact Match Rule model definition.
 """
 
-from typing import TYPE_CHECKING, ClassVar, Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import Field
 
@@ -19,8 +19,8 @@ class ExactMatchRule(BaseSingleQuestionRule):
 
     type: Literal["EXACT_MATCH"] = "EXACT_MATCH"
 
-    compatible_types: ClassVar[frozenset[QuestionType]] = frozenset({"TEXT"})
-    constraints: ClassVar[frozenset[QuestionConstraint]] = frozenset(
+    compatible_types: frozenset[QuestionType] = frozenset({"TEXT"})
+    constraints: frozenset[QuestionConstraint] = frozenset(
         {QuestionConstraint(type="TEXT", source="metadata", target="answer")}
     )
 

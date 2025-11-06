@@ -1,6 +1,6 @@
 """Multiple choice grading rule."""
 
-from typing import TYPE_CHECKING, ClassVar, Literal, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 from pydantic import Field
 
@@ -27,8 +27,8 @@ class MultipleChoiceRule(BaseSingleQuestionRule):
 
     type: Literal["MULTIPLE_CHOICE"] = "MULTIPLE_CHOICE"
 
-    compatible_types: ClassVar[frozenset[QuestionType]] = frozenset({"CHOICE"})
-    constraints: ClassVar[frozenset[QuestionConstraint]] = frozenset(
+    compatible_types: frozenset[QuestionType] = frozenset({"CHOICE"})
+    constraints: frozenset[QuestionConstraint] = frozenset(
         {QuestionConstraint(type="CHOICE", source="options", target="answers")}
     )
 

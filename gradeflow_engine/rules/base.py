@@ -7,13 +7,14 @@ shared base Pydantic models used by rule implementations.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
+from ..types import QuestionType
+
 if TYPE_CHECKING:
     from ..models import GradeDetail
-    from ..types import QuestionType
 
 
 __all__ = [
@@ -54,18 +55,14 @@ class TextRuleConfig(BaseModel):
 
 
 class BaseRule(BaseModel):
-    """Base class for all rules.
+    """Base class for all rules."""
 
-    Rules should set `compatible_types` and `constraints` as class variables
-    (ClassVar) so they are constant and not modifiable via model input.
-    """
+    # Constant describing which question types the rule supports.
+    # Use an immutable set to enforce the 'constant' intent.
+    compatible_types: frozenset["QuestionType"] = frozenset()
 
-    # Class-level constant describing which question types the rule supports.
-    # Use an immutable frozenset to enforce the 'constant' intent.
-    compatible_types: ClassVar[frozenset["QuestionType"]] = frozenset()
-
-    # Schema constraints the rule relies on (class-level constant, immutable)
-    constraints: ClassVar[frozenset["QuestionConstraint"]] = frozenset()
+    # Schema constraints the rule relies on to function correctly.
+    constraints: frozenset["QuestionConstraint"] = frozenset()
 
 
 class BaseSingleQuestionRule(BaseRule):
