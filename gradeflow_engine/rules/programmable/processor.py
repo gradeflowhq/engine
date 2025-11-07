@@ -73,12 +73,12 @@ def process_programmable(
         return create_grade_detail(
             question_id=rule.question_id,
             student_answer=student_answer,
-            correct_answer=None,
+            correct_answer="Checked by programmable rule",
             points_awarded=points_awarded,
             max_points=rule.max_points,
             is_correct=is_correct,
             feedback=feedback or None,
-            rule_applied=None,
+            rule_applied=rule.type,
         )
 
     except (SandboxExecutionError, SandboxTimeoutError) as e:
@@ -86,10 +86,10 @@ def process_programmable(
         return create_grade_detail(
             question_id=rule.question_id,
             student_answer=student_answer,
-            correct_answer=None,
+            correct_answer="Checked by programmable rule",
             points_awarded=0.0,
             max_points=rule.max_points,
             is_correct=False,
             feedback=f"Grading script error: {str(e)}",
-            rule_applied=None,
+            rule_applied=rule.type,
         )

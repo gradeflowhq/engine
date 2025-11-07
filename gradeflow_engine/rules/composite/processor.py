@@ -101,13 +101,21 @@ def process_composite(rule: "CompositeRule", submission: "Submission") -> "Grade
 
     feedback = _format_feedback(agg_key, sub_results)
 
+    # Aggregate correct answers from sub-results if available
+    correct_answers = [d.correct_answer for d in sub_results if d.correct_answer is not None]
+    correct_answer = ", ".join(correct_answers) if correct_answers else None
+
+    # Aggregate rule applied from sub-results
+    rules_applied = [d.rule_applied for d in sub_results if d.rule_applied is not None]
+    rule_applied = f"{rule.mode}: " + ", ".join(rules_applied) if rules_applied else None
+
     return GradeDetail(
         question_id=rule.question_id,
         student_answer=submission.answers.get(rule.question_id, ""),
-        correct_answer=None,
+        correct_answer=correct_answer,
         points_awarded=points_awarded,
         max_points=max_points,
         is_correct=is_correct,
-        rule_applied=rule.type,
+        rule_applied=rule_applied,
         feedback=feedback,
     )

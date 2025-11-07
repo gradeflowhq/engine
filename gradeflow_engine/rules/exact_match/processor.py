@@ -52,4 +52,5 @@ def process_exact_match(rule: "ExactMatchRule", submission: "Submission") -> "Gr
         max_points=rule.max_points,
         is_correct=is_correct,
         feedback=feedback,
+        rule_applied=rule.type,
     )

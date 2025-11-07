@@ -15,13 +15,12 @@ from . import __version__
 from .core import (
     grade as grade_submissions,
 )
+from .exports import export_registry
 from .io import (
-    export_canvas_csv,
+    export_results,
     load_rubric,
     load_schema,
     load_submissions_csv,
-    save_results_csv,
-    save_results_yaml,
     save_schema,
 )
 from .models import GradeOutput
@@ -35,6 +34,14 @@ app = typer.Typer(
     help="Advanced Grader Engine - Grade digital assessments with complex rules",
     add_completion=False,
 )
+# Build available export types and mapping at import time from the registry
+EXPORT_TYPE_MAP = {
+    name: entry["config_model"]
+    for name, entry in export_registry.list().items()
+    if entry.get("config_model")
+}
+DEFAULT_EXPORT_TYPE = next(iter(EXPORT_TYPE_MAP.keys()))
+
 console = Console()
 
 
@@ -63,51 +70,20 @@ def main(
 @app.command()
 def grade(
     rubric: Path = typer.Argument(
-        ...,
-        help="Path to rubric YAML file",
-        exists=True,
-        file_okay=True,
-        dir_okay=False,
+        ..., help="Path to rubric YAML file", exists=True, file_okay=True, dir_okay=False
     ),
     submissions: Path = typer.Argument(
-        ...,
-        help="Path to submissions CSV file",
-        exists=True,
-        file_okay=True,
-        dir_okay=False,
+        ..., help="Path to submissions CSV file", exists=True, file_okay=True, dir_okay=False
     ),
-    output: Path = typer.Option(
-        "results.yaml",
-        "--out",
-        "-o",
-        help="Output path for results YAML",
+    output: Path = typer.Option("results.yaml", "--out", "-o", help="Output path for results"),
+    output_type: str = typer.Option(
+        DEFAULT_EXPORT_TYPE,
+        "--type",
+        "-t",
+        help=f"Output type. Available: {', '.join(list(EXPORT_TYPE_MAP.keys()))}",
     ),
     student_id_col: str = typer.Option(
-        "student_id",
-        "--student-col",
-        "-s",
-        help="Name of student ID column in CSV",
-    ),
-    csv_summary: Path | None = typer.Option(
-        None,
-        "--csv-summary",
-        help="Also save summary CSV",
-    ),
-    csv_detailed: Path | None = typer.Option(
-        None,
-        "--csv-detailed",
-        help="Also save detailed CSV",
-    ),
-    canvas_export: Path | None = typer.Option(
-        None,
-        "--canvas",
-        help="Export Canvas-compatible CSV",
-    ),
-    quiet: bool = typer.Option(
-        False,
-        "--quiet",
-        "-q",
-        help="Suppress output except errors",
+        "student_id", "--student-col", "-s", help="Name of student ID column in CSV"
     ),
 ):
     """
@@ -119,8 +95,7 @@ def grade(
         gradeflow-engine grade rubric.yaml submissions.csv -o results.yaml
     """
     try:
-        if not quiet:
-            console.print("[bold blue]Loading rubric and submissions...[/bold blue]")
+        console.print("[bold blue]Loading rubric and submissions...[/bold blue]")
 
         # Load rubric and submissions
         from .io import load_rubric, load_submissions_csv
@@ -128,57 +103,42 @@ def grade(
         rubric_obj = load_rubric(str(rubric))
         submissions_list = load_submissions_csv(str(submissions), student_id_col=student_id_col)
 
-        # Grade submissions with progress tracking
-        if not quiet:
-            with Progress(
-                SpinnerColumn(),
-                TextColumn("[progress.description]{task.description}"),
-                BarColumn(),
-                TaskProgressColumn(),
-                console=console,
-            ) as progress:
-                task = progress.add_task(
-                    f"[cyan]Grading {len(submissions_list)} submissions...",
-                    total=len(submissions_list),
-                )
+        # Grade submissions with progress tracking (always show progress)
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            console=console,
+        ) as progress:
+            task = progress.add_task(
+                f"[cyan]Grading {len(submissions_list)} submissions...",
+                total=len(submissions_list),
+            )
 
-                def update_progress(current: int, total: int):
-                    progress.update(task, completed=current)
+            def update_progress(current: int, total: int):
+                progress.update(task, completed=current)
 
-                results = grade_submissions(
-                    rubric_obj, submissions_list, progress_callback=update_progress
-                )
-        else:
-            # No progress display in quiet mode
-            results = grade_submissions(rubric_obj, submissions_list)
+            results = grade_submissions(
+                rubric_obj, submissions_list, progress_callback=update_progress
+            )
 
-        if not quiet:
-            console.print(f"[green]✓[/green] Graded {len(results.results)} students")
+        console.print(f"[green]✓[/green] Graded {len(results.results)} students")
 
-        # Save main results
-        save_results_yaml(results, str(output))
-        if not quiet:
-            console.print(f"[green]✓[/green] Results saved to {output}")
+        # Resolve primary output via --type
+        if output_type not in EXPORT_TYPE_MAP:
+            raise typer.BadParameter(f"Unsupported output_type: {output_type}")
 
-        # Save optional outputs
-        if csv_summary:
-            save_results_csv(results, str(csv_summary), include_details=False)
-            if not quiet:
-                console.print(f"[green]✓[/green] Summary CSV saved to {csv_summary}")
+        cfg_cls = EXPORT_TYPE_MAP[output_type]
+        if cfg_cls is None or not callable(cfg_cls):
+            raise typer.BadParameter(f"Export config for '{output_type}' is not available")
 
-        if csv_detailed:
-            save_results_csv(results, str(csv_detailed), include_details=True)
-            if not quiet:
-                console.print(f"[green]✓[/green] Detailed CSV saved to {csv_detailed}")
-
-        if canvas_export:
-            export_canvas_csv(results, str(canvas_export))
-            if not quiet:
-                console.print(f"[green]✓[/green] Canvas export saved to {canvas_export}")
+        cfg = cfg_cls()
+        export_results(results, str(output), config=cfg)
+        console.print(f"[green]✓[/green] Results saved to {output} ({output_type})")
 
         # Display summary table
-        if not quiet:
-            _display_summary_table(results)
+        _display_summary_table(results)
 
     except Exception as e:
         console.print(f"[bold red]Error:[/bold red] {str(e)}")

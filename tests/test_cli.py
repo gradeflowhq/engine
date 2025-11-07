@@ -128,7 +128,8 @@ class TestGradeCommand:
                 str(sample_submissions),
                 "--out",
                 str(output_file),
-                "--quiet",
+                "--type",
+                "yaml",
             ],
         )
 
@@ -144,22 +145,8 @@ class TestGradeCommand:
         assert output["metadata"]["rubric_name"] == "Test Rubric"
         assert len(output["results"]) == 4
 
-    def test_grade_with_progress(self, runner, sample_rubric, sample_submissions, tmp_path):
-        """Test grading with progress display (not quiet)."""
-        output_file = tmp_path / "results.yaml"
-
-        result = runner.invoke(
-            cli_app,
-            ["grade", str(sample_rubric), str(sample_submissions), "--out", str(output_file)],
-        )
-
-        assert result.exit_code == 0
-        assert "Loading rubric and submissions" in result.stdout or result.exit_code == 0
-        assert output_file.exists()
-
     def test_grade_with_csv_summary(self, runner, sample_rubric, sample_submissions, tmp_path):
         """Test grading with CSV summary output."""
-        output_file = tmp_path / "results.yaml"
         csv_summary = tmp_path / "summary.csv"
 
         result = runner.invoke(
@@ -169,15 +156,13 @@ class TestGradeCommand:
                 str(sample_rubric),
                 str(sample_submissions),
                 "--out",
-                str(output_file),
-                "--csv-summary",
                 str(csv_summary),
-                "--quiet",
+                "--type",
+                "csv.summary",
             ],
         )
 
         assert result.exit_code == 0
-        assert output_file.exists()
         assert csv_summary.exists()
 
         # Verify CSV structure
@@ -192,7 +177,6 @@ class TestGradeCommand:
 
     def test_grade_with_csv_detailed(self, runner, sample_rubric, sample_submissions, tmp_path):
         """Test grading with detailed CSV output."""
-        output_file = tmp_path / "results.yaml"
         csv_detailed = tmp_path / "detailed.csv"
 
         result = runner.invoke(
@@ -202,15 +186,13 @@ class TestGradeCommand:
                 str(sample_rubric),
                 str(sample_submissions),
                 "--out",
-                str(output_file),
-                "--csv-detailed",
                 str(csv_detailed),
-                "--quiet",
+                "--type",
+                "csv.detailed",
             ],
         )
 
         assert result.exit_code == 0
-        assert output_file.exists()
         assert csv_detailed.exists()
 
         # Verify CSV has detailed columns
@@ -218,16 +200,14 @@ class TestGradeCommand:
             reader = csv.DictReader(f)
             rows = list(reader)
 
-        # Detailed CSV has one row per student-question pair
-        # 4 students × 2 questions = 8 rows
-        assert len(rows) == 8
-        # Should have question-specific columns
-        assert "question_id" in rows[0].keys()
-        assert "student_answer" in rows[0].keys()
+        # Detailed CSV is a flattened per-student CSV with question-specific columns
+        # Expect one row per student (4 rows)
+        assert len(rows) == 4
+        # Should have question-specific column headers like 'Q1 answer'
+        assert any(col.endswith("answer") for col in rows[0].keys())
 
     def test_grade_with_canvas_export(self, runner, sample_rubric, sample_submissions, tmp_path):
         """Test grading with Canvas CSV export."""
-        output_file = tmp_path / "results.yaml"
         canvas_file = tmp_path / "canvas.csv"
 
         result = runner.invoke(
@@ -237,15 +217,13 @@ class TestGradeCommand:
                 str(sample_rubric),
                 str(sample_submissions),
                 "--out",
-                str(output_file),
-                "--canvas",
                 str(canvas_file),
-                "--quiet",
+                "--type",
+                "csv.canvas",
             ],
         )
 
         assert result.exit_code == 0
-        assert output_file.exists()
         assert canvas_file.exists()
 
         # Verify Canvas format
@@ -258,37 +236,6 @@ class TestGradeCommand:
         # By default: ["SIS User ID", "Test Rubric"]
         assert "SIS User ID" in rows[0]
         assert "Test Rubric" in rows[0]
-
-    def test_grade_with_all_outputs(self, runner, sample_rubric, sample_submissions, tmp_path):
-        """Test grading with all output options enabled."""
-        output_file = tmp_path / "results.yaml"
-        csv_summary = tmp_path / "summary.csv"
-        csv_detailed = tmp_path / "detailed.csv"
-        canvas_file = tmp_path / "canvas.csv"
-
-        result = runner.invoke(
-            cli_app,
-            [
-                "grade",
-                str(sample_rubric),
-                str(sample_submissions),
-                "--out",
-                str(output_file),
-                "--csv-summary",
-                str(csv_summary),
-                "--csv-detailed",
-                str(csv_detailed),
-                "--canvas",
-                str(canvas_file),
-                "--quiet",
-            ],
-        )
-
-        assert result.exit_code == 0
-        assert output_file.exists()
-        assert csv_summary.exists()
-        assert csv_detailed.exists()
-        assert canvas_file.exists()
 
     def test_grade_custom_student_id_column(self, runner, sample_rubric, tmp_path):
         """Test grading with custom student ID column name."""
@@ -316,7 +263,8 @@ class TestGradeCommand:
                 str(output_file),
                 "--student-col",
                 "StudentID",
-                "--quiet",
+                "--type",
+                "yaml",
             ],
         )
 
@@ -340,7 +288,6 @@ class TestGradeCommand:
                 str(sample_submissions),
                 "--out",
                 str(output_file),
-                "--quiet",
             ],
         )
 
@@ -358,7 +305,6 @@ class TestGradeCommand:
                 "nonexistent_submissions.csv",
                 "--out",
                 str(output_file),
-                "--quiet",
             ],
         )
 
@@ -366,8 +312,8 @@ class TestGradeCommand:
 
     def test_grade_invalid_rubric(self, runner, invalid_rubric, sample_submissions, tmp_path):
         """Test grading with invalid rubric."""
+        # An invalid rubric should cause the grading command to fail
         output_file = tmp_path / "results.yaml"
-
         result = runner.invoke(
             cli_app,
             [
@@ -376,20 +322,19 @@ class TestGradeCommand:
                 str(sample_submissions),
                 "--out",
                 str(output_file),
-                "--quiet",
+                "--type",
+                "yaml",
             ],
         )
 
-        assert result.exit_code == 1
-        assert "Error:" in result.stdout
+        assert result.exit_code != 0
 
     def test_grade_empty_submissions(self, runner, sample_rubric, tmp_path):
-        """Test grading with empty submissions file."""
-        empty_submissions = tmp_path / "empty_submissions.csv"
+        """Test grading when submissions file is empty (header only)."""
+        empty_submissions = tmp_path / "empty.csv"
         with open(empty_submissions, "w", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(["student_id", "Q1", "Q2", "Q3"])
-            # No data rows
 
         output_file = tmp_path / "results.yaml"
 
@@ -401,7 +346,8 @@ class TestGradeCommand:
                 str(empty_submissions),
                 "--out",
                 str(output_file),
-                "--quiet",
+                "--type",
+                "yaml",
             ],
         )
 
@@ -513,7 +459,8 @@ class TestCLIEdgeCases:
                 str(sample_submissions),
                 "--out",
                 str(output_file),
-                "--quiet",
+                "--type",
+                "yaml",
             ],
         )
 
@@ -534,7 +481,8 @@ class TestCLIEdgeCases:
                 str(sample_submissions),
                 "--out",
                 str(output_file),
-                "--quiet",
+                "--type",
+                "yaml",
             ],
         )
 
@@ -559,7 +507,8 @@ class TestCLIEdgeCases:
                 str(sample_submissions),
                 "--out",
                 str(output_file),
-                "--quiet",
+                "--type",
+                "yaml",
             ],
         )
 
@@ -609,7 +558,8 @@ class TestCLIIntegration:
                 str(sample_submissions),
                 "--out",
                 str(output_file),
-                "--quiet",
+                "--type",
+                "yaml",
             ],
         )
         assert grade_result.exit_code == 0
@@ -619,6 +569,7 @@ class TestCLIIntegration:
         self, runner, sample_rubric, sample_submissions, tmp_path
     ):
         """Test generating all output formats in one command."""
+        # Run primary YAML output first
         result = runner.invoke(
             cli_app,
             [
@@ -627,17 +578,54 @@ class TestCLIIntegration:
                 str(sample_submissions),
                 "--out",
                 str(tmp_path / "results.yaml"),
-                "--csv-summary",
-                str(tmp_path / "summary.csv"),
-                "--csv-detailed",
-                str(tmp_path / "detailed.csv"),
-                "--canvas",
-                str(tmp_path / "canvas.csv"),
-                "--quiet",
+                "--type",
+                "yaml",
             ],
         )
-
         assert result.exit_code == 0
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "grade",
+                str(sample_rubric),
+                str(sample_submissions),
+                "--out",
+                str(tmp_path / "summary.csv"),
+                "--type",
+                "csv.summary",
+            ],
+        )
+        assert result.exit_code == 0
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "grade",
+                str(sample_rubric),
+                str(sample_submissions),
+                "--out",
+                str(tmp_path / "detailed.csv"),
+                "--type",
+                "csv.detailed",
+            ],
+        )
+        assert result.exit_code == 0
+
+        result = runner.invoke(
+            cli_app,
+            [
+                "grade",
+                str(sample_rubric),
+                str(sample_submissions),
+                "--out",
+                str(tmp_path / "canvas.csv"),
+                "--type",
+                "csv.canvas",
+            ],
+        )
+        assert result.exit_code == 0
+
         assert (tmp_path / "results.yaml").exists()
         assert (tmp_path / "summary.csv").exists()
         assert (tmp_path / "detailed.csv").exists()
@@ -1096,7 +1084,8 @@ class TestSchemaWorkflows:
                 str(sample_submissions),
                 "--out",
                 str(output_file),
-                "--quiet",
+                "--type",
+                "yaml",
             ],
         )
         assert grade_result.exit_code == 0

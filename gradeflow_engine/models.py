@@ -9,6 +9,15 @@ from typing import Annotated, Any
 
 from pydantic import BaseModel, Discriminator, Field
 
+# Import all export config models from exports/ directory
+from .exports import (
+    CanvasExportConfig,
+    DetailedCsvExportConfig,
+    ExportConfig,
+    SummaryCsvExportConfig,
+    YamlExportConfig,
+)
+
 # Import all rule models from the rules/ directory (auto-discovered)
 from .rules import (
     Assumption,
@@ -208,4 +217,9 @@ __all__ = [
     "SingleQuestionRule",
     "StudentResult",
     "Submission",
+    "SummaryCsvExportConfig",
+    "DetailedCsvExportConfig",
+    "CanvasExportConfig",
+    "YamlExportConfig",
+    "ExportConfig",
 ]

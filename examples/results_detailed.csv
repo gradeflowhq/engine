@@ -1,56 +1,21 @@
-student_id,question_id,student_answer,correct_answer,points_awarded,max_points,is_correct,feedback
-student001,Q2,B,B,5.0,5.0,True,✓ Correct
-student001,Q3,kinetic,kinetic,3.0,3.0,True,"✓ Correct
-Graded using assumption: Interpretation A - Classical Mechanics"
-student001,Q4,increases,increases,3.0,3.0,True,"✓ Correct
-Graded using assumption: Interpretation A - Classical Mechanics"
-student001,Q5,parabolic,parabolic,4.0,4.0,True,"✓ Correct
-Graded using assumption: Interpretation A - Classical Mechanics"
-student001,Q6,The algorithm uses dynamic programming to optimize complexity through divide and conquer strategies.,,6.0,8.0,False,"Found ""algorithm""; Found ""complexity""; Missing ""optimization""; Bonus for ""dynamic programming""; Bonus for ""divide and conquer"" - Good answer"
-student001,Q7,42.3,,5.0,5.0,True,Correct! (42.3 is within tolerance of 42.5)
-student001,Q8,,"Keywords: mitochondria, energy, ATP, cellular respiration, powerhouse, glucose",0.0,10.0,False,"✗ Missing keywords: mitochondria, energy, ATP, cellular respiration, powerhouse, glucose"
-student001,Q9,,,0.0,5.0,False,✗ Pattern did not match
-student002,Q2,D,D,5.0,5.0,True,✓ Correct
-student002,Q3,potential,potential,3.0,3.0,True,"✓ Correct
-Graded using assumption: Interpretation B - Quantum Mechanics"
-student002,Q4,quantized,quantized,3.0,3.0,True,"✓ Correct
-Graded using assumption: Interpretation B - Quantum Mechanics"
-student002,Q5,discrete,discrete,4.0,4.0,True,"✓ Correct
-Graded using assumption: Interpretation B - Quantum Mechanics"
-student002,Q6,This optimization problem requires analysis of algorithm complexity and efficient processing.,,6.0,8.0,False,"Found ""algorithm""; Found ""complexity""; Found ""optimization"" - Good answer"
-student002,Q7,43.0,,5.0,5.0,True,Correct! (43.0 is within tolerance of 42.5)
-student002,Q8,,"Keywords: mitochondria, energy, ATP, cellular respiration, powerhouse, glucose",0.0,10.0,False,"✗ Missing keywords: mitochondria, energy, ATP, cellular respiration, powerhouse, glucose"
-student002,Q9,,,0.0,5.0,False,✗ Pattern did not match
-student003,Q2,D,B,0.0,5.0,False,✗ Expected: B
-student003,Q3,kinetic,kinetic,3.0,3.0,True,"✓ Correct
-Graded using assumption: Interpretation A - Classical Mechanics"
-student003,Q4,increases,increases,3.0,3.0,True,"✓ Correct
-Graded using assumption: Interpretation A - Classical Mechanics"
-student003,Q5,parabolic,parabolic,4.0,4.0,True,"✓ Correct
-Graded using assumption: Interpretation A - Classical Mechanics"
-student003,Q6,The solution involves algorithm design and optimization techniques.,,4.0,8.0,False,"Found ""algorithm""; Missing ""complexity""; Found ""optimization"" - Needs improvement"
-student003,Q7,41.8,,3.0,5.0,False,Close! Off by 0.70
-student003,Q8,,"Keywords: mitochondria, energy, ATP, cellular respiration, powerhouse, glucose",0.0,10.0,False,"✗ Missing keywords: mitochondria, energy, ATP, cellular respiration, powerhouse, glucose"
-student003,Q9,,,0.0,5.0,False,✗ Pattern did not match
-student004,Q2,C,D,0.0,5.0,False,✗ Expected: D
-student004,Q3,potential,potential,3.0,3.0,True,"✓ Correct
-Graded using assumption: Interpretation B - Quantum Mechanics"
-student004,Q4,increases,quantized,0.0,3.0,False,"✗ Expected: quantized
-Graded using assumption: Interpretation B - Quantum Mechanics"
-student004,Q5,discrete,discrete,4.0,4.0,True,"✓ Correct
-Graded using assumption: Interpretation B - Quantum Mechanics"
-student004,Q6,Algorithm complexity can be improved using greedy approaches.,,5.0,8.0,False,"Found ""algorithm""; Found ""complexity""; Missing ""optimization""; Bonus for ""greedy"" - Needs improvement"
-student004,Q7,42.5,,5.0,5.0,True,Correct! (42.5 is within tolerance of 42.5)
-student004,Q8,,"Keywords: mitochondria, energy, ATP, cellular respiration, powerhouse, glucose",0.0,10.0,False,"✗ Missing keywords: mitochondria, energy, ATP, cellular respiration, powerhouse, glucose"
-student004,Q9,,,0.0,5.0,False,✗ Pattern did not match
-student005,Q2,B,B,5.0,5.0,True,✓ Correct
-student005,Q3,potential,potential,3.0,3.0,True,"✓ Correct
-Graded using assumption: Interpretation B - Quantum Mechanics"
-student005,Q4,quantized,quantized,3.0,3.0,True,"✓ Correct
-Graded using assumption: Interpretation B - Quantum Mechanics"
-student005,Q5,discrete,discrete,4.0,4.0,True,"✓ Correct
-Graded using assumption: Interpretation B - Quantum Mechanics"
-student005,Q6,Dynamic programming and divide and conquer are key algorithm optimization strategies with low complexity.,,8.0,8.0,True,"Found ""algorithm""; Found ""complexity""; Found ""optimization""; Bonus for ""dynamic programming""; Bonus for ""divide and conquer"" - Excellent answer!"
-student005,Q7,42.6,,5.0,5.0,True,Correct! (42.6 is within tolerance of 42.5)
-student005,Q8,,"Keywords: mitochondria, energy, ATP, cellular respiration, powerhouse, glucose",0.0,10.0,False,"✗ Missing keywords: mitochondria, energy, ATP, cellular respiration, powerhouse, glucose"
-student005,Q9,,,0.0,5.0,False,✗ Pattern did not match
+student_id,Q2 answer,Q2 correct answer,Q2 points awarded,Q2 max points,Q2 is correct,Q2 feedback,Q3 answer,Q3 correct answer,Q3 points awarded,Q3 max points,Q3 is correct,Q3 feedback,Q4 answer,Q4 correct answer,Q4 points awarded,Q4 max points,Q4 is correct,Q4 feedback,Q5 answer,Q5 correct answer,Q5 points awarded,Q5 max points,Q5 is correct,Q5 feedback,Q6 answer,Q6 correct answer,Q6 points awarded,Q6 max points,Q6 is correct,Q6 feedback,Q7 answer,Q7 correct answer,Q7 points awarded,Q7 max points,Q7 is correct,Q7 feedback,Q8 answer,Q8 correct answer,Q8 points awarded,Q8 max points,Q8 is correct,Q8 feedback,Q9 answer,Q9 correct answer,Q9 points awarded,Q9 max points,Q9 is correct,Q9 feedback
+student001,B,B,5.0,5.0,True,✓ Correct,kinetic,kinetic,3.0,3.0,True,"✓ Correct
+Graded using assumption: Interpretation A - Classical Mechanics",increases,increases,3.0,3.0,True,"✓ Correct
+Graded using assumption: Interpretation A - Classical Mechanics",parabolic,parabolic,4.0,4.0,True,"✓ Correct
+Graded using assumption: Interpretation A - Classical Mechanics",The algorithm uses dynamic programming to optimize complexity through divide and conquer strategies.,Checked by programmable rule,6.0,8.0,False,"Found ""algorithm""; Found ""complexity""; Missing ""optimization""; Bonus for ""dynamic programming""; Bonus for ""divide and conquer"" - Good answer",42.3,Checked by programmable rule,5.0,5.0,True,Correct! (42.3 is within tolerance of 42.5),,"Keywords: mitochondria, energy, ATP, cellular respiration, powerhouse, glucose",0.0,10.0,False,"✗ Missing keywords: mitochondria, energy, ATP, cellular respiration, powerhouse, glucose",,"Pattern: ^\\b[A-Z]{2,}\\b|\\d{4}|http[s]?://\\S+$",0.0,5.0,False,✗ Pattern did not match
+student002,D,D,5.0,5.0,True,✓ Correct,potential,potential,3.0,3.0,True,"✓ Correct
+Graded using assumption: Interpretation B - Quantum Mechanics",quantized,quantized,3.0,3.0,True,"✓ Correct
+Graded using assumption: Interpretation B - Quantum Mechanics",discrete,discrete,4.0,4.0,True,"✓ Correct
+Graded using assumption: Interpretation B - Quantum Mechanics",This optimization problem requires analysis of algorithm complexity and efficient processing.,Checked by programmable rule,6.0,8.0,False,"Found ""algorithm""; Found ""complexity""; Found ""optimization"" - Good answer",43.0,Checked by programmable rule,5.0,5.0,True,Correct! (43.0 is within tolerance of 42.5),,"Keywords: mitochondria, energy, ATP, cellular respiration, powerhouse, glucose",0.0,10.0,False,"✗ Missing keywords: mitochondria, energy, ATP, cellular respiration, powerhouse, glucose",,"Pattern: ^\\b[A-Z]{2,}\\b|\\d{4}|http[s]?://\\S+$",0.0,5.0,False,✗ Pattern did not match
+student003,D,B,0.0,5.0,False,✗ Expected: B,kinetic,kinetic,3.0,3.0,True,"✓ Correct
+Graded using assumption: Interpretation A - Classical Mechanics",increases,increases,3.0,3.0,True,"✓ Correct
+Graded using assumption: Interpretation A - Classical Mechanics",parabolic,parabolic,4.0,4.0,True,"✓ Correct
+Graded using assumption: Interpretation A - Classical Mechanics",The solution involves algorithm design and optimization techniques.,Checked by programmable rule,4.0,8.0,False,"Found ""algorithm""; Missing ""complexity""; Found ""optimization"" - Needs improvement",41.8,Checked by programmable rule,3.0,5.0,False,Close! Off by 0.70,,"Keywords: mitochondria, energy, ATP, cellular respiration, powerhouse, glucose",0.0,10.0,False,"✗ Missing keywords: mitochondria, energy, ATP, cellular respiration, powerhouse, glucose",,"Pattern: ^\\b[A-Z]{2,}\\b|\\d{4}|http[s]?://\\S+$",0.0,5.0,False,✗ Pattern did not match
+student004,C,D,0.0,5.0,False,✗ Expected: D,potential,potential,3.0,3.0,True,"✓ Correct
+Graded using assumption: Interpretation B - Quantum Mechanics",increases,quantized,0.0,3.0,False,"✗ Expected: quantized
+Graded using assumption: Interpretation B - Quantum Mechanics",discrete,discrete,4.0,4.0,True,"✓ Correct
+Graded using assumption: Interpretation B - Quantum Mechanics",Algorithm complexity can be improved using greedy approaches.,Checked by programmable rule,5.0,8.0,False,"Found ""algorithm""; Found ""complexity""; Missing ""optimization""; Bonus for ""greedy"" - Needs improvement",42.5,Checked by programmable rule,5.0,5.0,True,Correct! (42.5 is within tolerance of 42.5),,"Keywords: mitochondria, energy, ATP, cellular respiration, powerhouse, glucose",0.0,10.0,False,"✗ Missing keywords: mitochondria, energy, ATP, cellular respiration, powerhouse, glucose",,"Pattern: ^\\b[A-Z]{2,}\\b|\\d{4}|http[s]?://\\S+$",0.0,5.0,False,✗ Pattern did not match
+student005,B,B,5.0,5.0,True,✓ Correct,potential,potential,3.0,3.0,True,"✓ Correct
+Graded using assumption: Interpretation B - Quantum Mechanics",quantized,quantized,3.0,3.0,True,"✓ Correct
+Graded using assumption: Interpretation B - Quantum Mechanics",discrete,discrete,4.0,4.0,True,"✓ Correct
+Graded using assumption: Interpretation B - Quantum Mechanics",Dynamic programming and divide and conquer are key algorithm optimization strategies with low complexity.,Checked by programmable rule,8.0,8.0,True,"Found ""algorithm""; Found ""complexity""; Found ""optimization""; Bonus for ""dynamic programming""; Bonus for ""divide and conquer"" - Excellent answer!",42.6,Checked by programmable rule,5.0,5.0,True,Correct! (42.6 is within tolerance of 42.5),,"Keywords: mitochondria, energy, ATP, cellular respiration, powerhouse, glucose",0.0,10.0,False,"✗ Missing keywords: mitochondria, energy, ATP, cellular respiration, powerhouse, glucose",,"Pattern: ^\\b[A-Z]{2,}\\b|\\d{4}|http[s]?://\\S+$",0.0,5.0,False,✗ Pattern did not match

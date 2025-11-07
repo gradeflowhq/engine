@@ -26,7 +26,9 @@ class SimilarityRule(BaseSingleQuestionRule):
     compatible_types: frozenset[QuestionType] = frozenset({"TEXT"})
 
     reference: str = Field(..., description="Reference text to compare against")
-    threshold: float = Field(default=0.8, ge=0.0, le=1.0, description="Similarity threshold (0.0-1.0)")
+    threshold: float = Field(
+        default=0.8, ge=0.0, le=1.0, description="Similarity threshold (0.0-1.0)"
+    )
     config: SimilarityRuleConfig = Field(default_factory=SimilarityRuleConfig)
 
     def validate_against_schema(

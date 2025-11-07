@@ -7,13 +7,14 @@ Also supports loading and saving assessment schemas.
 
 import csv
 from pathlib import Path
+from typing import Any
 
 import yaml
 from pydantic import ValidationError
 
+from .exports import ExportConfig, export_registry
 from .models import GradeOutput, Rubric, Submission
 from .schema import AssessmentSchema
-from .types import ExportFormat
 
 
 # Helper functions to reduce duplication
@@ -24,7 +25,7 @@ def _ensure_parent_dir(file_path: str) -> Path:
     return path
 
 
-def _save_yaml(data: dict, file_path: str, indent: int = 2) -> None:
+def _save_yaml(data: dict[str, Any], file_path: str, indent: int = 2) -> None:
     """Save dictionary to YAML file."""
     path = _ensure_parent_dir(file_path)
     with open(path, "w", encoding="utf-8") as f:
@@ -109,7 +110,7 @@ def load_submissions_csv(
     if not path.exists():
         raise FileNotFoundError(f"Submissions file not found: {file_path}")
 
-    submissions = []
+    submissions: list[Submission] = []
 
     with open(path, encoding=encoding, newline="") as f:
         reader = csv.DictReader(f)
@@ -154,171 +155,14 @@ def load_submissions_csv(
     return submissions
 
 
-def save_results_yaml(results: GradeOutput, file_path: str, indent: int = 2) -> None:
+def export_results(results: "GradeOutput", file_path: Path | str, config: "ExportConfig"):
+    """Export GradeOutput using the configured exporter.
+
+    Resolves the appropriate exporter via the exports registry and calls it.
     """
-    Save grading results to a YAML file.
-
-    Args:
-        results: GradeOutput object to save
-        file_path: Path to output YAML file
-        indent: YAML indentation (default 2)
-    """
-    data = results.model_dump(mode="json")
-    _save_yaml(data, file_path, indent)
-
-
-def save_results_csv(
-    results: GradeOutput, file_path: str, include_details: bool = False, encoding: str = "utf-8"
-) -> None:
-    """
-    Save grading results to a CSV file.
-
-    Args:
-        results: GradeOutput object to save
-        file_path: Path to output CSV file
-        include_details: If True, include per-question details (default: False)
-        encoding: File encoding (default: "utf-8")
-    """
-    path = _ensure_parent_dir(file_path)
-
-    if not include_details:
-        # Simple format: student_id, total_points, max_points, percentage
-        with open(path, "w", encoding=encoding, newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow(["student_id", "total_points", "max_points", "percentage"])
-
-            for result in results.results:
-                writer.writerow(
-                    [
-                        result.student_id,
-                        result.total_points,
-                        result.max_points,
-                        f"{result.percentage:.2f}",
-                    ]
-                )
-    else:
-        # Detailed format: one row per student-question pair
-        with open(path, "w", encoding=encoding, newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow(
-                [
-                    "student_id",
-                    "question_id",
-                    "student_answer",
-                    "correct_answer",
-                    "points_awarded",
-                    "max_points",
-                    "is_correct",
-                    "feedback",
-                ]
-            )
-
-            for result in results.results:
-                for detail in result.grade_details:
-                    writer.writerow(
-                        [
-                            result.student_id,
-                            detail.question_id,
-                            detail.student_answer or "",
-                            detail.correct_answer or "",
-                            detail.points_awarded,
-                            detail.max_points,
-                            detail.is_correct,
-                            detail.feedback or "",
-                        ]
-                    )
-
-
-def export_canvas_csv(
-    results: GradeOutput,
-    file_path: str,
-    student_id_field: str = "SIS User ID",
-    assignment_name: str | None = None,
-    encoding: str = "utf-8",
-) -> None:
-    """
-    Export results in Canvas LMS-compatible CSV format.
-
-    Canvas expects a CSV with columns:
-    - Student identifier (SIS User ID, SIS Login ID, or Canvas User ID)
-    - Assignment name or ID
-    - Score
-
-    Args:
-        results: GradeOutput object to export
-        file_path: Path to output CSV file
-        student_id_field: Header for student ID column (default: "SIS User ID")
-        assignment_name: Name of assignment (default: "Assignment")
-        encoding: File encoding (default: "utf-8")
-    """
-    path = _ensure_parent_dir(file_path)
-
-    if assignment_name is None:
-        # Get assignment name from metadata, ensuring it's a string
-        rubric_name = results.metadata.get("rubric_name", "Assignment")
-        assignment_name = str(rubric_name) if rubric_name is not None else "Assignment"
-
-    with open(path, "w", encoding=encoding, newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow([student_id_field, assignment_name])
-
-        for result in results.results:
-            writer.writerow(
-                [
-                    result.student_id,
-                    f"{result.total_points:.2f}",
-                ]
-            )
-
-
-def export_results(
-    results: GradeOutput,
-    file_path: str,
-    format: ExportFormat,
-    encoding: str = "utf-8",
-    **kwargs,
-) -> None:
-    """
-    Export grading results in the specified format.
-
-    This is the main export function that dispatches to format-specific exporters.
-
-    Args:
-        results: GradeOutput object to export
-        file_path: Path to output file
-        format: Export format (yaml, csv_summary, csv_detailed, or canvas)
-        encoding: File encoding (default: "utf-8")
-        **kwargs: Additional format-specific options:
-            - indent: YAML indentation (for YAML format)
-            - student_id_field: Student ID column name (for Canvas format)
-            - assignment_name: Assignment name (for Canvas format)
-
-    Raises:
-        ValueError: If format is not supported
-
-    Example:
-        >>> export_results(results, "output.csv", "csv_summary")
-        >>> export_results(results, "output.yaml", "yaml", indent=4)
-    """
-    if format == "yaml":
-        indent = kwargs.get("indent", 2)
-        save_results_yaml(results, file_path, indent=indent)
-    elif format == "csv_summary":
-        save_results_csv(results, file_path, include_details=False, encoding=encoding)
-    elif format == "csv_detailed":
-        save_results_csv(results, file_path, include_details=True, encoding=encoding)
-    elif format == "canvas":
-        student_id_field = kwargs.get("student_id_field", "SIS User ID")
-        assignment_name = kwargs.get("assignment_name")
-        export_canvas_csv(
-            results,
-            file_path,
-            student_id_field=student_id_field,
-            assignment_name=assignment_name,
-            encoding=encoding,
-        )
-    else:
-        raise ValueError(f"Unsupported export format: {format}")
+    entry = export_registry.get_by_config(type(config) if not isinstance(config, type) else config)
+    func = entry["func"]
+    return func(results, file_path, config)
 
 
 # ============================================================================

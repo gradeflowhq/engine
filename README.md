@@ -21,7 +21,7 @@ A powerful Python library and CLI tool for automated grading digital exam data w
   - Automatic schema inference from submission data
   - Rubric validation against schemas
   - Support for CHOICE, NUMERIC, and TEXT question types
-- **YAML-First**: Human-readable rubric format with JSON support
+- **YAML-First**: Human-readable rubric format
 - **Multiple Export Formats**: YAML, CSV, and Canvas LMS-compatible formats
 - **Type-Safe**: Built with Pydantic v2 for robust validation and type checking
 - **CLI & API**: Use as a command-line tool or import as a library
@@ -54,15 +54,16 @@ pip install -e ".[dev]"
 # Grade submissions using a rubric
 gradeflow-engine grade rubric.yaml submissions.csv -o results.yaml
 
-# Export detailed CSV results
+# Export detailed CSV results (use --type for each export)
+gradeflow-engine grade rubric.yaml submissions.csv -o results.yaml
 gradeflow-engine grade rubric.yaml submissions.csv \
-    --csv-summary results_summary.csv \
-    --csv-detailed results_detailed.csv
+    --type csv.summary --out results_summary.csv
+gradeflow-engine grade rubric.yaml submissions.csv \
+    --type csv.detailed --out results_detailed.csv
 
 # Export to Canvas LMS format
 gradeflow-engine grade rubric.yaml submissions.csv \
-    --canvas canvas_import.csv \
-    --canvas-assignment-id final_exam_2024
+    --type csv.canvas --out canvas_import.csv
 
 # Validate a rubric before use
 gradeflow-engine validate-rubric rubric.yaml
@@ -232,8 +233,8 @@ student003,93.50
 ```
 
 **Usage:**
-1. Generate the Canvas export file with `--canvas` option
-2. Specify assignment ID with `--canvas-assignment-id`
+1. Generate the Canvas export file with `--type csv.canvas` and specify an output path
+2. The assignment/column name in the export is taken from the rubric metadata (rubric name) or can be adjusted in your workflow
 3. Import the CSV into Canvas LMS gradebook
 
 ## Assessment Schema
@@ -691,30 +692,27 @@ gradeflow-engine grade RUBRIC_PATH SUBMISSIONS_PATH [OPTIONS]
 ```
 
 **Options:**
-- `-o, --output PATH`: Output YAML file path (default: results.yaml)
-- `--csv-summary PATH`: Export summary CSV
-- `--csv-detailed PATH`: Export detailed CSV
-- `--canvas PATH`: Export Canvas-compatible CSV
-- `--canvas-assignment-id ID`: Assignment ID for Canvas export
+- `-o, --output PATH`: Output file path (default: results.yaml)
+- `--type TYPE`: Export format type. Examples: `yaml`, `csv.summary`, `csv.detailed`, `csv.canvas`
 - `--student-col NAME`: Student ID column name (default: student_id)
 - `-v, --verbose`: Enable verbose logging
-- `-q, --quiet`: Suppress progress output
 
 **Examples:**
 ```bash
 # Basic grading
 gradeflow-engine grade rubric.yaml submissions.csv
 
-# Multiple output formats
+# Multiple output formats (use --type for each desired format)
 gradeflow-engine grade rubric.yaml submissions.csv \
-    -o results.yaml \
-    --csv-summary summary.csv \
-    --csv-detailed details.csv
+    --type yaml --out results.yaml
+gradeflow-engine grade rubric.yaml submissions.csv \
+    --type csv.summary --out summary.csv
+gradeflow-engine grade rubric.yaml submissions.csv \
+    --type csv.detailed --out details.csv
 
 # Canvas export
 gradeflow-engine grade rubric.yaml submissions.csv \
-    --canvas canvas_import.csv \
-    --canvas-assignment-id final_exam_2024
+    --type csv.canvas --out canvas_import.csv
 ```
 
 ### `validate-rubric`

@@ -94,7 +94,7 @@ def process_regex(rule: "RegexRule", submission: "Submission") -> "GradeDetail |
     return create_grade_detail(
         question_id=rule.question_id,
         student_answer=student_answer,
-        correct_answer=None,
+        correct_answer=f"Pattern: {rule.pattern}",
         points_awarded=points_awarded,
         max_points=rule.max_points,
         is_correct=is_correct,

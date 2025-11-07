@@ -5,16 +5,19 @@ This script shows various ways to use the engine programmatically.
 """
 
 from gradeflow_engine import (
+    CanvasExportConfig,
     ConditionalRule,
+    DetailedCsvExportConfig,
     ExactMatchRule,
     ProgrammableRule,
     Rubric,
     Submission,
+    SummaryCsvExportConfig,
+    YamlExportConfig,
     grade,
     grade_from_files,
-    save_results_yaml,
 )
-from gradeflow_engine.io import export_canvas_csv, save_results_csv
+from gradeflow_engine.io import export_results
 from gradeflow_engine.models import GradeOutput
 from gradeflow_engine.rules.base import TextRuleConfig
 
@@ -111,22 +114,21 @@ def example_3_export_results(results: GradeOutput):
     print("=" * 60)
     print("Example 3: Export Results")
     print("=" * 60)
-
     # Export to YAML
-    save_results_yaml(results, "examples/results.yaml")
-    print("✓ Saved results.yaml")
+    export_results(results, "examples/results.yaml", YamlExportConfig())
+    print("✓ Saved examples/results.yaml")
 
     # Export to CSV (summary)
-    save_results_csv(results, "examples/results_summary.csv", include_details=False)
-    print("✓ Saved results_summary.csv")
+    export_results(results, "examples/results_summary.csv", SummaryCsvExportConfig())
+    print("✓ Saved examples/results_summary.csv")
 
     # Export to CSV (detailed)
-    save_results_csv(results, "examples/results_detailed.csv", include_details=True)
-    print("✓ Saved results_detailed.csv")
+    export_results(results, "examples/results_detailed.csv", DetailedCsvExportConfig())
+    print("✓ Saved examples/results_detailed.csv")
 
     # Export for Canvas LMS
-    export_canvas_csv(results, "examples/canvas_export.csv")
-    print("✓ Saved canvas_export.csv")
+    export_results(results, "examples/canvas_export.csv", CanvasExportConfig())
+    print("✓ Saved examples/canvas_export.csv")
 
     print()
 

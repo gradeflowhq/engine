@@ -23,7 +23,7 @@ class CompositeRule(BaseSingleQuestionRule):
     """
 
     type: Literal["COMPOSITE"] = "COMPOSITE"
-    compatible_types: frozenset[QuestionType] =  frozenset({"CHOICE", "NUMERIC", "TEXT"})
+    compatible_types: frozenset[QuestionType] = frozenset({"CHOICE", "NUMERIC", "TEXT"})
 
     rules: list["SingleQuestionRule"] = Field(
         ..., description="List of single-question rules to combine", min_length=1

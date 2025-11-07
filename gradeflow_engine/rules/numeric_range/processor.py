@@ -122,4 +122,5 @@ def process_numeric_range(
         max_points=rule.max_points,
         is_correct=False,
         feedback=_feedback_outside(student_value, rule),
+        rule_applied=rule.type,
     )

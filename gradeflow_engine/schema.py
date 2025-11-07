@@ -293,14 +293,14 @@ def validate_rubric_against_schema(rubric: Rubric, schema: AssessmentSchema) -> 
         elif isinstance(rule, ConditionalRule):
             # Collect from both if_rules and then_rules
             questions: set[str] = set()
-            questions.update(rule.if_rules.keys())
-            questions.update(rule.then_rules.keys())
+            questions.update([rule.question_id for rule in rule.if_rules])
+            questions.update([rule.question_id for rule in rule.then_rules])
             return list(questions)
         elif isinstance(rule, AssumptionSetRule):
             # Collect all questions from all answer sets
             questions = set()
-            for answer_set in rule.answer_sets:
-                questions.update(answer_set.answers.keys())
+            for assumption in rule.assumptions:
+                questions.update([rule.question_id for rule in assumption.rules])
             return list(questions)
         elif isinstance(rule, CompositeRule):
             # Recursively collect from sub-rules

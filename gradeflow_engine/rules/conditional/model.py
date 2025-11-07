@@ -61,6 +61,7 @@ class ConditionalRule(BaseModel):
         own `question_id` by calling their `validate_against_schema` methods.
         """
         errors: list[str] = []
+        sub_errors: list[str] = []
 
         # Validate all if_rules
         for rule in self.if_rules:
@@ -69,7 +70,7 @@ class ConditionalRule(BaseModel):
                 rule_desc = (
                     f"{rule_description} > If-condition for Q{rule.question_id} ({rule.type})"
                 )
-                sub_errors: list[str] = validate_method(rule.question_id, schema, rule_desc)
+                sub_errors = validate_method(rule.question_id, schema, rule_desc)
                 errors.extend(sub_errors)
 
         # Validate all then_rules
@@ -79,7 +80,7 @@ class ConditionalRule(BaseModel):
                 rule_desc = (
                     f"{rule_description} > Then-condition for Q{rule.question_id} ({rule.type})"
                 )
-                sub_errors: list[str] = validate_method(rule.question_id, schema, rule_desc)
+                sub_errors = validate_method(rule.question_id, schema, rule_desc)
                 errors.extend(sub_errors)
 
         return errors

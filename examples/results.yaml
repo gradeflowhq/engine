@@ -10,7 +10,7 @@ results:
     points_awarded: 5.0
     max_points: 5.0
     is_correct: true
-    rule_applied: null
+    rule_applied: EXACT_MATCH
     feedback: "\u2713 Correct"
   - question_id: Q3
     student_answer: kinetic
@@ -18,7 +18,7 @@ results:
     points_awarded: 3.0
     max_points: 3.0
     is_correct: true
-    rule_applied: null
+    rule_applied: EXACT_MATCH
     feedback: "\u2713 Correct\nGraded using assumption: Interpretation A - Classical\
       \ Mechanics"
   - question_id: Q4
@@ -27,7 +27,7 @@ results:
     points_awarded: 3.0
     max_points: 3.0
     is_correct: true
-    rule_applied: null
+    rule_applied: EXACT_MATCH
     feedback: "\u2713 Correct\nGraded using assumption: Interpretation A - Classical\
       \ Mechanics"
   - question_id: Q5
@@ -36,26 +36,26 @@ results:
     points_awarded: 4.0
     max_points: 4.0
     is_correct: true
-    rule_applied: null
+    rule_applied: EXACT_MATCH
     feedback: "\u2713 Correct\nGraded using assumption: Interpretation A - Classical\
       \ Mechanics"
   - question_id: Q6
     student_answer: The algorithm uses dynamic programming to optimize complexity
       through divide and conquer strategies.
-    correct_answer: null
+    correct_answer: Checked by programmable rule
     points_awarded: 6.0
     max_points: 8.0
     is_correct: false
-    rule_applied: null
+    rule_applied: PROGRAMMABLE
     feedback: Found "algorithm"; Found "complexity"; Missing "optimization"; Bonus
       for "dynamic programming"; Bonus for "divide and conquer" - Good answer
   - question_id: Q7
     student_answer: '42.3'
-    correct_answer: null
+    correct_answer: Checked by programmable rule
     points_awarded: 5.0
     max_points: 5.0
     is_correct: true
-    rule_applied: null
+    rule_applied: PROGRAMMABLE
     feedback: Correct! (42.3 is within tolerance of 42.5)
   - question_id: Q8
     student_answer: ''
@@ -69,7 +69,7 @@ results:
       \ powerhouse, glucose"
   - question_id: Q9
     student_answer: ''
-    correct_answer: null
+    correct_answer: 'Pattern: ^\\b[A-Z]{2,}\\b|\\d{4}|http[s]?://\\S+$'
     points_awarded: 0.0
     max_points: 5.0
     is_correct: false
@@ -88,7 +88,7 @@ results:
     points_awarded: 5.0
     max_points: 5.0
     is_correct: true
-    rule_applied: null
+    rule_applied: EXACT_MATCH
     feedback: "\u2713 Correct"
   - question_id: Q3
     student_answer: potential
@@ -96,7 +96,7 @@ results:
     points_awarded: 3.0
     max_points: 3.0
     is_correct: true
-    rule_applied: null
+    rule_applied: EXACT_MATCH
     feedback: "\u2713 Correct\nGraded using assumption: Interpretation B - Quantum\
       \ Mechanics"
   - question_id: Q4
@@ -105,7 +105,7 @@ results:
     points_awarded: 3.0
     max_points: 3.0
     is_correct: true
-    rule_applied: null
+    rule_applied: EXACT_MATCH
     feedback: "\u2713 Correct\nGraded using assumption: Interpretation B - Quantum\
       \ Mechanics"
   - question_id: Q5
@@ -114,25 +114,25 @@ results:
     points_awarded: 4.0
     max_points: 4.0
     is_correct: true
-    rule_applied: null
+    rule_applied: EXACT_MATCH
     feedback: "\u2713 Correct\nGraded using assumption: Interpretation B - Quantum\
       \ Mechanics"
   - question_id: Q6
     student_answer: This optimization problem requires analysis of algorithm complexity
       and efficient processing.
-    correct_answer: null
+    correct_answer: Checked by programmable rule
     points_awarded: 6.0
     max_points: 8.0
     is_correct: false
-    rule_applied: null
+    rule_applied: PROGRAMMABLE
     feedback: Found "algorithm"; Found "complexity"; Found "optimization" - Good answer
   - question_id: Q7
     student_answer: '43.0'
-    correct_answer: null
+    correct_answer: Checked by programmable rule
     points_awarded: 5.0
     max_points: 5.0
     is_correct: true
-    rule_applied: null
+    rule_applied: PROGRAMMABLE
     feedback: Correct! (43.0 is within tolerance of 42.5)
   - question_id: Q8
     student_answer: ''
@@ -146,7 +146,7 @@ results:
       \ powerhouse, glucose"
   - question_id: Q9
     student_answer: ''
-    correct_answer: null
+    correct_answer: 'Pattern: ^\\b[A-Z]{2,}\\b|\\d{4}|http[s]?://\\S+$'
     points_awarded: 0.0
     max_points: 5.0
     is_correct: false
@@ -165,7 +165,7 @@ results:
     points_awarded: 0.0
     max_points: 5.0
     is_correct: false
-    rule_applied: null
+    rule_applied: EXACT_MATCH
     feedback: "\u2717 Expected: B"
   - question_id: Q3
     student_answer: kinetic
@@ -173,7 +173,7 @@ results:
     points_awarded: 3.0
     max_points: 3.0
     is_correct: true
-    rule_applied: null
+    rule_applied: EXACT_MATCH
     feedback: "\u2713 Correct\nGraded using assumption: Interpretation A - Classical\
       \ Mechanics"
   - question_id: Q4
@@ -182,7 +182,7 @@ results:
     points_awarded: 3.0
     max_points: 3.0
     is_correct: true
-    rule_applied: null
+    rule_applied: EXACT_MATCH
     feedback: "\u2713 Correct\nGraded using assumption: Interpretation A - Classical\
       \ Mechanics"
   - question_id: Q5
@@ -191,25 +191,25 @@ results:
     points_awarded: 4.0
     max_points: 4.0
     is_correct: true
-    rule_applied: null
+    rule_applied: EXACT_MATCH
     feedback: "\u2713 Correct\nGraded using assumption: Interpretation A - Classical\
       \ Mechanics"
   - question_id: Q6
     student_answer: The solution involves algorithm design and optimization techniques.
-    correct_answer: null
+    correct_answer: Checked by programmable rule
     points_awarded: 4.0
     max_points: 8.0
     is_correct: false
-    rule_applied: null
+    rule_applied: PROGRAMMABLE
     feedback: Found "algorithm"; Missing "complexity"; Found "optimization" - Needs
       improvement
   - question_id: Q7
     student_answer: '41.8'
-    correct_answer: null
+    correct_answer: Checked by programmable rule
     points_awarded: 3.0
     max_points: 5.0
     is_correct: false
-    rule_applied: null
+    rule_applied: PROGRAMMABLE
     feedback: Close! Off by 0.70
   - question_id: Q8
     student_answer: ''
@@ -223,7 +223,7 @@ results:
       \ powerhouse, glucose"
   - question_id: Q9
     student_answer: ''
-    correct_answer: null
+    correct_answer: 'Pattern: ^\\b[A-Z]{2,}\\b|\\d{4}|http[s]?://\\S+$'
     points_awarded: 0.0
     max_points: 5.0
     is_correct: false
@@ -242,7 +242,7 @@ results:
     points_awarded: 0.0
     max_points: 5.0
     is_correct: false
-    rule_applied: null
+    rule_applied: EXACT_MATCH
     feedback: "\u2717 Expected: D"
   - question_id: Q3
     student_answer: potential
@@ -250,7 +250,7 @@ results:
     points_awarded: 3.0
     max_points: 3.0
     is_correct: true
-    rule_applied: null
+    rule_applied: EXACT_MATCH
     feedback: "\u2713 Correct\nGraded using assumption: Interpretation B - Quantum\
       \ Mechanics"
   - question_id: Q4
@@ -259,7 +259,7 @@ results:
     points_awarded: 0.0
     max_points: 3.0
     is_correct: false
-    rule_applied: null
+    rule_applied: EXACT_MATCH
     feedback: "\u2717 Expected: quantized\nGraded using assumption: Interpretation\
       \ B - Quantum Mechanics"
   - question_id: Q5
@@ -268,25 +268,25 @@ results:
     points_awarded: 4.0
     max_points: 4.0
     is_correct: true
-    rule_applied: null
+    rule_applied: EXACT_MATCH
     feedback: "\u2713 Correct\nGraded using assumption: Interpretation B - Quantum\
       \ Mechanics"
   - question_id: Q6
     student_answer: Algorithm complexity can be improved using greedy approaches.
-    correct_answer: null
+    correct_answer: Checked by programmable rule
     points_awarded: 5.0
     max_points: 8.0
     is_correct: false
-    rule_applied: null
+    rule_applied: PROGRAMMABLE
     feedback: Found "algorithm"; Found "complexity"; Missing "optimization"; Bonus
       for "greedy" - Needs improvement
   - question_id: Q7
     student_answer: '42.5'
-    correct_answer: null
+    correct_answer: Checked by programmable rule
     points_awarded: 5.0
     max_points: 5.0
     is_correct: true
-    rule_applied: null
+    rule_applied: PROGRAMMABLE
     feedback: Correct! (42.5 is within tolerance of 42.5)
   - question_id: Q8
     student_answer: ''
@@ -300,7 +300,7 @@ results:
       \ powerhouse, glucose"
   - question_id: Q9
     student_answer: ''
-    correct_answer: null
+    correct_answer: 'Pattern: ^\\b[A-Z]{2,}\\b|\\d{4}|http[s]?://\\S+$'
     points_awarded: 0.0
     max_points: 5.0
     is_correct: false
@@ -319,7 +319,7 @@ results:
     points_awarded: 5.0
     max_points: 5.0
     is_correct: true
-    rule_applied: null
+    rule_applied: EXACT_MATCH
     feedback: "\u2713 Correct"
   - question_id: Q3
     student_answer: potential
@@ -327,7 +327,7 @@ results:
     points_awarded: 3.0
     max_points: 3.0
     is_correct: true
-    rule_applied: null
+    rule_applied: EXACT_MATCH
     feedback: "\u2713 Correct\nGraded using assumption: Interpretation B - Quantum\
       \ Mechanics"
   - question_id: Q4
@@ -336,7 +336,7 @@ results:
     points_awarded: 3.0
     max_points: 3.0
     is_correct: true
-    rule_applied: null
+    rule_applied: EXACT_MATCH
     feedback: "\u2713 Correct\nGraded using assumption: Interpretation B - Quantum\
       \ Mechanics"
   - question_id: Q5
@@ -345,26 +345,26 @@ results:
     points_awarded: 4.0
     max_points: 4.0
     is_correct: true
-    rule_applied: null
+    rule_applied: EXACT_MATCH
     feedback: "\u2713 Correct\nGraded using assumption: Interpretation B - Quantum\
       \ Mechanics"
   - question_id: Q6
     student_answer: Dynamic programming and divide and conquer are key algorithm optimization
       strategies with low complexity.
-    correct_answer: null
+    correct_answer: Checked by programmable rule
     points_awarded: 8.0
     max_points: 8.0
     is_correct: true
-    rule_applied: null
+    rule_applied: PROGRAMMABLE
     feedback: Found "algorithm"; Found "complexity"; Found "optimization"; Bonus for
       "dynamic programming"; Bonus for "divide and conquer" - Excellent answer!
   - question_id: Q7
     student_answer: '42.6'
-    correct_answer: null
+    correct_answer: Checked by programmable rule
     points_awarded: 5.0
     max_points: 5.0
     is_correct: true
-    rule_applied: null
+    rule_applied: PROGRAMMABLE
     feedback: Correct! (42.6 is within tolerance of 42.5)
   - question_id: Q8
     student_answer: ''
@@ -378,7 +378,7 @@ results:
       \ powerhouse, glucose"
   - question_id: Q9
     student_answer: ''
-    correct_answer: null
+    correct_answer: 'Pattern: ^\\b[A-Z]{2,}\\b|\\d{4}|http[s]?://\\S+$'
     points_awarded: 0.0
     max_points: 5.0
     is_correct: false

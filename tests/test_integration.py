@@ -27,8 +27,9 @@ from gradeflow_engine import (
     grade,
     grade_from_files,
     load_rubric,
-    save_results_yaml,
 )
+from gradeflow_engine.exports import YamlExportConfig
+from gradeflow_engine.io import export_results
 
 
 class TestEndToEndGrading:
@@ -259,7 +260,7 @@ student3,Paris,I love Java
 
         # Save results
         output_file = tmp_path / "results.yaml"
-        save_results_yaml(results, str(output_file))
+        export_results(results, str(output_file), config=YamlExportConfig())
 
         # Verify file was created
         assert output_file.exists()

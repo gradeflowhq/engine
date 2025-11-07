@@ -66,7 +66,7 @@ def process_length(rule: "LengthRule", submission: "Submission") -> "GradeDetail
             max_points=rule.max_points,
             is_correct=False,
             feedback=feedback,
-            rule_applied=getattr(rule, "type", None),
+            rule_applied=rule.type,
         )
 
     feedback = format_feedback(
@@ -82,5 +82,5 @@ def process_length(rule: "LengthRule", submission: "Submission") -> "GradeDetail
         max_points=rule.max_points,
         is_correct=True,
         feedback=feedback,
-        rule_applied=getattr(rule, "type", None),
+        rule_applied=rule.type,
     )

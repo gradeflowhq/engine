@@ -16,13 +16,17 @@ from gradeflow_engine import (
     Rubric,
     StudentResult,
 )
+from gradeflow_engine.exports import (
+    CanvasExportConfig,
+    DetailedCsvExportConfig,
+    SummaryCsvExportConfig,
+    YamlExportConfig,
+)
 from gradeflow_engine.io import (
-    export_canvas_csv,
+    export_results,
     load_rubric,
     load_schema,
     load_submissions_csv,
-    save_results_csv,
-    save_results_yaml,
     save_rubric,
     save_schema,
 )
@@ -187,7 +191,7 @@ class TestSaveResults:
     def test_save_results_yaml(self, sample_results, tmp_path):
         """Test saving results to YAML."""
         output_path = tmp_path / "results.yaml"
-        save_results_yaml(sample_results, str(output_path))
+        export_results(sample_results, str(output_path), config=YamlExportConfig())
 
         assert output_path.exists()
 
@@ -200,7 +204,7 @@ class TestSaveResults:
     def test_save_results_csv_summary(self, sample_results, tmp_path):
         """Test saving summary CSV."""
         output_path = tmp_path / "summary.csv"
-        save_results_csv(sample_results, str(output_path), include_details=False)
+        export_results(sample_results, str(output_path), config=SummaryCsvExportConfig())
 
         assert output_path.exists()
 
@@ -210,12 +214,13 @@ class TestSaveResults:
             rows = list(reader)
             assert len(rows) == 1
             assert rows[0]["student_id"] == "student001"
-            assert rows[0]["total_points"] == "85.0"
+            # Summary CSV formats points with two decimals
+            assert rows[0]["total_points"] == "85.00"
 
     def test_save_results_csv_detailed(self, sample_results, tmp_path):
         """Test saving detailed CSV."""
         output_path = tmp_path / "detailed.csv"
-        save_results_csv(sample_results, str(output_path), include_details=True)
+        export_results(sample_results, str(output_path), config=DetailedCsvExportConfig())
 
         assert output_path.exists()
 
@@ -224,13 +229,14 @@ class TestSaveResults:
             reader = csv.DictReader(f)
             rows = list(reader)
             assert len(rows) == 1
-            assert rows[0]["question_id"] == "Q1"
-            assert rows[0]["is_correct"] == "True"
+            # Detailed CSV flattens question-level columns (e.g. 'Q1 answer', 'Q1 is correct')
+            assert rows[0]["Q1 answer"] == "Paris"
+            assert rows[0]["Q1 is correct"] == "True"
 
     def test_export_canvas_csv(self, sample_results, tmp_path):
         """Test exporting Canvas-compatible CSV."""
         output_path = tmp_path / "canvas.csv"
-        export_canvas_csv(sample_results, str(output_path))
+        export_results(sample_results, str(output_path), config=CanvasExportConfig())
 
         assert output_path.exists()
 
@@ -246,7 +252,9 @@ class TestSaveResults:
     def test_export_canvas_csv_custom_assignment(self, sample_results, tmp_path):
         """Test Canvas export with custom assignment name."""
         output_path = tmp_path / "canvas.csv"
-        export_canvas_csv(sample_results, str(output_path), assignment_name="Final Exam")
+        # Canvas exporter derives assignment name from results.metadata['rubric_name']
+        sample_results.metadata = {"rubric_name": "Final Exam"}
+        export_results(sample_results, str(output_path), config=CanvasExportConfig())
 
         with open(output_path, newline="") as f:
             reader = csv.reader(f)
@@ -330,7 +338,7 @@ rules:
             metadata={"rubric_name": "Quiz 1"},
         )
 
-        export_canvas_csv(results, str(csv_file))
+        export_results(results, str(csv_file), config=CanvasExportConfig())
 
         with open(csv_file) as f:
             reader = csv.reader(f)
@@ -353,7 +361,7 @@ rules:
             ]
         )
 
-        export_canvas_csv(results, str(csv_file))
+        export_results(results, str(csv_file), config=CanvasExportConfig())
 
         with open(csv_file) as f:
             reader = csv.reader(f)

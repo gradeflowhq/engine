@@ -1,5 +1,5 @@
 """
-Advanced Grader Engine - A powerful grading engine for digital assessments.
+GradeFlow Engine - A powerful grading engine for digital assessments.
 
 This package provides models and functionality for post-processing and re-grading
 digital exam data with support for conditional dependencies, assumption-based grading,
@@ -17,18 +17,19 @@ from .io import (
     load_rubric,
     load_schema,
     load_submissions_csv,
-    save_results_csv,
-    save_results_yaml,
     save_rubric,
     save_schema,
 )
 from .models import (
     AssumptionSetRule,
     BasicSingleQuestionRule,
+    CanvasExportConfig,
     ComposableRule,
     CompositeRule,
     ConditionalRule,
+    DetailedCsvExportConfig,
     ExactMatchRule,
+    ExportConfig,
     GradeDetail,
     GradeOutput,
     GradingRule,
@@ -44,6 +45,8 @@ from .models import (
     SingleQuestionRule,
     StudentResult,
     Submission,
+    SummaryCsvExportConfig,
+    YamlExportConfig,
 )
 from .protocols import SchemaValidatable
 from .schema import (
@@ -58,7 +61,7 @@ from .schema import (
     validate_rubric_against_schema,
     validate_rubric_against_schema_strict,
 )
-from .types import ExportFormat, QuestionType
+from .types import QuestionType
 
 __version__ = "0.1.0"
 
@@ -107,8 +110,6 @@ __all__ = [
     "load_schema",
     "save_schema",
     "load_submissions_csv",
-    "save_results_yaml",
-    "save_results_csv",
     "export_results",
     # Models
     "Rubric",
@@ -116,6 +117,12 @@ __all__ = [
     "GradeDetail",
     "StudentResult",
     "GradeOutput",
+    # Export configs
+    "SummaryCsvExportConfig",
+    "DetailedCsvExportConfig",
+    "CanvasExportConfig",
+    "YamlExportConfig",
+    "ExportConfig",
     # Rule type unions
     "GradingRule",
     "SingleQuestionRule",
@@ -139,7 +146,6 @@ __all__ = [
     "AssessmentSchema",
     "QuestionSchema",
     "QuestionType",
-    "ExportFormat",
     "ChoiceQuestionSchema",
     "NumericQuestionSchema",
     "TextQuestionSchema",
