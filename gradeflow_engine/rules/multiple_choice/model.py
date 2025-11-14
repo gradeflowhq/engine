@@ -13,17 +13,13 @@ if TYPE_CHECKING:
 
 
 class MultipleChoiceRuleConfig(TextRuleConfig):
-    """Configuration for MultipleChoiceRule.
-
-    Inherits TextRuleConfig behavior (ignore_case, trim_whitespace) and adds:
-    - delimiter: string used to split multiple answers (default: ",")
-    """
+    """Configuration for multiple-choice rules, including delimiter for splitting answers."""
 
     delimiter: str = Field(default=",", description="Delimiter used to split multiple answers")
 
 
 class MultipleChoiceRule(BaseSingleQuestionRule):
-    """Multiple choice question rule."""
+    """Rule for grading choice questions using a list of allowed answers and a scoring mode."""
 
     type: Literal["MULTIPLE_CHOICE"] = "MULTIPLE_CHOICE"
 
@@ -42,22 +38,16 @@ class MultipleChoiceRule(BaseSingleQuestionRule):
 
     config: "MultipleChoiceRuleConfig" = Field(default_factory=MultipleChoiceRuleConfig)
 
-    def validate_against_schema(
-        self, question_id: str, schema: "QuestionSchema", rule_description: str
+    def validate_against_question_schema(
+        self, question_map: dict[str, "QuestionSchema"], rule_description: str
     ) -> list[str]:
-        """Validate this rule against a ChoiceQuestionSchema."""
-        from gradeflow_engine.rules.utils import validate_type_compatibility
         from gradeflow_engine.schema import ChoiceQuestionSchema
 
-        errors = validate_type_compatibility(
-            schema=schema,
-            compatible_types=self.compatible_types,
-            rule_description=rule_description,
-            rule_name="MultipleChoiceRule",
-        )
+        errors = super().validate_against_question_schema(question_map, rule_description)
+
         if errors:
             return errors
-        schema = cast(ChoiceQuestionSchema, schema)
+        schema = cast(ChoiceQuestionSchema, question_map[self.question_id])
         options_norm = {preprocess_text(opt, self.config) for opt in schema.options}
         for ans in self.answers:
             norm_ans = preprocess_text(ans, self.config)

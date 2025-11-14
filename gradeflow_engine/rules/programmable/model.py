@@ -1,4 +1,7 @@
-"""Programmable rule model definition."""
+"""
+Programmable grading rule that runs a small user-provided Python fragment
+to evaluate an answer and produce points and optional feedback.
+"""
 
 from typing import TYPE_CHECKING, Literal
 
@@ -13,30 +16,7 @@ if TYPE_CHECKING:
 
 
 class ProgrammableRule(BaseSingleQuestionRule):
-    """
-    Programmable grading rule - user-provided code is stored in `code`.
-
-    The `code` string should contain a small Python fragment that evaluates
-    the student's answer for the target `question_id` and sets the following
-    variables as its outputs (the processor will read these after execution):
-
-    Required outputs (must be set by the code):
-      - points_awarded: float
-          Number of max_points to award for this question (can be 0.0).
-
-    Optional outputs (may be set by the code):
-      - feedback: str
-          Human readable feedback for the student.
-
-    Available inputs / helper variables provided to the execution environment:
-      - student_answers: dict[str, str]
-          All answers from the student's submission (question_id -> answer string).
-      - question_id: str
-          The question id this rule targets.
-      - answer: str
-          The student's answer for the current question (equivalent to
-          student_answers[question_id]).
-    """
+    """Write a code to set points_awarded and optional feedback for a target question."""
 
     type: Literal["PROGRAMMABLE"] = "PROGRAMMABLE"
 
@@ -53,8 +33,7 @@ class ProgrammableRule(BaseSingleQuestionRule):
         ),
     )
 
-    def validate_against_schema(
-        self, question_id: str, schema: "QuestionSchema", rule_description: str
+    def validate_against_question_schema(
+        self, question_map: dict[str, "QuestionSchema"], rule_description: str
     ) -> list[str]:
-        # ProgrammableRule can work with any question type; no type-specific validation
-        return []
+        return []  # It can run on any question type

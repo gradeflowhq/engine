@@ -46,7 +46,7 @@ def validate_type_compatibility(
     if schema.type not in compatible_types:
         errors.append(
             f"{rule_description}: {rule_name} is only compatible with "
-            f"{compatible_types} questions, but schema has type {schema.type}"
+            f"{', '.join(compatible_types)} questions, but schema has type {schema.type}"
         )
 
     return errors

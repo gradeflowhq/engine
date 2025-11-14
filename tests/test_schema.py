@@ -7,6 +7,9 @@ Run with: pytest tests/test_schema.py -v
 import pytest
 
 from gradeflow_engine import (
+    AssumptionSetRule,
+    CompositeRule,
+    ConditionalRule,
     ExactMatchRule,
     KeywordRule,
     MultipleChoiceRule,
@@ -520,6 +523,136 @@ class TestRubricValidation:
 
         errors = validate_rubric_against_schema(rubric, schema)
         assert len(errors) >= 2  # At least 2 errors
+
+    def test_validate_nested_rule_question_not_in_schema(self):
+        """
+        Test that a nested rule (inside CompositeRule)
+        referencing a missing question id is reported.
+        """
+        schema = AssessmentSchema(
+            name="Test",
+            questions={
+                "q1": ChoiceQuestionSchema(options=["A", "B"]),
+            },
+        )
+
+        subrule = MultipleChoiceRule(
+            question_id="q99",
+            answers=["A"],
+            max_points=5.0,
+        )
+
+        rubric = Rubric(
+            name="Test Rubric",
+            rules=[CompositeRule(question_id="q1", rules=[subrule])],
+        )
+
+        errors = validate_rubric_against_schema(rubric, schema)
+        # Should report the missing q99 question
+        assert any("q99" in e and "not found in schema" in e for e in errors)
+
+    def test_validate_duplicate_rule_targets(self):
+        """Test that two rules targeting the same question id produce a duplicate-target error."""
+        schema = AssessmentSchema(
+            name="Test",
+            questions={
+                "q1": ChoiceQuestionSchema(options=["A", "B"]),
+            },
+        )
+
+        # Two different rules both targeting q1
+        rubric = Rubric(
+            name="Test Rubric",
+            rules=[
+                MultipleChoiceRule(
+                    question_id="q1",
+                    answers=["A"],
+                    max_points=5.0,
+                ),
+                MultipleChoiceRule(
+                    question_id="q1",
+                    answers=["B"],
+                    max_points=5.0,
+                ),
+            ],
+        )
+
+        errors = validate_rubric_against_schema(rubric, schema)
+
+        # Expect an error about duplicate targeting of q1
+        assert any("targeted by multiple rules" in e and "q1" in e for e in errors)
+
+    def test_validate_duplicate_targets_with_composite(self):
+        """CompositeRule has a question_id; ensure duplicate with another rule is detected."""
+        schema = AssessmentSchema(
+            name="Test",
+            questions={"q1": ChoiceQuestionSchema(options=["A", "B"])},
+        )
+
+        composite = CompositeRule(
+            question_id="q1",
+            rules=[
+                MultipleChoiceRule(question_id="q1", answers=["A"], max_points=2.0),
+            ],
+        )
+
+        rubric = Rubric(
+            name="R",
+            rules=[composite, MultipleChoiceRule(question_id="q1", answers=["B"], max_points=3.0)],
+        )
+
+        errors = validate_rubric_against_schema(rubric, schema)
+        assert any("targeted by multiple rules" in e and "q1" in e for e in errors)
+
+    def test_validate_duplicate_targets_with_conditional(self):
+        """ConditionalRule then_rules target q1; detect duplicate with top-level rule."""
+        schema = AssessmentSchema(
+            name="Test",
+            questions={"q1": ChoiceQuestionSchema(options=["A", "B"])},
+        )
+
+        if_rule = MultipleChoiceRule(question_id="q2", answers=["X"], max_points=1.0)
+        then_rule = MultipleChoiceRule(question_id="q1", answers=["A"], max_points=2.0)
+
+        conditional = ConditionalRule(if_rules=[if_rule], then_rules=[then_rule])
+
+        rubric = Rubric(
+            name="R",
+            rules=[
+                conditional,
+                MultipleChoiceRule(question_id="q1", answers=["B"], max_points=3.0),
+            ],
+        )
+
+        errors = validate_rubric_against_schema(rubric, schema)
+        assert any("targeted by multiple rules" in e and "q1" in e for e in errors)
+
+    def test_validate_duplicate_targets_with_assumption_set(self):
+        """AssumptionSetRule references q1 inside an assumption; detect duplicate."""
+
+        schema = AssessmentSchema(
+            name="Test",
+            questions={"q1": ChoiceQuestionSchema(options=["A", "B"])},
+        )
+
+        assumption = {
+            "name": "A1",
+            "rules": [MultipleChoiceRule(question_id="q1", answers=["A"], max_points=2.0)],
+        }
+
+        # AssumptionSetRule expects Assumption objects; use dicts and pydantic will coerce
+        assumption_set = AssumptionSetRule(assumptions=[assumption])
+
+        rubric = Rubric(
+            name="R",
+            rules=[
+                assumption_set,
+                MultipleChoiceRule(question_id="q1", answers=["B"], max_points=3.0),
+            ],
+        )
+
+        errors = validate_rubric_against_schema(rubric, schema)
+        assert any("targeted by multiple rules" in e and "q1" in e for e in errors)
 
 
 class TestCompatibleTypes:

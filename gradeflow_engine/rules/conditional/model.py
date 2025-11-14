@@ -12,20 +12,10 @@ if TYPE_CHECKING:
 
 
 class ConditionalRule(BaseModel):
-    """Conditional grading rule.
-
-    Example: If Q1 match rule R1 and Q2 match rule R2, apply rule R3 for Q3.
-
-    Notes on semantics:
-    - `if_rules` is a list of single-question rules. At grading time each
-      if-rule will produce a numeric score; the condition interprets strictly
-      correct answer as a passed/True condition.
-    - `if_mode` controls how multiple if-conditions are combined:
-      * and: all if-rule are correct
-      * or: at least one if-rule is correct
-    - `then_rules` are applied when the condition is satisfied. There is no
-      restriction on which question ids the then-rules may target (they may
-      target the same questions used in if_rules or different ones).
+    """Apply 'then' single-question rules when a set of 'if' single-question
+    rules matches. 'if_rules' defines the conditions, 'if_mode' ('and' or
+    'or') controls how they are combined, and 'then_rules' are applied when
+    the condition is satisfied.
     """
 
     type: Literal["CONDITIONAL"] = "CONDITIONAL"
@@ -35,7 +25,7 @@ class ConditionalRule(BaseModel):
         ...,  # required
         min_length=1,
         description="List of single-question rules that form the if-condition",
-    )  # type: ignore[name-defined]
+    )
 
     if_mode: Literal["and", "or"] = Field(
         default="and",
@@ -49,38 +39,43 @@ class ConditionalRule(BaseModel):
         ...,  # required
         min_length=1,
         description="List of single-question rules to apply when the condition matches",
-    )  # type: ignore[name-defined]
+    )
 
-    def validate_against_schema(
-        self, question_id: str, schema: "QuestionSchema", rule_description: str
+    def validate_against_question_schema(
+        self, question_map: dict[str, "QuestionSchema"], rule_description: str
     ) -> list[str]:
         """Validate this conditional rule and all nested single-question rules.
 
         The provided `schema` is expected to be the global assessment/question
         schema; nested rules are validated against the schema entry for their
-        own `question_id` by calling their `validate_against_schema` methods.
+        own `question_id` by calling their `validate_against_question_schema` methods.
         """
         errors: list[str] = []
-        sub_errors: list[str] = []
 
         # Validate all if_rules
         for rule in self.if_rules:
-            validate_method = rule.validate_against_schema
-            if validate_method is not None and callable(validate_method):
-                rule_desc = (
-                    f"{rule_description} > If-condition for Q{rule.question_id} ({rule.type})"
-                )
-                sub_errors = validate_method(rule.question_id, schema, rule_desc)
-                errors.extend(sub_errors)
+            rule_desc = f"{rule_description} > If-condition for {rule.question_id} ({rule.type})"
+            sub_errors = rule.validate_against_question_schema(question_map, rule_desc)
+            errors.extend(sub_errors)
 
         # Validate all then_rules
         for rule in self.then_rules:
-            validate_method = rule.validate_against_schema
-            if validate_method is not None and callable(validate_method):
-                rule_desc = (
-                    f"{rule_description} > Then-condition for Q{rule.question_id} ({rule.type})"
-                )
-                sub_errors = validate_method(rule.question_id, schema, rule_desc)
-                errors.extend(sub_errors)
+            rule_desc = f"{rule_description} > Then-condition for {rule.question_id} ({rule.type})"
+            sub_errors = rule.validate_against_question_schema(question_map, rule_desc)
+            errors.extend(sub_errors)
 
         return errors
+
+    def get_question_ids(self) -> set[str]:
+        """Return the set of question ids referenced by this conditional rule."""
+        questions: set[str] = set()
+        for rule in self.if_rules + self.then_rules:
+            questions.update(rule.get_question_ids())
+        return questions
+
+    def get_target_question_ids(self) -> set[str]:
+        """Return the set of target question ids affected by this conditional rule."""
+        questions: set[str] = set()
+        for rule in self.then_rules:
+            questions.update(rule.get_question_ids())
+        return questions

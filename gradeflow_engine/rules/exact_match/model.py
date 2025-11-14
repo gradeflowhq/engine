@@ -1,8 +1,9 @@
 """
-Exact Match Rule model definition.
+Exact match rule that awards points when a text answer equals the expected answer
+after normalization.
 """
 
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 from pydantic import Field
 
@@ -10,12 +11,9 @@ from gradeflow_engine.types import QuestionType
 
 from ..base import BaseSingleQuestionRule, TextRuleConfig
 
-if TYPE_CHECKING:
-    from gradeflow_engine.schema import QuestionSchema
-
 
 class ExactMatchRule(BaseSingleQuestionRule):
-    """Exact match rule: student answer must equal `answer`"""
+    """Exact match rule where the student's normalized text must equal the expected answer."""
 
     type: Literal["EXACT_MATCH"] = "EXACT_MATCH"
 
@@ -25,16 +23,3 @@ class ExactMatchRule(BaseSingleQuestionRule):
     config: TextRuleConfig = Field(
         default_factory=TextRuleConfig, description="Text normalization config"
     )
-
-    def validate_against_schema(
-        self, question_id: str, schema: "QuestionSchema", rule_description: str
-    ) -> list[str]:
-        """Validate this rule against an assessment question schema (type compatibility check)."""
-        from gradeflow_engine.rules.utils import validate_type_compatibility
-
-        return validate_type_compatibility(
-            schema=schema,
-            compatible_types=self.compatible_types,
-            rule_description=rule_description,
-            rule_name="ExactMatchRule",
-        )

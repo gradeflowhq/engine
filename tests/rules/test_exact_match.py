@@ -121,7 +121,7 @@ class TestExactMatchSchemaValidation:
             },
         )
 
-        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        errors = rule.validate_against_question_schema(schema.questions, "Rule 1")
         assert len(errors) == 0
 
     def test_validate_incompatible_choice_schema(self):
@@ -138,7 +138,7 @@ class TestExactMatchSchemaValidation:
             },
         )
 
-        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        errors = rule.validate_against_question_schema(schema.questions, "Rule 1")
         assert len(errors) == 1
         assert "only compatible with" in errors[0]
         assert "TEXT" in errors[0]
@@ -158,7 +158,7 @@ class TestExactMatchSchemaValidation:
             },
         )
 
-        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        errors = rule.validate_against_question_schema(schema.questions, "Rule 1")
         assert len(errors) == 1
         assert "only compatible with" in errors[0]
         assert "TEXT" in errors[0]

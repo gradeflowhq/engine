@@ -66,7 +66,7 @@ class TestConditionalRule:
 class TestConditionalSchemaValidation:
     """Test ConditionalRule schema validation."""
 
-    def test_validate_against_schema(self):
+    def test_validate_against_question_schema(self):
         """Test that ConditionalRule validates correctly against schema."""
         rule = ConditionalRule(
             if_rules=[
@@ -86,13 +86,14 @@ class TestConditionalSchemaValidation:
         )
         # ConditionalRule validates against individual question schemas
         schema_q1 = ChoiceQuestionSchema(options=["A", "B", "C"])
-        errors = rule.validate_against_schema("q1", schema_q1, "Conditional Rule 1")
+        errors = rule.validate_against_question_schema({"q1": schema_q1}, "Conditional Rule 1")
         # Since ConditionalRule currently passes the same schema to all sub-rules,
         # this may produce errors - we're just testing it doesn't crash
         assert isinstance(errors, list)
 
     def test_validate_with_text_schema(self):
         """Test that ConditionalRule works with TEXT schema."""
+
         rule = ConditionalRule(
             if_rules=[
                 ExactMatchRule(
@@ -110,5 +111,5 @@ class TestConditionalSchemaValidation:
             ],
         )
         schema = TextQuestionSchema()
-        errors = rule.validate_against_schema("q1", schema, "Conditional Rule 1")
+        errors = rule.validate_against_question_schema({"q1": schema}, "Conditional Rule 1")
         assert isinstance(errors, list)

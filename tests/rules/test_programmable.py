@@ -69,8 +69,7 @@ class TestProgrammableSchemaValidation:
             max_points=10.0,
         )
         schema = TextQuestionSchema()
-
-        errors = rule.validate_against_schema("q1", schema, "Rule 1")
+        errors = rule.validate_against_question_schema({"q1": schema}, "Rule 1")
         assert errors == []
 
     def test_validate_against_choice_schema(self):
@@ -81,8 +80,7 @@ class TestProgrammableSchemaValidation:
             max_points=10.0,
         )
         schema = ChoiceQuestionSchema(options=["A", "B", "C"])
-
-        errors = rule.validate_against_schema("q1", schema, "Rule 1")
+        errors = rule.validate_against_question_schema({"q1": schema}, "Rule 1")
         assert errors == []
 
     def test_validate_against_numeric_schema(self):
@@ -93,6 +91,5 @@ class TestProgrammableSchemaValidation:
             max_points=10.0,
         )
         schema = NumericQuestionSchema()
-
-        errors = rule.validate_against_schema("q1", schema, "Rule 1")
+        errors = rule.validate_against_question_schema({"q1": schema}, "Rule 1")
         assert errors == []

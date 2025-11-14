@@ -166,7 +166,7 @@ class TestAssumptionSetRule:
 class TestAssumptionSetSchemaValidation:
     """Test AssumptionSetRule schema validation."""
 
-    def test_validate_against_schema(self):
+    def test_validate_against_question_schema(self):
         """Test that AssumptionSetRule validates correctly against schema."""
         rule = AssumptionSetRule(
             assumptions=[
@@ -188,8 +188,9 @@ class TestAssumptionSetSchemaValidation:
             ],
         )
         # AssumptionSetRule validates against individual question schemas
-        schema = ChoiceQuestionSchema(options=["A", "B", "C"])
-        errors = rule.validate_against_schema("q1", schema, "Assumption Set Rule 1")
+        schema_q = ChoiceQuestionSchema(options=["A", "B", "C"])
+        question_map = {"q1": schema_q}
+        errors = rule.validate_against_question_schema(question_map, "Assumption Set Rule 1")
         # Just test it doesn't crash and returns a list
         assert isinstance(errors, list)
 
@@ -209,6 +210,7 @@ class TestAssumptionSetSchemaValidation:
                 ),
             ],
         )
-        schema = TextQuestionSchema()
-        errors = rule.validate_against_schema("q1", schema, "Assumption Set Rule 1")
+        schema_q = TextQuestionSchema()
+        question_map = {"q1": schema_q}
+        errors = rule.validate_against_question_schema(question_map, "Assumption Set Rule 1")
         assert isinstance(errors, list)

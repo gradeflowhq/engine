@@ -278,58 +278,25 @@ def validate_rubric_against_schema(rubric: Rubric, schema: AssessmentSchema) -> 
     """
     errors: list[str] = []
 
-    # Extract question IDs from rules
-    def get_question_ids(rule: GradingRule) -> list[str]:
-        """Extract all question IDs referenced by a rule."""
-        from .rules import (
-            AssumptionSetRule,
-            CompositeRule,
-            ConditionalRule,
-        )
+    # Check that each rule target unique questions in schema
+    question_id_rules: dict[str, list[GradingRule]] = {}
+    for rule in rubric.rules:
+        for qid in rule.get_target_question_ids():
+            question_id_rules.setdefault(qid, []).append(rule)
 
-        # Type-specific extraction
-        if hasattr(rule, "question_id"):
-            return [rule.question_id]  # type: ignore[union-attr]
-        elif isinstance(rule, ConditionalRule):
-            # Collect from both if_rules and then_rules
-            questions: set[str] = set()
-            questions.update([rule.question_id for rule in rule.if_rules])
-            questions.update([rule.question_id for rule in rule.then_rules])
-            return list(questions)
-        elif isinstance(rule, AssumptionSetRule):
-            # Collect all questions from all answer sets
-            questions = set()
-            for assumption in rule.assumptions:
-                questions.update([rule.question_id for rule in assumption.rules])
-            return list(questions)
-        elif isinstance(rule, CompositeRule):
-            # Recursively collect from sub-rules
-            questions = set()
-            for sub_rule in rule.rules:
-                questions.update(get_question_ids(sub_rule))
-            return list(questions)
-        return []
+    if duplicates := [qid for qid, rules in question_id_rules.items() if len(rules) > 1]:
+        for qid in duplicates:
+            rule_types = ", ".join(f"{r.type}" for r in question_id_rules[qid])
+            errors.append(
+                f"Question '{qid}' is targeted by multiple rules: {rule_types}. "
+                "Each question can only be targeted by one rule."
+            )
 
     # Check each rule
     for i, rule in enumerate(rubric.rules):
         rule_desc = f"Rule {i + 1} ({rule.type})"
-
-        question_ids = get_question_ids(rule)
-
-        for question_id in question_ids:
-            # Check question exists in schema
-            if question_id not in schema.questions:
-                errors.append(f"{rule_desc}: Question '{question_id}' not found in schema")
-                continue
-
-            q_schema = schema.questions[question_id]
-
-            # If rule implements SchemaValidatable, let it validate itself
-            validate_method = getattr(rule, "validate_against_schema", None)
-            if validate_method is not None and callable(validate_method):
-                rule_errors: Any = validate_method(question_id, q_schema, rule_desc)
-                if isinstance(rule_errors, list):
-                    errors.extend(rule_errors)
+        rule_errors = rule.validate_against_question_schema(schema.questions, rule_desc)
+        errors.extend(rule_errors)
 
     return errors
 

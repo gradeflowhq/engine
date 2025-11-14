@@ -1,6 +1,5 @@
-"""AssumptionSet rule model definition."""
+"""Assumption set rule model for aggregating named assumptions into a single score."""
 
-from collections.abc import Callable
 from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, Field, field_validator
@@ -13,25 +12,16 @@ if TYPE_CHECKING:
 
 
 class Assumption(BaseModel):
-    """A named assumption containing a list of rules.
-
-    Fields:
-      - name: str
-      - rules: list[GradingRule]
-    """
+    """A named assumption containing a list of rules."""
 
     name: str = Field(..., description="Name/label for this assumption")
     rules: list["SingleQuestionRule"] = Field(..., description="List of rules for this assumption")  # type: ignore[name-defined]
 
 
 class AssumptionSetRule(BaseModel):
-    """Assumption-based grading aggregation.
-
-    The rule holds multiple `Assumption` entries. For each student, the engine
-    evaluates every assumption and combines scores according to `mode`:
-      - best: pick the assumption with the highest total
-      - worst: pick the assumption with the lowest total
-      - average: average across assumptions
+    """
+    Aggregate multiple named assumptions by evaluating each and combining their scores
+    using the configured mode (best, worst, or average).
     """
 
     type: Literal["ASSUMPTION_SET"] = "ASSUMPTION_SET"
@@ -45,25 +35,20 @@ class AssumptionSetRule(BaseModel):
         description="Aggregation mode for assumption evaluation: best|worst|average",
     )
 
-    def validate_against_schema(
-        self, question_id: str, schema: "QuestionSchema", rule_description: str
+    def validate_against_question_schema(
+        self, question_map: dict[str, "QuestionSchema"], rule_description: str
     ) -> list[str]:
         """Validate every rule in each assumption against the provided schema."""
         errors: list[str] = []
 
         for assumption in self.assumptions:
             for idx, rule in enumerate(assumption.rules):
-                validate_method: Callable[[str, "QuestionSchema", str], list[str] | None] | None = (
-                    getattr(rule, "validate_against_schema", None)
-                )
-                if validate_method is None:
-                    continue
-
                 rule_desc = (
                     f"{rule_description} > Assumption '{assumption.name}' > Rule {idx + 1} "
                     f"({getattr(rule, 'type', '<unknown>')})"
+                    f"{' for ' + rule.question_id}"
                 )
-                sub_errors = validate_method(question_id, schema, rule_desc)
+                sub_errors = rule.validate_against_question_schema(question_map, rule_desc)
                 if sub_errors:
                     errors.extend(sub_errors)
 
@@ -87,3 +72,15 @@ class AssumptionSetRule(BaseModel):
                 f"Assumption names must be unique; duplicates: {', '.join(duplicates)}"
             )
         return v
+
+    def get_question_ids(self) -> set[str]:
+        """Collect all question ids referenced by rules inside each assumption."""
+        questions: set[str] = set()
+        for assumption in self.assumptions:
+            for rule in assumption.rules:
+                questions.update(rule.get_question_ids())
+        return questions
+
+    def get_target_question_ids(self) -> set[str]:
+        """Return the set of target question ids affected by this assumption set rule."""
+        return self.get_question_ids()

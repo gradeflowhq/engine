@@ -19,15 +19,15 @@ class SchemaValidatable(Protocol):
     rule types.
     """
 
-    def validate_against_schema(
-        self, question_id: str, schema: QuestionSchema, rule_description: str
+    def validate_against_question_schema(
+        self, question_map: dict[str, QuestionSchema], rule_description: str
     ) -> list[str]:
         """
         Validate this rule against a question schema.
 
         Args:
             question_id: The question ID being validated
-            schema: The question schema to validate against
+            question_map: The question map schema to validate against
             rule_description: Human-readable description of the rule for error messages
 
         Returns:

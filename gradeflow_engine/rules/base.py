@@ -1,8 +1,4 @@
-"""Base utilities and base rule models for rule processors to reduce code duplication.
-
-This module contains small helper functions used by rule processors as well as
-shared base Pydantic models used by rule implementations.
-"""
+"""Base utilities and shared Pydantic models used by rule implementations and processors."""
 
 from __future__ import annotations
 
@@ -15,6 +11,7 @@ from ..types import QuestionType
 
 if TYPE_CHECKING:
     from ..models import GradeDetail
+    from ..schema import QuestionSchema
 
 
 __all__ = [
@@ -28,11 +25,7 @@ __all__ = [
 
 @dataclass(frozen=True)
 class QuestionConstraint:
-    """Immutable metadata describing a rule <-> question field relationship.
-
-    Use simple dataclass to keep these lightweight, hashable, and easy to
-    construct at import time for use as class-level metadata.
-    """
+    """Immutable metadata describing a rule-to-question field relationship."""
 
     type: "QuestionType"
     source: str
@@ -40,11 +33,7 @@ class QuestionConstraint:
 
 
 class TextRuleConfig(BaseModel):
-    """Configuration options for text-based rules.
-
-    - ignore_case: whether matching should be case-insensitive
-    - trim_whitespace: whether to strip leading/trailing whitespace before matching
-    """
+    """Configuration options for text rules such as case folding and trimming."""
 
     ignore_case: bool = Field(
         default=True, description="Ignore case when comparing text (default: True)"
@@ -55,7 +44,7 @@ class TextRuleConfig(BaseModel):
 
 
 class BaseRule(BaseModel):
-    """Base class for all rules."""
+    """Common base class for all rule models."""
 
     # Constant describing which question types the rule supports.
     # Use an immutable set to enforce the 'constant' intent.
@@ -64,12 +53,43 @@ class BaseRule(BaseModel):
     # Schema constraints the rule relies on to function correctly.
     constraints: frozenset["QuestionConstraint"] = frozenset()
 
+    def get_question_ids(self) -> set[str]:
+        """Return the set of question IDs this rule applies to."""
+        raise NotImplementedError("Subclasses must implement get_question_ids method")
+
+    def get_target_question_ids(self) -> set[str]:
+        """Return the set of target question IDs this rule applies to."""
+        raise NotImplementedError("Subclasses must implement get_target_question_ids method")
+
 
 class BaseSingleQuestionRule(BaseRule):
-    """Common fields for single-question rules."""
+    """Common fields and helpers for rules that target a single question."""
 
     question_id: str = Field(..., description="Target question id")
     max_points: float = Field(default=1.0, description="Maximum points for the question")
+
+    def validate_against_question_schema(
+        self, question_map: dict[str, "QuestionSchema"], rule_description: str
+    ) -> list[str]:
+        from gradeflow_engine.rules.utils import validate_type_compatibility
+
+        if self.question_id not in question_map:
+            return [f"{rule_description}: Question ID '{self.question_id}' not found in schema"]
+
+        return validate_type_compatibility(
+            schema=question_map[self.question_id],
+            compatible_types=self.compatible_types,
+            rule_description=rule_description,
+            rule_name=self.__class__.__name__,
+        )
+
+    def get_question_ids(self) -> set[str]:
+        """Return the single question id targeted by this rule as a set."""
+        return {self.question_id}
+
+    def get_target_question_ids(self) -> set[str]:
+        """Return the single target question id as a set."""
+        return {self.question_id}
 
 
 def create_grade_detail(
@@ -82,25 +102,7 @@ def create_grade_detail(
     feedback: str | None = None,
     rule_applied: str | None = None,
 ) -> "GradeDetail":
-    """
-    Factory function for creating GradeDetail objects.
-
-    Handles the import to avoid circular dependencies and provides
-    a consistent interface for creating grade details.
-
-    Args:
-        question_id: Question identifier
-        student_answer: Student's answer
-        correct_answer: Expected correct answer (if applicable)
-        points_awarded: Points awarded for this question
-        max_points: Maximum max_points possible
-        is_correct: Whether the answer is correct
-        feedback: Optional feedback message
-        rule_applied: Optional rule identifier
-
-    Returns:
-        GradeDetail instance
-    """
+    """Create a GradeDetail instance with the given question and scoring information."""
     from ..models import GradeDetail
 
     return GradeDetail(
@@ -116,16 +118,7 @@ def create_grade_detail(
 
 
 def preprocess_text(text: str, config: TextRuleConfig) -> str:
-    """
-    Preprocess text according to the given TextRuleConfig.
-
-    Args:
-        text: The text to preprocess
-        config: TextRuleConfig with preprocessing options
-
-    Returns:
-        Preprocessed text
-    """
+    """Preprocess text according to the provided TextRuleConfig (trim and case-fold)."""
     if config.trim_whitespace:
         text = text.strip()
     if config.ignore_case:

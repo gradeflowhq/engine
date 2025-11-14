@@ -1,6 +1,6 @@
 """NumericRange rule model definition."""
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
 from pydantic import Field, field_validator
 
@@ -8,12 +8,9 @@ from gradeflow_engine.types import QuestionType
 
 from ..base import BaseSingleQuestionRule
 
-if TYPE_CHECKING:
-    from gradeflow_engine.schema import QuestionSchema
-
 
 class NumericRangeRule(BaseSingleQuestionRule):
-    """Numeric answer grading with inclusive [min_value, max_value]."""
+    """Grade numeric answers based on an inclusive [min_value, max_value] range."""
 
     type: Literal["NUMERIC_RANGE"] = "NUMERIC_RANGE"
     compatible_types: frozenset[QuestionType] = frozenset({"NUMERIC"})
@@ -31,16 +28,3 @@ class NumericRangeRule(BaseSingleQuestionRule):
                 f"max_value ({v}) must be greater than or equal to min_value ({min_value})"
             )
         return v
-
-    def validate_against_schema(
-        self, question_id: str, schema: "QuestionSchema", rule_description: str
-    ) -> list[str]:
-        """Validate this rule against a question schema."""
-        from gradeflow_engine.rules.utils import validate_type_compatibility
-
-        return validate_type_compatibility(
-            schema=schema,
-            compatible_types=self.compatible_types,
-            rule_description=rule_description,
-            rule_name="NumericRangeRule",
-        )

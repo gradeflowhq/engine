@@ -1,6 +1,6 @@
-"""Keyword rule model definition."""
+"""Keyword rule that matches configured keywords against a text answer using a chosen mode."""
 
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 from pydantic import Field
 
@@ -8,12 +8,9 @@ from gradeflow_engine.types import QuestionType
 
 from ..base import BaseSingleQuestionRule, TextRuleConfig
 
-if TYPE_CHECKING:
-    from gradeflow_engine.schema import QuestionSchema
-
 
 class KeywordRule(BaseSingleQuestionRule):
-    """Keyword rule matching"""
+    """Match configured keywords in a text answer using the specified mode."""
 
     type: Literal["KEYWORD"] = "KEYWORD"
     compatible_types: frozenset[QuestionType] = frozenset({"TEXT"})
@@ -28,15 +25,3 @@ class KeywordRule(BaseSingleQuestionRule):
         ),
     )
     config: TextRuleConfig = Field(default_factory=TextRuleConfig)
-
-    def validate_against_schema(
-        self, question_id: str, schema: "QuestionSchema", rule_description: str
-    ) -> list[str]:
-        from gradeflow_engine.rules.utils import validate_type_compatibility
-
-        return validate_type_compatibility(
-            schema=schema,
-            compatible_types=self.compatible_types,
-            rule_description=rule_description,
-            rule_name="KeywordRule",
-        )

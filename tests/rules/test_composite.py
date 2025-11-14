@@ -165,7 +165,7 @@ class TestCompositeSchemaValidation:
         )
         schema = TextQuestionSchema()
 
-        errors = rule.validate_against_schema("q1", schema, "Rule 1")
+        errors = rule.validate_against_question_schema({"q1": schema}, "Rule 1")
         assert errors == []
 
     def test_validate_incompatible_choice_schema(self):
@@ -180,7 +180,7 @@ class TestCompositeSchemaValidation:
         )
         schema = ChoiceQuestionSchema(options=["A", "B", "C"])
 
-        errors = rule.validate_against_schema("q1", schema, "Rule 1")
+        errors = rule.validate_against_question_schema({"q1": schema}, "Rule 1")
         assert len(errors) == 2
         for error in errors:
             assert "only compatible with" in error
@@ -198,6 +198,6 @@ class TestCompositeSchemaValidation:
         )
         schema = NumericQuestionSchema()
 
-        errors = rule.validate_against_schema("q1", schema, "Rule 1")
+        errors = rule.validate_against_question_schema({"q1": schema}, "Rule 1")
         assert len(errors) > 0
         assert any("only compatible with" in error for error in errors)

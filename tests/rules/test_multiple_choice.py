@@ -130,7 +130,7 @@ class TestMultipleChoiceSchemaValidation:
             },
         )
 
-        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        errors = rule.validate_against_question_schema(schema.questions, "Rule 1")
         assert errors == []
 
     def test_validate_incompatible_numeric_schema(self):
@@ -147,7 +147,7 @@ class TestMultipleChoiceSchemaValidation:
             },
         )
 
-        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        errors = rule.validate_against_question_schema(schema.questions, "Rule 1")
         assert len(errors) == 1
         assert "only compatible with" in errors[0]
         assert "CHOICE" in errors[0]
@@ -166,7 +166,7 @@ class TestMultipleChoiceSchemaValidation:
             },
         )
 
-        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        errors = rule.validate_against_question_schema(schema.questions, "Rule 1")
         assert len(errors) == 1
         assert "only compatible with" in errors[0]
 
@@ -184,7 +184,7 @@ class TestMultipleChoiceSchemaValidation:
             },
         )
 
-        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        errors = rule.validate_against_question_schema(schema.questions, "Rule 1")
         assert len(errors) == 1
         assert "not in schema options" in errors[0]
         assert "e" in errors[0]
@@ -203,6 +203,6 @@ class TestMultipleChoiceSchemaValidation:
             },
         )
 
-        errors = rule.validate_against_schema("q1", schema.questions["q1"], "Rule 1")
+        errors = rule.validate_against_question_schema(schema.questions, "Rule 1")
         assert len(errors) >= 1
         assert "not in schema options" in errors[0]
