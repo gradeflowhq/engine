@@ -1,0 +1,66 @@
+import re
+from functools import lru_cache
+from re import Pattern
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+from ...questions.types import Answer, QuestionType
+from ..result import Result
+from .base import BaseRule, BaseSingleQuestionRule
+
+
+@lru_cache(maxsize=256)
+def _compile_regex(pattern: str, flags: int) -> Pattern[str]:
+    return re.compile(pattern, flags)
+
+
+def _build_regex_flags(ignore_case: bool, multi_line: bool, dotall: bool) -> int:
+    flags = 0
+    if ignore_case:
+        flags |= re.IGNORECASE
+    if multi_line:
+        flags |= re.MULTILINE
+    if dotall:
+        flags |= re.DOTALL
+    return flags
+
+
+class RegexConfig(BaseModel):
+    ignore_case: bool = Field(default=False, description="Ignore case when matching")
+    multi_line: bool = Field(default=False, description="Multi-line matching")
+    dotall: bool = Field(default=False, description="Dot matches all characters including newlines")
+
+
+class RegexRule(BaseRule):
+    type: Literal["REGEX"] = "REGEX"
+    question_types: frozenset[QuestionType] = frozenset({"TEXT"})
+    pattern: str = Field(..., description="Regular expression pattern to match against the answer")
+    config: RegexConfig = Field(
+        default_factory=RegexConfig,
+        description="Configuration for regex matching behavior",
+    )
+
+    def _process_answer(self, answer: Answer) -> Result:
+        flags = _build_regex_flags(
+            ignore_case=self.config.ignore_case,
+            multi_line=self.config.multi_line,
+            dotall=self.config.dotall,
+        )
+        compiled_pattern = _compile_regex(self.pattern, flags)
+        is_match = compiled_pattern.search(str(answer)) is not None
+
+        return Result(
+            output=is_match,
+            passed=is_match,
+            feedback=(
+                f"The answer ({answer}) {'matches' if is_match else 'does not match'} "
+                f"the pattern ({self.pattern})."
+            ),
+            rule=self.__class__.__name__,
+        )
+
+
+class RegexQuestionRule(RegexRule, BaseSingleQuestionRule):
+    def compute_points(self, result: Result) -> float:
+        return self.max_points if result.passed else 0.0
