@@ -35,13 +35,13 @@ pip install -e .
 List available components:
 
 ```bash
-python -m engine_nextgen.gradeflow_engine.cli list
+gradeflow-engine list
 ```
 
 Infer a QuestionSet from submissions (CSV) and optionally save it:
 
 ```bash
-python -m engine_nextgen.gradeflow_engine.cli infer \
+gradeflow-engine infer \
   path/to/submissions.csv \
   --submissions-loader CSV \
   --submissions-loader-kv student_id_column=student_id \
@@ -56,7 +56,7 @@ python -m engine_nextgen.gradeflow_engine.cli infer \
 Grade with a loaded or inferred QuestionSet and a Rubric, and save results:
 
 ```bash
-python -m engine_nextgen.gradeflow_engine.cli grade \
+gradeflow-engine grade \
   --submissions path/to/submissions.csv \
   --submissions-loader CSV \
   --submissions-loader-kv student_id_column=student_id \
@@ -81,7 +81,7 @@ Notes:
 Use the core API for scripted pipelines.
 
 ```python
-from engine_nextgen.gradeflow_engine.core import (
+from gradeflow_engine.core import (
     load_submissions,
     infer_question_set,
     load_rubric,
@@ -395,7 +395,7 @@ Components register via `Registry.register_decorator("NAME")`. Existing keys:
 Discover and get:
 
 ```python
-from engine_nextgen.gradeflow_engine.core import (
+from gradeflow_engine.core import (
   list_available_question_set_loaders,
   get_question_set_loader_class,
 )
@@ -408,9 +408,9 @@ YamlLoader = get_question_set_loader_class("YAML")
 ```python
 from typing import Literal
 from pydantic import BaseModel
-from engine_nextgen.gradeflow_engine.registry import submissions_loader_registry
-from engine_nextgen.gradeflow_engine.submissions.loaders.base import BaseSubmissionsLoader
-from engine_nextgen.gradeflow_engine.submissions.models import RawSubmission
+from gradeflow_engine.registry import submissions_loader_registry
+from gradeflow_engine.submissions.loaders.base import BaseSubmissionsLoader
+from gradeflow_engine.submissions.models import RawSubmission
 
 @submissions_loader_registry.register_decorator("MY_LOADER")
 class MyLoader(BaseSubmissionsLoader):
@@ -426,9 +426,9 @@ class MyLoader(BaseSubmissionsLoader):
 
 ```python
 from typing import Literal, Iterable
-from engine_nextgen.gradeflow_engine.registry import submissions_saver_registry
-from engine_nextgen.gradeflow_engine.submissions.savers.base import BaseSubmissionsSaver, SubmissionsSaverOutput
-from engine_nextgen.gradeflow_engine.submissions.models import GradedSubmission
+from gradeflow_engine.registry import submissions_saver_registry
+from gradeflow_engine.submissions.savers.base import BaseSubmissionsSaver, SubmissionsSaverOutput
+from gradeflow_engine.submissions.models import GradedSubmission
 
 @submissions_saver_registry.register_decorator("MY_SAVER")
 class MySaver(BaseSubmissionsSaver):
