@@ -61,7 +61,7 @@ def validate_answer_type(answer: Answer, question_types: frozenset[QuestionType]
 
 
 def validate_unique_target_questions_in_rules(
-    rules: list[QuestionRule],
+    rules: list["QuestionRule"],
 ) -> list[RuleValidationError]:
     # Aggregate errors from individual rule validations
     errors: list[RuleValidationError] = []
@@ -69,7 +69,7 @@ def validate_unique_target_questions_in_rules(
         errors.extend(rule.validate_unique_target_questions())
 
     # Build a mapping from question IDs to the rules that target them
-    rule_map: dict[QuestionId, list[QuestionRule]] = {}
+    rule_map: dict[QuestionId, list["QuestionRule"]] = {}
     for rule in rules:
         target_question_ids = rule.get_target_question_ids()
         for qid in target_question_ids:

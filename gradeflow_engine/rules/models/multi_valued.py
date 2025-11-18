@@ -22,7 +22,7 @@ def feedback_fn(results: list[Result]) -> str:
 class MultiValuedRule(BaseRule):
     type: Literal["MULTI_VALUED"] = "MULTI_VALUED"
     question_types: frozenset[QuestionType] = frozenset({"MULTI_VALUED"})
-    rules: list[SingleTargetRule] = Field(
+    rules: list["SingleTargetRule"] = Field(
         ...,
         min_length=1,
         description="List of rules to apply to each value in the multi-valued answer",

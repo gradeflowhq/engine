@@ -26,7 +26,7 @@ def check_condition(results: list[QuestionResult], aggregation: BooleanAggregati
 class ConditionalMultiQuestionRule(BaseMultiQuestionRule):
     type: Literal["CONDITIONAL"] = "CONDITIONAL"
     question_types: frozenset[QuestionType] = frozenset({"TEXT", "NUMERIC"})
-    if_rules: list[SingleTargetQuestionRule] = Field(
+    if_rules: list["SingleTargetQuestionRule"] = Field(
         ..., min_length=1, description="List of rules to evaluate the 'if' condition"
     )
     if_aggregation: BooleanAggregation = Field(
@@ -37,12 +37,12 @@ class ConditionalMultiQuestionRule(BaseMultiQuestionRule):
             "'OR' requires at least one to be true"
         ),
     )
-    then_rules: list[SingleTargetQuestionRule] = Field(
+    then_rules: list["SingleTargetQuestionRule"] = Field(
         ...,
         min_length=1,
         description="List of rules to evaluate if 'if' condition is met",
     )
-    else_rules: list[SingleTargetQuestionRule] = Field(
+    else_rules: list["SingleTargetQuestionRule"] = Field(
         ..., description="List of rules to evaluate if 'if' condition is not met"
     )
 

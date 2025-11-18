@@ -19,7 +19,7 @@ AssumptionSetMode = Literal["MAX", "MIN"]
 
 class Assumption(BaseModel):
     name: str = Field(..., description="Name of the assumption")
-    rules: list[SingleTargetQuestionRule] = Field(
+    rules: list["SingleTargetQuestionRule"] = Field(
         ..., description="List of rules that define the assumption"
     )
 
