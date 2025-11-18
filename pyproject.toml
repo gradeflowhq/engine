@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "gradeflow-engine"
 version = "0.1.0"
@@ -30,18 +34,18 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest~=8.4.2",
-    "pytest-cov~=7.0.0",
-    "ruff~=0.8.0",
-    "mypy~=1.18.2",
+    "pytest>=9.0",
+    "pytest-cov>=7.0",
+    "mypy>=1.18",
+    "ruff>=0.14",
     "types-PyYAML~=6.0.12",
 ]
 
 [project.scripts]
 gradeflow-engine = "gradeflow_engine.cli:app"
 
-[tool.setuptools]
-packages = ["gradeflow_engine"]
+[tool.setuptools.packages.find]
+include = ["gradeflow_engine*"]
 
 [tool.ruff]
 line-length = 100
