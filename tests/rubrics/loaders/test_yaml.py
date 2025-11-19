@@ -7,7 +7,7 @@ from gradeflow_engine.rubrics.model import Rubric
 from gradeflow_engine.rules.models.length import LengthQuestionRule
 
 
-def test_import_rubric_valid_minimal():
+def test_import_rubric_valid_minimal() -> None:
     """A minimal valid YAML should parse into a Rubric instance."""
     yaml_str = """
 rules:
@@ -27,7 +27,7 @@ rules:
     assert getattr(rule, "min_length", None) == 1
 
 
-def test_import_rubric_invalid_yaml_raises():
+def test_import_rubric_invalid_yaml_raises() -> None:
     """Malformed YAML should raise a YAML error or validation error."""
     bad_yaml = "title: Bad:\n  - unbalanced"
 
@@ -35,7 +35,7 @@ def test_import_rubric_invalid_yaml_raises():
         load_rubric(bad_yaml)
 
 
-def test_import_rubric_missing_required_fields_raises():
+def test_import_rubric_missing_required_fields_raises() -> None:
     """YAML missing required fields should raise a validation error from the Rubric model."""
     missing_yaml = """
     # no title and no criteria

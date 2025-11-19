@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ..question_sets.model import QuestionSet
 from ..questions.models import Question
@@ -24,6 +24,14 @@ def grade_submission(rules: list[QuestionRule], submission: Submission) -> Grade
         results=results,
     )
     return graded_submission
+
+
+class RubricCoverage(BaseModel):
+    question_ids: set[QuestionId] = Field(default_factory=set)
+    covered_question_ids: set[QuestionId] = Field(default_factory=set)
+    total: int = 0
+    covered: int = 0
+    percentage: float = 0.0
 
 
 class Rubric(BaseModel):
@@ -54,3 +62,19 @@ class Rubric(BaseModel):
             + self.validate_unique_target_questions()
         )
         return errors
+
+    def get_target_question_ids(self) -> set[QuestionId]:
+        return {
+            question_id for rule in self.rules for question_id in rule.get_target_question_ids()
+        }
+
+    def get_coverage(self, question_set: QuestionSet) -> RubricCoverage:
+        question_ids = set(question_set.question_map.keys())
+        covered_question_ids = self.get_target_question_ids().intersection(question_ids)
+        return RubricCoverage(
+            question_ids=question_ids,
+            covered_question_ids=covered_question_ids,
+            total=len(question_ids),
+            covered=len(covered_question_ids),
+            percentage=len(covered_question_ids) / len(question_ids) if question_ids else 0.0,
+        )

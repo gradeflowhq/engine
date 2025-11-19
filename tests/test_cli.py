@@ -8,7 +8,7 @@ from gradeflow_engine import cli as cli_module
 runner = CliRunner()
 
 
-def test_list_components_shows_registered_entries():
+def test_list_components_shows_registered_entries() -> None:
     result = runner.invoke(cli_module.app, ["list"])
     assert result.exit_code == 0, result.output
     # Look for registry section titles and known keys
@@ -22,7 +22,7 @@ def test_list_components_shows_registered_entries():
     assert "CSV" in result.output
 
 
-def test_infer_command_prints_and_saves(tmp_path: Path):
+def test_infer_command_prints_and_saves(tmp_path: Path) -> None:
     # Prepare a simple CSV submissions file
     csv_text = textwrap.dedent(
         """\
@@ -63,7 +63,7 @@ def test_infer_command_prints_and_saves(tmp_path: Path):
     assert "question_map:" in data
 
 
-def test_grade_command_with_rubric_and_save(tmp_path: Path):
+def test_grade_command_with_rubric_and_save(tmp_path: Path) -> None:
     # Prepare CSV submissions
     csv_text = textwrap.dedent(
         """\
@@ -143,3 +143,54 @@ def test_grade_command_with_rubric_and_save(tmp_path: Path):
     # Ensure both students are present
     assert "s1" in out_csv
     assert "s2" in out_csv
+
+
+def test_cli_grade_prints_rubric_coverage(tmp_path: Path):
+    # Prepare submissions CSV (two rows, one question Q1)
+    submissions_csv = textwrap.dedent(
+        """\
+        student_id,Q1
+        S1,foo
+        S2,bar
+        """
+    )
+    submissions_path = tmp_path / "subs.csv"
+    submissions_path.write_text(submissions_csv, encoding="utf-8")
+
+    # Provide a rubric YAML targeting Q1 with EXACT_MATCH
+    rubric_yaml = textwrap.dedent(
+        """\
+        rules:
+          - type: EXACT_MATCH
+            question_id: Q1
+            answer: foo
+            max_points: 1
+        """
+    )
+    rubric_path = tmp_path / "rubric.yaml"
+    rubric_path.write_text(rubric_yaml, encoding="utf-8")
+
+    # Let the CLI infer the question set; run grade command
+    result = runner.invoke(
+        cli_module.app,
+        [
+            "grade",
+            "--submissions",
+            str(submissions_path),
+            "--rubric",
+            str(rubric_path),
+            "--saver",
+            "CSV",  # allow saver, but we won't pass --out, so it prints to stdout
+        ],
+    )
+
+    # CLI should succeed
+    assert result.exit_code == 0, result.output
+
+    # Check that coverage section is present and shows Q1 covered
+    output = result.output
+    assert "Rubric Coverage" in output
+    assert "Covered by Rubric" in output
+    # Expect 1 covered out of total inferred questions (should be 1 in this simple case)
+    assert "Coverage" in output
+    assert "Q1" in output or "Covered IDs" in output  # depending on your _print_coverage details

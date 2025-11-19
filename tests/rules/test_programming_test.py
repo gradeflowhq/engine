@@ -5,7 +5,7 @@ from gradeflow_engine.rules.models.programming import (
 )
 
 
-def test_programming_test_passes_simple_expression():
+def test_programming_test_passes_simple_expression() -> None:
     # student code returns 2 + 2, expression should be str(output) compared to expected
     student_code = """
 def add():
@@ -19,7 +19,7 @@ def add():
     assert "add()" in result.feedback
 
 
-def test_programming_test_fails_wrong_output():
+def test_programming_test_fails_wrong_output() -> None:
     student_code = """
 def add():
     return 1 + 1
@@ -31,7 +31,7 @@ def add():
     assert result.passed is False
 
 
-def test_programming_test_runtime_error_raises():
+def test_programming_test_runtime_error_raises() -> None:
     # Code that raises an error (undefined name)
     student_code = """
 def f():
@@ -46,7 +46,7 @@ def f():
     assert "undefined_variable" in result.feedback
 
 
-def test_programming_question_rule_points_partial_any_all():
+def test_programming_question_rule_points_partial_any_all() -> None:
     student_code = """
 def f():
     return 1

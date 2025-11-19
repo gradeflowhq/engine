@@ -7,7 +7,7 @@ from gradeflow_engine.question_sets.model import QuestionSet
 from gradeflow_engine.questions.models.text import TextQuestion
 
 
-def test_import_question_set_valid_minimal():
+def test_import_question_set_valid_minimal() -> None:
     """A minimal valid QuestionSet YAML should parse into a QuestionSet instance."""
     yaml_str = """
     question_map:
@@ -26,14 +26,14 @@ def test_import_question_set_valid_minimal():
     assert getattr(q, "type", None) == "TEXT"
 
 
-def test_import_question_set_invalid_yaml_raises():
+def test_import_question_set_invalid_yaml_raises() -> None:
     bad_yaml = "question_map: [unbalanced"
     # malformed YAML should raise a YAML parse error
     with pytest.raises(yaml.YAMLError):
         load_question_set(bad_yaml)
 
 
-def test_import_question_set_missing_required_fields_raises():
+def test_import_question_set_missing_required_fields_raises() -> None:
     # question_map missing or empty should raise validation error
     missing_yaml = """
     something: 1

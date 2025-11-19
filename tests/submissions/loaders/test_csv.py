@@ -6,7 +6,7 @@ from gradeflow_engine.submissions.loaders.csv import load_submissions
 from gradeflow_engine.submissions.models import RawSubmission
 
 
-def test_basic_import():
+def test_basic_import() -> None:
     csv_data = """student_id,q1,q2
 s1,foo,bar
 s2,baz,qux
@@ -25,7 +25,7 @@ s2,baz,qux
     assert s2.raw_answer_map == {"q1": "baz", "q2": "qux"}
 
 
-def test_custom_student_id_column():
+def test_custom_student_id_column() -> None:
     csv_data = """id,answer
 123,yes
 """
@@ -39,7 +39,7 @@ def test_custom_student_id_column():
     assert submission.raw_answer_map == {"answer": "yes"}
 
 
-def test_answer_columns_filtering():
+def test_answer_columns_filtering() -> None:
     csv_data = """student_id,q1,q2
 s1,1,2
 """
@@ -53,7 +53,7 @@ s1,1,2
     assert submission.raw_answer_map == {"q1": "1"}
 
 
-def test_skip_missing_student_id_logs_warning(caplog: LogCaptureFixture):
+def test_skip_missing_student_id_logs_warning(caplog: LogCaptureFixture) -> None:
     csv_data = """student_id,q1
 ,empty
 s1,ok

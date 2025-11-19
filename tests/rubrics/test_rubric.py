@@ -2,20 +2,21 @@ import pytest
 
 from gradeflow_engine.question_sets.model import QuestionSet
 from gradeflow_engine.questions.models import ChoiceQuestion, TextQuestion
-from gradeflow_engine.rubrics.model import Rubric
+from gradeflow_engine.rubrics.model import Rubric, RubricCoverage
+from gradeflow_engine.rules.models.exact_match import ExactMatchQuestionRule
 from gradeflow_engine.rules.models.length import LengthQuestionRule
 from gradeflow_engine.rules.models.multiple_choice import MultipleChoiceQuestionRule
 from gradeflow_engine.submissions.models import Submission
 
 
-def make_question_set():
+def make_question_set() -> QuestionSet:
     # Two questions: q1 is TEXT, q2 is CHOICE
     q1 = TextQuestion(description="A text question")
     q2 = ChoiceQuestion(description="A choice question")
     return QuestionSet(question_map={"q1": q1, "q2": q2})
 
 
-def test_length_rule_grading_and_points():
+def test_length_rule_grading_and_points() -> None:
     # length rule for q1: min 5, max 20, max_points defaults to 1.0
     length_rule = LengthQuestionRule(question_id="q1", min_length=5, max_length=20, max_points=2.0)
     rubric = Rubric(rules=[length_rule])
@@ -38,7 +39,7 @@ def test_length_rule_grading_and_points():
     assert res2.points == 2.0
 
 
-def test_multiple_choice_modes_and_combined_rules():
+def test_multiple_choice_modes_and_combined_rules() -> None:
     # q2 choices correct are 'a' and 'b'
     mc_all = MultipleChoiceQuestionRule(
         question_id="q2", answer={"a", "b"}, mode="ALL", max_points=3.0
@@ -76,7 +77,7 @@ def test_multiple_choice_modes_and_combined_rules():
     assert len(graded.results) == 2
 
 
-def test_missing_answer_raises_value_error():
+def test_missing_answer_raises_value_error() -> None:
     mc = MultipleChoiceQuestionRule(question_id="q2", answer={"a"}, mode="ALL")
     rubric = Rubric(rules=[mc])
     # submission missing q2
@@ -85,7 +86,7 @@ def test_missing_answer_raises_value_error():
         rubric.grade([sub])
 
 
-def test_validate_questions_exist_and_compatibility_and_unique():
+def test_validate_questions_exist_and_compatibility_and_unique() -> None:
     qs = make_question_set()
     question_map = qs.question_map
 
@@ -112,3 +113,35 @@ def test_validate_questions_exist_and_compatibility_and_unique():
     agg_errors = rubric_dup.validate_rubric(qs)
     # should include compatibility (none here for mc against choice), and unique target error
     assert any("targeted by multiple rules" in e for e in agg_errors)
+
+
+def test_rubric_get_coverage_basic() -> None:
+    # QuestionSet has Q1, Q2
+    qset = QuestionSet(question_map={"Q1": TextQuestion(), "Q2": TextQuestion()})
+
+    # Rubric targets Q1 (exists) and Q999 (non-existent)
+    r1 = ExactMatchQuestionRule(question_id="Q1", answer="foo", max_points=1.0)
+    r2 = ExactMatchQuestionRule(question_id="Q999", answer="bar", max_points=1.0)
+    rubric = Rubric(rules=[r1, r2])
+
+    cov: RubricCoverage = rubric.get_coverage(qset)
+
+    assert cov.total == 2
+    # Only Q1 should be counted as covered because it's in the question set
+    assert cov.covered == 1
+    assert cov.percentage == pytest.approx(0.5)  # type: ignore
+    assert cov.question_ids == {"Q1", "Q2"}
+    assert cov.covered_question_ids == {"Q1"}
+
+
+def test_rubric_get_coverage_empty_qset() -> None:
+    qset = QuestionSet(question_map={})
+    r1 = ExactMatchQuestionRule(question_id="Q1", answer="foo", max_points=1.0)
+    rubric = Rubric(rules=[r1])
+
+    cov = rubric.get_coverage(qset)
+    assert cov.total == 0
+    assert cov.covered == 0
+    assert cov.percentage == 0.0
+    assert cov.question_ids == set()
+    assert cov.covered_question_ids == set()

@@ -22,7 +22,7 @@ from .registry import (
     submissions_saver_registry,
 )
 from .rubrics.loaders import BaseRubricLoader
-from .rubrics.model import Rubric
+from .rubrics.model import Rubric, RubricCoverage
 from .rules.types import RuleValidationError
 from .submissions.loaders import BaseSubmissionsLoader
 from .submissions.models import GradedSubmission, RawSubmission, Submission
@@ -169,6 +169,18 @@ def infer_question_set(
 
 
 # ---------------------------
+# Coverage
+# ---------------------------
+
+
+def compute_rubric_coverage(
+    rubric: Rubric,
+    question_set: QuestionSet,
+) -> RubricCoverage:
+    return rubric.get_coverage(question_set)
+
+
+# ---------------------------
 # Pipeline
 # ---------------------------
 
@@ -181,6 +193,7 @@ class PipelineResult(BaseModel):
     validation_errors: list[RuleValidationError] = Field(default_factory=list[RuleValidationError])
     graded_submissions: list[GradedSubmission] = Field(default_factory=list[GradedSubmission])
     output: SubmissionsSaverOutput | None = None
+    coverage: RubricCoverage | None = None
 
 
 def run_pipeline(
@@ -253,6 +266,7 @@ def run_pipeline(
     used_rubric: Rubric | None = None
     validation_errors: list[RuleValidationError] = []
     graded_submissions: list[GradedSubmission] = []
+    coverage: RubricCoverage | None = None
 
     if rubric is not None:
         used_rubric = rubric
@@ -262,6 +276,7 @@ def run_pipeline(
     if used_rubric is not None:
         validation_errors = used_rubric.validate_rubric(qset)
         graded_submissions = used_rubric.grade(submissions)
+        coverage = compute_rubric_coverage(used_rubric, qset)
 
     # Optional save
     output: SubmissionsSaverOutput | None = None
@@ -280,6 +295,7 @@ def run_pipeline(
         validation_errors=validation_errors,
         graded_submissions=graded_submissions,
         output=output,
+        coverage=coverage,
     )
 
 
@@ -306,4 +322,6 @@ __all__ = [
     "infer_question_set",
     "PipelineResult",
     "run_pipeline",
+    # Coverage
+    "compute_rubric_coverage",
 ]

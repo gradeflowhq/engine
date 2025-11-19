@@ -5,6 +5,7 @@ from pathlib import Path
 
 import typer
 import yaml
+from natsort import natsorted
 from rich import box
 from rich.console import Console
 from rich.panel import Panel
@@ -24,7 +25,7 @@ from .registry import (
     submissions_loader_registry,
     submissions_saver_registry,
 )
-from .rubrics.model import Rubric
+from .rubrics.model import Rubric, RubricCoverage
 from .submissions.loaders.base import BaseSubmissionsLoader
 from .submissions.models import GradedSubmission, RawSubmission, Submission
 from .submissions.savers.base import BaseSubmissionsSaver
@@ -161,6 +162,29 @@ def _print_grades(graded_submissions: list[GradedSubmission]) -> None:
         total_max = sum(r.max_points for r in gs.results)
         table.add_row(gs.student_id, f"{total_points:.2f}", f"{total_max:.2f}")
     console.print(table)
+
+
+def _print_coverage(coverage: RubricCoverage) -> None:
+    console.rule("Rubric Coverage")
+    summary = Table(box=box.SIMPLE)
+    summary.add_column("Total Questions", justify="right", no_wrap=True)
+    summary.add_column("Covered by Rubric", justify="right", no_wrap=True)
+    summary.add_column("Coverage", justify="right", no_wrap=True)
+    summary.add_row(str(coverage.total), str(coverage.covered), f"{coverage.percentage:.0%}")
+    console.print(summary)
+
+    # Details: covered vs uncovered question IDs
+    covered_ids = natsorted(coverage.covered_question_ids)
+    uncovered_ids = natsorted(coverage.question_ids - coverage.covered_question_ids)
+
+    details = Table(box=box.SIMPLE)
+    details.add_column("Covered IDs", style="green")
+    details.add_column("Uncovered IDs", style="red")
+    details.add_row(
+        ", ".join(covered_ids) if covered_ids else "<none>",
+        ", ".join(uncovered_ids) if uncovered_ids else "<none>",
+    )
+    console.print(details)
 
 
 @app.command("list")
@@ -361,14 +385,19 @@ def grade(
         # Validate and grade
         validation_errors: list[str] = []
         graded: list[GradedSubmission] = []
+        coverage: RubricCoverage | None = None
         if used_rubric is not None:
             validation_errors = used_rubric.validate_rubric(qset)
-            graded = used_rubric.grade(submissions)
+            coverage = used_rubric.get_coverage(qset)
+            if not validation_errors:
+                graded = used_rubric.grade(submissions)
 
         # Output summaries
         _print_question_set(qset, title="Question Set")
         _print_submissions(submissions)
         _print_validation_errors(validation_errors)
+        if coverage is not None:
+            _print_coverage(coverage)
         _print_grades(graded)
 
         # Save graded submissions if requested and grading occurred
