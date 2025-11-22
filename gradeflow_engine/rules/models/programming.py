@@ -80,7 +80,7 @@ result = {{'output': output, 'passed': passed}}
 
 class ProgrammingRule(BaseRule):
     type: Literal["PROGRAMMING"] = "PROGRAMMING"
-    question_types: frozenset[QuestionType] = frozenset({"TEXT", "NUMERIC"})
+    question_types: frozenset[QuestionType] = frozenset({"TEXT"})
     testcases: list[ProgrammingTestCase] = Field(
         ..., description="List of test cases to run against the code"
     )
