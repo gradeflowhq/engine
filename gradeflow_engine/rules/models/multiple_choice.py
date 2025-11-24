@@ -6,6 +6,7 @@ from ...questions.models import Question
 from ...questions.models.choice import ChoiceQuestion
 from ...questions.types import Answer, QuestionId, QuestionType
 from ..aggregations.completeness import passed_fn, points_fn
+from ..constraints import QuestionConstraint
 from ..result import Result
 from ..types import CompletenessAggregation, RuleValidationError
 from .base import BaseRule, BaseSingleQuestionRule
@@ -29,6 +30,9 @@ def choice_output_fn(
 class MultipleChoiceRule(BaseRule):
     type: Literal["MULTIPLE_CHOICE"] = "MULTIPLE_CHOICE"
     question_types: frozenset[QuestionType] = frozenset({"CHOICE"})
+    constraints: list[QuestionConstraint] = [
+        QuestionConstraint(type="CHOICE", source="options", target="answer"),
+    ]
     answer: set[str] = Field(..., min_length=1, description="Set of correct choices")
     mode: CompletenessAggregation = Field(
         default="ALL",

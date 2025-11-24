@@ -1,10 +1,9 @@
-from dataclasses import dataclass
+from pydantic import BaseModel
 
 from ..questions.types import QuestionType
 
 
-@dataclass(frozen=True)
-class QuestionConstraint:
+class QuestionConstraint(BaseModel):
     type: "QuestionType"
     source: str
     target: str

@@ -10,7 +10,7 @@ from ..validators import validate_answer_type
 
 class BaseRule(BaseModel):
     question_types: frozenset[QuestionType] = frozenset()
-    constraints: frozenset[QuestionConstraint] = frozenset()
+    constraints: list[QuestionConstraint] = []
 
     def validate_compatibility(
         self, question_map: dict[QuestionId, Question]
