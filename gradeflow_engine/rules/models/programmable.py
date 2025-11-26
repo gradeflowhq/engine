@@ -11,6 +11,15 @@ from .base import BaseRule, BaseSingleQuestionRule
 ProgrammableMode = Literal["PASS_FAIL", "OUTPUT"]
 
 
+DEFAULT_PROGRAMMABLE_CODE = """\
+# 'answer' variable contains the student's answer
+# You must set the following variables:
+# 'output' (float): A number between 0 and 1; max_points multiplier (only used in OUTPUT mode)
+# 'passed' (bool): Whether the answer passed (only used in PASS_FAIL mode)
+# 'feedback' (str, optional): Feedback to provide to the student
+"""
+
+
 @dataclass(frozen=True)
 class ProgrammableResult:
     output: float
@@ -45,7 +54,12 @@ def evaluate(code: str, answer: Answer) -> ProgrammableResult:
 class ProgrammableRule(BaseRule):
     type: Literal["PROGRAMMABLE"] = "PROGRAMMABLE"
     question_types: frozenset[QuestionType] = frozenset({"TEXT", "NUMERIC"})
-    code: str = Field(..., description="Code to evaluate the answer")
+    code: str = Field(
+        default=DEFAULT_PROGRAMMABLE_CODE,
+        description="Code to evaluate the answer. "
+        "Required variables: 'output', 'passed'. "
+        "Optional variable: 'feedback'.",
+    )
     mode: ProgrammableMode = Field(
         default="PASS_FAIL",
         description=(

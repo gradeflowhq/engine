@@ -27,11 +27,11 @@ class ProgrammingTestCaseResult:
 class ProgrammingConfig(BaseModel):
     prepend_code: str = Field(
         default="",
-        description="Code to prepend to the student's answer before running test cases",
+        description="Code to prepend to the student's answer",
     )
     append_code: str = Field(
         default="",
-        description="Code to append to the student's answer after running test cases",
+        description="Code to append to the student's answer",
     )
     indent: int = Field(
         default=0,
