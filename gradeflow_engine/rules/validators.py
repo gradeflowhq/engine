@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 
 def is_text(a: Any) -> TypeGuard[TextAnswer]:
-    return isinstance(a, str)
+    return isinstance(a, str) or is_numeric(a)
 
 
 def is_numeric(a: Any) -> TypeGuard[NumericAnswer]:
