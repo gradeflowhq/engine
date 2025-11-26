@@ -53,7 +53,17 @@ Assumption.model_rebuild()
 ConditionalMultiQuestionRule.model_rebuild()
 
 
-MultiTargetQuestionRule = AssumptionSetMultiQuestionRule | ConditionalMultiQuestionRule
+MultiTargetQuestionRule = Annotated[
+    AssumptionSetMultiQuestionRule | ConditionalMultiQuestionRule,
+    Discriminator("type"),
+]
 
-Rule = SingleTargetRule | MultiTargetQuestionRule
-QuestionRule = SingleTargetQuestionRule | MultiTargetQuestionRule
+Rule = Annotated[
+    SingleTargetRule | MultiTargetQuestionRule,
+    Discriminator("type"),
+]
+
+QuestionRule = Annotated[
+    SingleTargetQuestionRule | MultiTargetQuestionRule,
+    Discriminator("type"),
+]
