@@ -56,7 +56,9 @@ def choose_assumption_result(
 
 class AssumptionSetMultiQuestionRule(BaseMultiQuestionRule):
     type: Literal["ASSUMPTION_SET"] = "ASSUMPTION_SET"
-    question_types: frozenset[QuestionType] = frozenset({"TEXT", "CHOICE", "NUMERIC", "MULTI_VALUED"})
+    question_types: frozenset[QuestionType] = frozenset(
+        {"TEXT", "CHOICE", "NUMERIC", "MULTI_VALUED"}
+    )
     assumptions: list[Assumption] = Field(
         ..., description="List of assumptions in the assumption set"
     )

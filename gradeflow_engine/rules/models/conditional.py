@@ -25,7 +25,9 @@ def check_condition(results: list[QuestionResult], aggregation: BooleanAggregati
 
 class ConditionalMultiQuestionRule(BaseMultiQuestionRule):
     type: Literal["CONDITIONAL"] = "CONDITIONAL"
-    question_types: frozenset[QuestionType] = frozenset({"TEXT", "CHOICE", "NUMERIC", "MULTI_VALUED"})
+    question_types: frozenset[QuestionType] = frozenset(
+        {"TEXT", "CHOICE", "NUMERIC", "MULTI_VALUED"}
+    )
     if_rules: list["SingleTargetQuestionRule"] = Field(
         ..., min_length=1, description="List of rules to evaluate the 'if' condition"
     )
