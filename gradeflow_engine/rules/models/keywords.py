@@ -33,7 +33,7 @@ class KeywordsRule(BaseRule):
         feedback = f"The answer ({answer}) " + (
             f"contains all keywords: {', '.join(self.keywords)}."
             if passed
-            else f"does not contain the required keywords: {', '.join(self.keywords)}."
+            else f"does not contain {self.mode.lower()} keywords: {', '.join(self.keywords)}."
         )
         return Result(
             output=output,

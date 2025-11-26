@@ -28,7 +28,7 @@ class CompositeRule(BaseRule):
         passed_list = [res.passed for res in results]
         output = output_fn(passed_list, mode=self.aggregation)
         passed = passed_fn(passed_list, mode=self.aggregation)
-        feedback = " | ".join(res.feedback for res in results)
+        feedback = " ".join(res.feedback for res in results)
         return Result(
             output=output,
             passed=passed,

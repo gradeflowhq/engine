@@ -52,7 +52,7 @@ class MultipleChoiceRule(BaseRule):
         matches = [choice in answer_set for choice in self.answer]
         passed = passed_fn(matches, mode=self.mode)
         output = choice_output_fn(answer_set, self.answer, mode=self.mode)
-        feedback = f"The answer ({answer}) " + (
+        feedback = f"The answer ({', '.join(answer)}) " + (
             "is correct."
             if passed
             else f"is incorrect. Correct choices are: {', '.join(self.answer)}."
