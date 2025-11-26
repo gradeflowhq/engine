@@ -4,11 +4,14 @@ from typing import Any, Literal
 from pydantic import Field
 
 from ...questions.types import Answer, QuestionType
-from ..executors.restricted_python import safe_exec
+from ..executors import python
 from ..result import Result
 from .base import BaseRule, BaseSingleQuestionRule
 
 ProgrammableMode = Literal["PASS_FAIL", "OUTPUT"]
+
+
+TIME_LIMIT_S = 5
 
 
 DEFAULT_PROGRAMMABLE_CODE = """\
@@ -28,11 +31,11 @@ class ProgrammableResult:
 
 
 def evaluate(code: str, answer: Answer) -> ProgrammableResult:
-    local_vars: dict[str, Any] = {
+    variables: dict[str, Any] = {
         "answer": answer,
     }
     try:
-        safe_exec(code, local_vars)
+        python.run(code, variables, time_limit_s=TIME_LIMIT_S)
     except Exception as e:
         return ProgrammableResult(
             output=0.0,
@@ -40,9 +43,16 @@ def evaluate(code: str, answer: Answer) -> ProgrammableResult:
             feedback=f"Error during code execution: {e}",
         )
 
-    output = local_vars.get("output", 0.0)
-    passed = local_vars.get("passed", False)
-    feedback = local_vars.get("feedback", "No feedback provided.")
+    try:
+        output = float(variables.get("output", 0.0))
+        passed = bool(variables.get("passed", False))
+        feedback = str(variables.get("feedback", "No feedback provided."))
+    except Exception as e:
+        return ProgrammableResult(
+            output=0.0,
+            passed=False,
+            feedback=f"Error retrieving result variables: {e}",
+        )
 
     return ProgrammableResult(
         output=output,

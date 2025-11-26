@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 from ...questions.types import Answer, QuestionType
 from ..aggregations.completeness import output_fn, passed_fn, points_fn
-from ..executors.restricted_python import safe_exec
+from ..executors import python
 from ..result import Result
 from ..types import CompletenessAggregation
 from .base import BaseRule, BaseSingleQuestionRule
@@ -37,10 +37,6 @@ class ProgrammingConfig(BaseModel):
         default=0,
         description="Number of spaces to indent the student's code when embedding it",
     )
-    memory_limit: int = Field(
-        default=64,
-        description="Memory limit in megabytes for code execution",
-    )
     time_limit: int = Field(
         default=5,
         description="Time limit in seconds for code execution",
@@ -57,24 +53,18 @@ def assemble_code(prepend: str, student_code: str, append: str, indent: int) -> 
 def evaluate(
     code: str, testcase: ProgrammingTestCase, config: ProgrammingConfig
 ) -> ProgrammingTestCaseResult:
-    # Ensure expected is represented as a Python string literal when inlined
     code_with_testcase = f"""{code}
 output = {testcase.expression}
-passed = str(output) == {testcase.expected!r}
+passed = output == {testcase.expected}
 result = {{'output': output, 'passed': passed}}
 """
-    local_vars: dict[str, Any] = {}
+    variables: dict[str, Any] = {}
     try:
-        safe_exec(
-            code_with_testcase,
-            local_vars,
-            memory_limit=config.memory_limit,
-            time_limit=config.time_limit,
-        )
+        python.run(code_with_testcase, variables, time_limit_s=config.time_limit)
     except Exception as e:
         return ProgrammingTestCaseResult(output=str(e), passed=False)
 
-    result: dict[str, Any] = local_vars.get("result", {"output": None, "passed": False})
+    result: dict[str, Any] = variables.get("result", {"output": None, "passed": False})
     return ProgrammingTestCaseResult(output=result["output"], passed=result["passed"])
 
 
@@ -115,7 +105,7 @@ class ProgrammingRule(BaseRule):
         passed = passed_fn(passed_list, mode=self.mode)
         feedback = ", ".join(
             (
-                f"Test case {testcase.expression}: Output: {result.output}, "
+                f"[Test case {testcase.expression}] Output: {result.output}, "
                 f"Expected: {testcase.expected}."
                 for testcase, result in zip(self.testcases, results, strict=True)
             )

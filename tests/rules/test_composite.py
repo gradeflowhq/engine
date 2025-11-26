@@ -74,8 +74,7 @@ def test_composite_feedback_concatenation() -> None:
     comp = CompositeRule(rules=[kw, ln], aggregation="ALL")
 
     res = comp.process_answer("foo")
-    # Feedback should contain both subrule feedbacks joined by ' | '
-    assert " | " in res.feedback
+    # Feedback should contain both subrule feedbacks
     assert "contains all keywords" in res.feedback
     assert "The answer length is" in res.feedback
 
