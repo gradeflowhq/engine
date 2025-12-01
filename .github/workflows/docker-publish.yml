@@ -30,7 +30,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.organization }}/gradeflow-engine
+          images: ghcr.io/${{ github.repository_owner }}/gradeflow-engine
           tags: |
             # Date-time version tag, e.g., 20251201-094342
             type=raw,value={{date 'YYYYMMDD-HHmmss'}},priority=1000
