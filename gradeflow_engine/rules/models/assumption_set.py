@@ -36,6 +36,7 @@ def evaluate_assumption(
     question_results: list[QuestionResult] = []
     for rule in assumption.rules:
         result = rule.process_submission(answer_map)
+        result.feedback = f"[Assumption: {assumption.name}] {result.feedback}"
         question_results.append(result)
     return AssumptionResult(assumption=assumption, question_results=question_results)
 
@@ -83,9 +84,11 @@ class AssumptionSetMultiQuestionRule(BaseMultiQuestionRule):
         ]
 
     def validate_unique_target_questions(self) -> list[RuleValidationError]:
-        return validate_unique_target_questions_in_rules(
-            [rule for assumption in self.assumptions for rule in assumption.rules]
-        )
+        errors: list[RuleValidationError] = []
+        # Validate uniqueness within each assumption, but not across assumptions
+        for assumption in self.assumptions:
+            errors.extend(validate_unique_target_questions_in_rules(list(assumption.rules)))
+        return errors
 
     def get_target_question_ids(self) -> set[QuestionId]:
         return {

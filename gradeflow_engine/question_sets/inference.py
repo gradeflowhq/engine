@@ -1,3 +1,5 @@
+from typing import Literal
+
 from ..questions.models import Question
 from ..questions.models.choice import ChoiceQuestion
 from ..questions.models.multi_valued import MultiValuedQuestion
@@ -55,6 +57,47 @@ def _get_numeric_answers(raw_answers: list[str]) -> list[float]:
     return numeric_answers
 
 
+def _is_numeric_token(token: str) -> bool:
+    if not token:
+        return False
+    try:
+        _ = try_parse_number(token.strip())
+        return True
+    except ValueError:
+        return False
+
+
+def _infer_value_types_for_positions(
+    raw_answers: list[str],
+    config: MultiValuedParserConfig,
+    expected_len: int,
+) -> list[Literal["NUMERIC", "TEXT"]]:
+    # Count numeric vs total per position
+    numeric_counts: list[int] = [0] * expected_len
+    totals: list[int] = [0] * expected_len
+
+    for raw in raw_answers:
+        if not raw:
+            continue
+        tokens = _tokenize_with_config(raw, config)
+        if len(tokens) != expected_len:
+            # Shouldn't happen if we already checked consistent cardinality,
+            # but skip defensively.
+            continue
+        for i, tok in enumerate(tokens):
+            if tok == "":
+                continue
+            totals[i] += 1
+            if _is_numeric_token(tok):
+                numeric_counts[i] += 1
+
+    inferred: list[Literal["NUMERIC", "TEXT"]] = []
+    for i in range(expected_len):
+        # Majority numeric => NUMERIC, else TEXT.
+        inferred.append("NUMERIC" if numeric_counts[i] > (totals[i] / 2) else "TEXT")
+    return inferred
+
+
 def _get_observed_values(raw_answers: list[str], config: MultiValuedParserConfig) -> set[str]:
     values: set[str] = set()
     for raw in raw_answers:
@@ -94,7 +137,17 @@ def _infer_question_for_qid(
     # 1) Multi-valued requires consistent cardinality across submissions and > 1
     multi_value_counts = _get_multi_value_cardinalities(raw_answers, config=multi_value_config)
     if len(multi_value_counts) == 1 and next(iter(multi_value_counts)) > 1:
-        return MultiValuedQuestion(config=multi_value_config)
+        k = next(iter(multi_value_counts))
+        # Infer per-position value types using observed tokens
+        inferred_types = _infer_value_types_for_positions(
+            raw_answers,
+            config=multi_value_config,
+            expected_len=k,
+        )
+        return MultiValuedQuestion(
+            config=multi_value_config,
+            value_types=inferred_types,
+        )
 
     # 2) Numeric majority
     elif len(_get_numeric_answers(raw_answers)) > len(raw_answers) / 2:

@@ -57,7 +57,7 @@ print(json.dumps(to_dump))
 
     if completed.returncode != 0:
         err = completed.stderr.strip()
-        raise RuntimeError(f"Subprocess failed (exit {completed.returncode}): {err}")
+        raise RuntimeError(err)
 
     # Parse result and update variables
     try:

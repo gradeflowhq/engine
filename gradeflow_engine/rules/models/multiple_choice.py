@@ -4,7 +4,7 @@ from pydantic import Field
 
 from ...questions.models import Question
 from ...questions.models.choice import ChoiceQuestion
-from ...questions.types import Answer, QuestionId, QuestionType
+from ...questions.types import Answer, QuestionType
 from ..aggregations.completeness import passed_fn, points_fn
 from ..constraints import QuestionConstraint
 from ..result import Result
@@ -45,6 +45,21 @@ class MultipleChoiceRule(BaseRule):
         ),
     )
 
+    def validate_question_compatibility(self, question: Question) -> list[RuleValidationError]:
+        errors: list[RuleValidationError] = []
+        if not isinstance(question, ChoiceQuestion):
+            errors.append(
+                f"Rule of type {self.type} is not compatible with question type {question.type}."
+            )
+            return errors
+        invalid_choices = self.answer - set(question.options)
+        if invalid_choices:
+            errors.append(
+                f"Invalid answer choices: {', '.join(invalid_choices)}"
+                f" for question with options: {', '.join(question.options)}"
+            )
+        return errors
+
     def _process_answer(self, answer: Answer) -> Result:
         assert isinstance(answer, set), "Answer must be a set for MultipleChoiceRule."
 
@@ -67,24 +82,5 @@ class MultipleChoiceRule(BaseRule):
 
 
 class MultipleChoiceQuestionRule(MultipleChoiceRule, BaseSingleQuestionRule):
-    def validate_compatibility(
-        self, question_map: dict[QuestionId, Question]
-    ) -> list[RuleValidationError]:
-        errors = super().validate_compatibility(question_map)
-        question = question_map.get(self.question_id)
-        if not isinstance(question, ChoiceQuestion):
-            errors.append(
-                f"Question {self.question_id} is not a ChoiceQuestion, "
-                f"but {self.__class__.__name__} requires a ChoiceQuestion."
-            )
-            return errors
-        invalid_choices = self.answer - set(question.options)
-        if invalid_choices:
-            errors.append(
-                f"Invalid answer choices for question {self.question_id}: "
-                f"{', '.join(invalid_choices)}"
-            )
-        return errors
-
     def compute_points(self, result: Result) -> float:
         return points_fn(result, mode=self.mode, max_points=self.max_points)

@@ -21,6 +21,7 @@ class ProgrammingTestCase(BaseModel):
 @dataclass(frozen=True)
 class ProgrammingTestCaseResult:
     output: Any
+    expected: Any
     passed: bool
 
 
@@ -50,29 +51,47 @@ def assemble_code(prepend: str, student_code: str, append: str, indent: int) -> 
     return f"{prepend}\n{indented_code}\n{append}"
 
 
+def evaluate_expected(testcase: ProgrammingTestCase, config: ProgrammingConfig) -> str | None:
+    code_with_expected = f"""{config.prepend_code}\nTrue
+{config.append_code}
+expected = {testcase.expected}
+"""
+    variables: dict[str, Any] = {}
+    try:
+        python.run(code_with_expected, variables, time_limit_s=config.time_limit)
+    except Exception:
+        return testcase.expected
+    return str(variables.get("expected", None))
+
+
 def evaluate(
     code: str, testcase: ProgrammingTestCase, config: ProgrammingConfig
 ) -> ProgrammingTestCaseResult:
     code_with_testcase = f"""{code}
 output = {testcase.expression}
-passed = output == {testcase.expected}
-result = {{'output': output, 'passed': passed}}
+expected = {testcase.expected}
+passed = output == expected
+result = {{'output': output, 'expected': expected, 'passed': passed}}
 """
     variables: dict[str, Any] = {}
     try:
         python.run(code_with_testcase, variables, time_limit_s=config.time_limit)
     except Exception as e:
-        return ProgrammingTestCaseResult(output=str(e), passed=False)
+        return ProgrammingTestCaseResult(output=str(e), expected=testcase.expected, passed=False)
 
-    result: dict[str, Any] = variables.get("result", {"output": None, "passed": False})
-    return ProgrammingTestCaseResult(output=result["output"], passed=result["passed"])
+    result: dict[str, Any] = variables.get(
+        "result", {"output": None, "expected": None, "passed": False}
+    )
+    return ProgrammingTestCaseResult(
+        output=result["output"], expected=result["expected"], passed=result["passed"]
+    )
 
 
 class ProgrammingRule(BaseRule):
     type: Literal["PROGRAMMING"] = "PROGRAMMING"
     question_types: frozenset[QuestionType] = frozenset({"TEXT"})
     testcases: list[ProgrammingTestCase] = Field(
-        ..., description="List of test cases to run against the code"
+        ..., min_length=1, description="List of test cases to run against the code"
     )
     language: ProgrammingLanguage = Field(
         default="python",
@@ -81,6 +100,10 @@ class ProgrammingRule(BaseRule):
     config: ProgrammingConfig = Field(
         default_factory=ProgrammingConfig,
         description="Configuration for code testing",
+    )
+    show_evaluated_expected: bool = Field(
+        default=True,
+        description="Whether to show the evaluated expected output in feedback",
     )
     mode: CompletenessAggregation = Field(
         default="ALL",
@@ -99,15 +122,20 @@ class ProgrammingRule(BaseRule):
             append=self.config.append_code,
             indent=self.config.indent,
         )
+        expected_list = [evaluate_expected(testcase, self.config) for testcase in self.testcases]
         results = [evaluate(code, testcase, self.config) for testcase in self.testcases]
         passed_list = [result.passed for result in results]
         output = output_fn(passed_list, mode=self.mode)
         passed = passed_fn(passed_list, mode=self.mode)
-        feedback = ", ".join(
+        feedback = "\n".join(
             (
-                f"[Test case {testcase.expression}] Output: {result.output}, "
-                f"Expected: {testcase.expected}."
-                for testcase, result in zip(self.testcases, results, strict=True)
+                f"[Test Case {i + 1}]\n"
+                f"Expression: {testcase.expression}\n"
+                f"Output: {result.output}\n"
+                f"Expected: {expected if self.show_evaluated_expected else testcase.expected}\n"
+                for i, (testcase, result, expected) in enumerate(
+                    zip(self.testcases, results, expected_list, strict=True)
+                )
             )
         )
 

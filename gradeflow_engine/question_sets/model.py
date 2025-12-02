@@ -17,7 +17,10 @@ def parse_raw_answer_map(
     answer_map: dict[QuestionId, Answer] = {}
     for qid, raw_answer in raw_answer_map.items():
         question = question_map[qid]
-        answer: Answer = question.parse(raw_answer)
+        try:
+            answer: Answer = question.parse(raw_answer)
+        except ValueError as e:
+            raise ValueError(f"Failed to parse answer for question {qid}: {e}") from e
         answer_map[qid] = answer
     return answer_map
 

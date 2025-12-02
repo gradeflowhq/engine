@@ -26,6 +26,10 @@ class MultiValuedQuestion(BaseQuestion[MultiValuedAnswer]):
         default_factory=MultiValuedParserConfig,
         description="Parser configuration for multi-valued questions.",
     )
+    value_types: list[Literal["TEXT", "NUMERIC"]] = Field(
+        ...,
+        description=("Expected type for each value in the answer."),
+    )
 
     def parse(self, raw_answer: str) -> MultiValuedAnswer:
         raw_multi_valued_answer = parse_multi_value(
@@ -34,4 +38,18 @@ class MultiValuedQuestion(BaseQuestion[MultiValuedAnswer]):
             trim_whitespace=self.config.trim_whitespace,
             normalize_case=self.config.normalize_case,
         )
-        return parse_multi_valued_answer(raw_multi_valued_answer)
+        parsed_answer = parse_multi_valued_answer(raw_multi_valued_answer)
+        if len(parsed_answer) != len(self.value_types):
+            raise ValueError(
+                f"Expected {len(self.value_types)} values, but got {len(parsed_answer)} values."
+            )
+
+        for i, (answer, value_type) in enumerate(zip(parsed_answer, self.value_types, strict=True)):
+            if value_type == "NUMERIC":
+                parsed_answer[i] = try_parse_number(str(answer))
+            elif value_type == "TEXT":
+                parsed_answer[i] = str(answer)
+            else:
+                raise ValueError(f"Unsupported value type: {value_type}")
+
+        return parsed_answer

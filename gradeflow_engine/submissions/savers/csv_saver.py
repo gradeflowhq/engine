@@ -32,6 +32,7 @@ def save_graded_submissions(
     student_id_column: str = "student_id",
     include_answers: bool = True,
     include_per_question_results: bool = True,
+    include_feedback: bool = True,
     include_total: bool = True,
 ) -> str:
     """
@@ -42,6 +43,7 @@ def save_graded_submissions(
       - If include_answers: one column per question ID with serialized answers
       - If include_per_question_results: for each question ID, three columns:
           <qid>__points, <qid>__max_points, <qid>__passed
+      - If include_feedback: for each question ID, one column: <qid>__feedback
       - If include_total: total_points, total_max_points
 
     Notes:
@@ -65,6 +67,10 @@ def save_graded_submissions(
     if include_per_question_results:
         for qid in ordered_qids:
             fieldnames += [f"{qid}__points", f"{qid}__max_points", f"{qid}__passed"]
+
+    if include_feedback:
+        for qid in ordered_qids:
+            fieldnames.append(f"{qid}__feedback")
 
     if include_total:
         fieldnames += ["total_points", "total_max_points"]
@@ -93,6 +99,12 @@ def save_graded_submissions(
                 row[f"{qid}__max_points"] = "" if res is None else str(res.max_points)
                 row[f"{qid}__passed"] = "" if res is None else ("TRUE" if res.passed else "FALSE")
 
+        # Feedback
+        if include_feedback:
+            for qid in ordered_qids:
+                res = result_by_qid.get(qid)
+                row[f"{qid}__feedback"] = "" if res is None else (res.feedback or "")
+
         # Totals
         if include_total:
             total_points = sum(res.points for res in gs.results)
@@ -111,6 +123,7 @@ class CsvSubmissionsSaver(BaseSubmissionsSaver):
     student_id_column: str = "student_id"
     include_answers: bool = True
     include_per_question_results: bool = True
+    include_feedback: bool = True
     include_total: bool = True
 
     def save(self, submissions: Iterable[GradedSubmission]) -> SubmissionsSaverOutput:
@@ -120,6 +133,7 @@ class CsvSubmissionsSaver(BaseSubmissionsSaver):
                 student_id_column=self.student_id_column,
                 include_answers=self.include_answers,
                 include_per_question_results=self.include_per_question_results,
+                include_feedback=self.include_feedback,
                 include_total=self.include_total,
             ),
             extension="csv",

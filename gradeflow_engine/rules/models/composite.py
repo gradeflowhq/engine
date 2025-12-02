@@ -2,10 +2,11 @@ from typing import TYPE_CHECKING, Literal
 
 from pydantic import Field
 
-from ...questions.types import Answer, QuestionType
+from ...questions.models import Question
+from ...questions.types import Answer, QuestionId, QuestionType
 from ..aggregations.completeness import output_fn, passed_fn, points_fn
 from ..result import Result
-from ..types import CompletenessAggregation
+from ..types import CompletenessAggregation, RuleValidationError
 from .base import BaseRule, BaseSingleQuestionRule
 
 if TYPE_CHECKING:
@@ -28,7 +29,7 @@ class CompositeRule(BaseRule):
         passed_list = [res.passed for res in results]
         output = output_fn(passed_list, mode=self.aggregation)
         passed = passed_fn(passed_list, mode=self.aggregation)
-        feedback = " ".join(res.feedback for res in results)
+        feedback = "\n".join(res.feedback for res in results)
         return Result(
             output=output,
             passed=passed,
@@ -38,5 +39,15 @@ class CompositeRule(BaseRule):
 
 
 class CompositeQuestionRule(CompositeRule, BaseSingleQuestionRule):
+    def validate_compatibility(
+        self, question_map: dict[QuestionId, Question]
+    ) -> list[RuleValidationError]:
+        errors = super().validate_compatibility(question_map)
+        if self.question_id not in question_map:
+            return errors  # Question existence is validated elsewhere
+        for rule in self.rules:
+            errors.extend(rule.validate_question_compatibility(question_map[self.question_id]))
+        return errors
+
     def compute_points(self, result: Result) -> float:
         return points_fn(result, mode=self.aggregation, max_points=self.max_points)

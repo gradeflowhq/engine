@@ -53,7 +53,10 @@ def test_numeric_question_parse() -> None:
 
 
 def test_multi_valued_question_parse() -> None:
-    mv = MultiValuedQuestion(description="mv")
+    mv = MultiValuedQuestion(
+        description="mv",
+        value_types=["NUMERIC", "TEXT", "NUMERIC", "TEXT"],
+    )
     qs = QuestionSet(question_map={"m": mv})
     raw = "1, two, 3.0, three"
     parsed = qs.parse([RawSubmission(student_id="m1", raw_answer_map={"m": raw})])[0]

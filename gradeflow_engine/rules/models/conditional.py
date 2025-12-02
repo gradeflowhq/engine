@@ -65,9 +65,11 @@ class ConditionalMultiQuestionRule(BaseMultiQuestionRule):
         ]
 
     def validate_unique_target_questions(self) -> list[RuleValidationError]:
-        return validate_unique_target_questions_in_rules(
-            list(self.then_rules + self.else_rules)  # if rules do not target questions for grading
-        )
+        errors: list[RuleValidationError] = []
+        # Validate uniqueness within each set of rules, but not across sets
+        for rules in [self.then_rules, self.else_rules]:
+            errors.extend(validate_unique_target_questions_in_rules(list(rules)))
+        return errors
 
     def get_target_question_ids(self) -> set[QuestionId]:
         return {
@@ -81,7 +83,12 @@ class ConditionalMultiQuestionRule(BaseMultiQuestionRule):
         if_results = [rule.process_submission(answer_map) for rule in self.if_rules]
         condition_met = check_condition(if_results, self.if_aggregation)
         if condition_met:
-            then_results = [rule.process_submission(answer_map) for rule in self.then_rules]
-            return then_results
-        else_results = [rule.process_submission(answer_map) for rule in self.else_rules]
-        return else_results
+            results = [rule.process_submission(answer_map) for rule in self.then_rules]
+        else:
+            results = [rule.process_submission(answer_map) for rule in self.else_rules]
+        for result in results:
+            if_question_ids = {res.question_id for res in if_results}
+            result.feedback = (
+                f"[Condition {', '.join(if_question_ids)}: {condition_met}] {result.feedback}"
+            )
+        return results

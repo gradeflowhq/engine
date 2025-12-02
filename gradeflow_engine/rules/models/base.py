@@ -12,10 +12,15 @@ class BaseRule(BaseModel):
     question_types: frozenset[QuestionType] = frozenset()
     constraints: list[QuestionConstraint] = []
 
-    def validate_compatibility(
-        self, question_map: dict[QuestionId, Question]
-    ) -> list[RuleValidationError]:
-        raise NotImplementedError("Subclasses must implement this method.")
+    def validate_question_compatibility(self, question: Question) -> list[RuleValidationError]:
+        assert hasattr(self, "type"), "Rule must have a 'type' attribute."
+        errors: list[RuleValidationError] = []
+        if question.type not in self.question_types:
+            errors.append(
+                f"Rule of type {self.type} "  # type: ignore[attr-defined]
+                f"is not compatible with question type {question.type}."
+            )
+        return errors
 
     def _process_answer(self, answer: Answer) -> Result:
         raise NotImplementedError("Subclasses must implement this method.")
@@ -43,15 +48,9 @@ class BaseSingleQuestionRule(BaseRule, BaseQuestionRule):
     def validate_compatibility(
         self, question_map: dict[QuestionId, Question]
     ) -> list[RuleValidationError]:
-        assert hasattr(self, "type"), "Subclasses must define type."
         if self.question_id not in question_map:
             return []  # Question existence is validated elsewhere
-        question_type = question_map[self.question_id].type
-        if question_type not in self.question_types:
-            return [
-                f"Rule of type {self.type} is not compatible with question type {question_type}."  # type: ignore[attr-defined]
-            ]
-        return []
+        return self.validate_question_compatibility(question_map[self.question_id])
 
     def validate_questions_exist(self, question_ids: set[QuestionId]) -> list[RuleValidationError]:
         if self.question_id not in question_ids:
