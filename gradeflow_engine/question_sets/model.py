@@ -5,6 +5,7 @@ from ..questions.types import Answer, QuestionId
 from ..submissions.models import RawSubmission, Submission
 from .inference import (
     DEFAULT_CHOICE_DELIMITER,
+    DEFAULT_CHOICE_NORMALIZE_CASE,
     DEFAULT_CHOICE_OPTION_LIMIT,
     DEFAULT_MULTI_VALUE_DELIMITER,
     infer_question_map,
@@ -49,6 +50,7 @@ class QuestionSet(BaseModel):
         *,
         choice_delimiter: str = DEFAULT_CHOICE_DELIMITER,
         choice_option_limit: int = DEFAULT_CHOICE_OPTION_LIMIT,
+        choice_normalize_case: bool = DEFAULT_CHOICE_NORMALIZE_CASE,
         multi_value_delimiter: str = DEFAULT_MULTI_VALUE_DELIMITER,
     ) -> "QuestionSet":
         if not raw_submissions:
@@ -57,6 +59,7 @@ class QuestionSet(BaseModel):
             raw_submissions,
             choice_delimiter=choice_delimiter,
             choice_option_limit=choice_option_limit,
+            choice_normalize_case=choice_normalize_case,
             multi_value_delimiter=multi_value_delimiter,
         )
         return cls(question_map=question_map)

@@ -65,6 +65,10 @@ def test_infer_question_set_basic_text_vs_choice() -> None:
         s4,delta
         s5,epsilon
         s6,zeta
+        s7,zeta 1
+        s8,zeta 2
+        s9,zeta 3
+        s10,zeta 4
         """
     )
     subs = load_submissions(csv_data, loader_name="CSV")

@@ -38,11 +38,11 @@ def test_infer_choice_respects_choice_delimiter() -> None:
         make_rs("s2", {"q1": "B|D"}),
         make_rs("s3", {"q1": "C|E|A"}),
     ]
-    qs = QuestionSet.infer(subs, choice_delimiter="|")
+    qs = QuestionSet.infer(subs, choice_delimiter="|", choice_normalize_case=True)
     q = qs.question_map["q1"]
     assert isinstance(q, ChoiceQuestion)
-    assert q.options == {"A", "B", "C", "D", "E"}
-    assert q.parse("B|E|A") == {"B", "E", "A"}
+    assert q.options == {"a", "b", "c", "d", "e"}
+    assert q.parse("B|E|A") == {"b", "e", "a"}
 
 
 def test_infer_multi_valued_when_consistent_cardinality() -> None:
@@ -71,7 +71,7 @@ def test_infer_not_multi_valued_when_inconsistent_cardinality() -> None:
         make_rs("s5", {"qmv": "c3"}),
         make_rs("s6", {"qmv": "c4"}),
     ]
-    qs = QuestionSet.infer(subs, multi_value_delimiter=";")
+    qs = QuestionSet.infer(subs, multi_value_delimiter=";", choice_option_limit=5)
     q = qs.question_map["qmv"]
     # With no numeric majority and no single-token choice candidates, fallback is Text
     assert isinstance(q, TextQuestion)
@@ -102,7 +102,7 @@ def test_infer_text_fallback_when_none_of_the_conditions_match() -> None:
         make_rs("s6", {"q4": "zeta"}),
         make_rs("s7", {"q4": "eta"}),
     ]
-    qs = QuestionSet.infer(subs)
+    qs = QuestionSet.infer(subs, choice_option_limit=5)
     q = qs.question_map["q4"]
     assert isinstance(q, TextQuestion)
     assert q.parse("Hello World") == "Hello World"
@@ -118,7 +118,9 @@ def test_infer_handles_multiple_questions_in_same_run() -> None:
         make_rs("s6", {"q_choice": "green", "q_multi": "5;6", "q_num": "3", "q_text": "baz4"}),
         make_rs("s7", {"q_choice": "green", "q_multi": "5;6", "q_num": "4", "q_text": "baz5"}),
     ]
-    qs = QuestionSet.infer(subs, choice_delimiter=",", multi_value_delimiter=";")
+    qs = QuestionSet.infer(
+        subs, choice_delimiter=",", multi_value_delimiter=";", choice_option_limit=5
+    )
 
     assert isinstance(qs.question_map["q_choice"], ChoiceQuestion)
     assert qs.question_map["q_choice"].options == {"red", "blue", "green"}
@@ -135,7 +137,7 @@ def test_parse_with_inferred_question_set() -> None:
         make_rs("s1", {"qid": "A|B|C"}),
         make_rs("s2", {"qid": "B|C"}),
     ]
-    qs = QuestionSet.infer(subs, choice_delimiter="|")
+    qs = QuestionSet.infer(subs, choice_delimiter="|", choice_normalize_case=False)
     new_subs = [
         make_rs("s10", {"qid": "A|C"}),
         make_rs("s11", {"qid": "C"}),

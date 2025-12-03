@@ -13,6 +13,7 @@ from rich.table import Table
 
 from .question_sets.inference import (
     DEFAULT_CHOICE_DELIMITER,
+    DEFAULT_CHOICE_NORMALIZE_CASE,
     DEFAULT_CHOICE_OPTION_LIMIT,
     DEFAULT_MULTI_VALUE_DELIMITER,
     infer_question_map,
@@ -235,6 +236,11 @@ def infer_questions(
         "--choice-option-limit",
         help="Max distinct choices for Choice inference",
     ),
+    choice_normalize_case: bool = typer.Option(
+        DEFAULT_CHOICE_NORMALIZE_CASE,
+        "--choice-normalize-case",
+        help="Whether to normalize case for Choice inference",
+    ),
     multi_value_delimiter: str = typer.Option(
         DEFAULT_MULTI_VALUE_DELIMITER,
         "--multi-value-delimiter",
@@ -265,6 +271,7 @@ def infer_questions(
             raw_subs,
             choice_delimiter=choice_delimiter,
             choice_option_limit=choice_option_limit,
+            choice_normalize_case=choice_normalize_case,
             multi_value_delimiter=multi_value_delimiter,
         )
         qset = QuestionSet(question_map=qmap)
@@ -315,6 +322,11 @@ def grade(
         DEFAULT_CHOICE_OPTION_LIMIT,
         "--choice-option-limit",
         help="Max distinct choices for Choice inference",
+    ),
+    choice_normalize_case: bool = typer.Option(
+        DEFAULT_CHOICE_NORMALIZE_CASE,
+        "--choice-normalize-case",
+        help="Whether to normalize case for Choice inference",
     ),
     multi_value_delimiter: str = typer.Option(
         DEFAULT_MULTI_VALUE_DELIMITER,
@@ -369,6 +381,7 @@ def grade(
                 raw_subs,
                 choice_delimiter=choice_delimiter,
                 choice_option_limit=choice_option_limit,
+                choice_normalize_case=choice_normalize_case,
                 multi_value_delimiter=multi_value_delimiter,
             )
             qset = QuestionSet(question_map=qmap)

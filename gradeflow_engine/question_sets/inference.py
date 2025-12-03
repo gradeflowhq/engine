@@ -11,8 +11,9 @@ from ..questions.utils import parse_multi_value, try_parse_number
 from ..submissions.models import RawSubmission
 
 DEFAULT_CHOICE_DELIMITER = ","
-DEFAULT_MULTI_VALUE_DELIMITER = "|"
-DEFAULT_CHOICE_OPTION_LIMIT = 5
+DEFAULT_CHOICE_OPTION_LIMIT = 7
+DEFAULT_CHOICE_NORMALIZE_CASE = True
+DEFAULT_MULTI_VALUE_DELIMITER = "~"
 
 
 def _get_question_ids(raw_submissions: list[RawSubmission]) -> set[QuestionId]:
@@ -114,6 +115,7 @@ def _infer_question_for_qid(
     raw_answers: list[str],
     choice_delimiter: str,
     choice_option_limit: int,
+    choice_normalize_case: bool,
     multi_value_delimiter: str,
 ) -> Question:
     """
@@ -127,7 +129,9 @@ def _infer_question_for_qid(
         return TextQuestion()
 
     # Build configs that mirror how the questions will parse
-    choice_config = MultiValuedParserConfig(delimiter=choice_delimiter)
+    choice_config = MultiValuedParserConfig(
+        delimiter=choice_delimiter, normalize_case=choice_normalize_case
+    )
     multi_value_config = MultiValuedParserConfig(delimiter=multi_value_delimiter)
 
     # Precompute observed values and counts for Choice using its config
@@ -168,9 +172,10 @@ def _infer_question_for_qid(
 
 def infer_question_map(
     raw_submissions: list[RawSubmission],
-    choice_delimiter: str,
-    choice_option_limit: int,
-    multi_value_delimiter: str,
+    choice_delimiter: str = DEFAULT_CHOICE_DELIMITER,
+    choice_option_limit: int = DEFAULT_CHOICE_OPTION_LIMIT,
+    choice_normalize_case: bool = DEFAULT_CHOICE_NORMALIZE_CASE,
+    multi_value_delimiter: str = DEFAULT_MULTI_VALUE_DELIMITER,
 ) -> dict[QuestionId, Question]:
     question_map: dict[QuestionId, Question] = {}
     for qid in _get_question_ids(raw_submissions):
@@ -179,6 +184,7 @@ def infer_question_map(
             raw_answers,
             choice_delimiter=choice_delimiter,
             choice_option_limit=choice_option_limit,
+            choice_normalize_case=choice_normalize_case,
             multi_value_delimiter=multi_value_delimiter,
         )
     return question_map
