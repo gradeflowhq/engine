@@ -1,12 +1,14 @@
 from collections.abc import Sequence
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import Field
 
-from ..parser import MultiValuedParserConfig
+from ..parser import BaseParserConfig, MultiValuedParserConfig, TextParserConfig
 from ..types import MultiValuedAnswer, SingleValuedAnswer
 from ..utils import parse_multi_value, try_parse_number
 from .base import BaseQuestion
+from .numeric import NumericQuestion
+from .text import TextQuestion
 
 
 def parse_multi_valued_answer(raw_multi_valued_answer: Sequence[str]) -> MultiValuedAnswer:
@@ -31,6 +33,20 @@ class MultiValuedQuestion(BaseQuestion[MultiValuedAnswer]):
         description=("Expected type for each value in the answer."),
     )
 
+    def model_post_init(self, __context: Any) -> None:
+        self._text_question = TextQuestion(
+            config=TextParserConfig(
+                empty_marker=self.config.empty_marker,
+                trim_whitespace=self.config.trim_whitespace,
+                normalize_case=self.config.normalize_case,
+            )
+        )
+        self._numeric_question = NumericQuestion(
+            config=BaseParserConfig(
+                empty_marker=self.config.empty_marker,
+            )
+        )
+
     def parse(self, raw_answer: str) -> MultiValuedAnswer:
         raw_multi_valued_answer = parse_multi_value(
             raw_answer,
@@ -46,9 +62,9 @@ class MultiValuedQuestion(BaseQuestion[MultiValuedAnswer]):
 
         for i, (answer, value_type) in enumerate(zip(parsed_answer, self.value_types, strict=True)):
             if value_type == "NUMERIC":
-                parsed_answer[i] = try_parse_number(str(answer))
+                parsed_answer[i] = self._numeric_question.parse(str(answer))
             elif value_type == "TEXT":
-                parsed_answer[i] = str(answer)
+                parsed_answer[i] = self._text_question.parse(str(answer))
             else:
                 raise ValueError(f"Unsupported value type: {value_type}")
 

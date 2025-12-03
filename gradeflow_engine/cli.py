@@ -15,6 +15,7 @@ from .question_sets.inference import (
     DEFAULT_CHOICE_DELIMITER,
     DEFAULT_CHOICE_NORMALIZE_CASE,
     DEFAULT_CHOICE_OPTION_LIMIT,
+    DEFAULT_EMPTY_MARKER,
     DEFAULT_MULTI_VALUE_DELIMITER,
     infer_question_map,
 )
@@ -246,6 +247,11 @@ def infer_questions(
         "--multi-value-delimiter",
         help="Delimiter for Multi-Valued inference",
     ),
+    empty_marker: str = typer.Option(
+        DEFAULT_EMPTY_MARKER,
+        "--empty-marker",
+        help="Marker indicating an empty answer",
+    ),
     save: Path | None = typer.Option(
         None, "--save", help="Path to save the inferred question set (YAML)."
     ),
@@ -273,6 +279,7 @@ def infer_questions(
             choice_option_limit=choice_option_limit,
             choice_normalize_case=choice_normalize_case,
             multi_value_delimiter=multi_value_delimiter,
+            empty_marker=empty_marker,
         )
         qset = QuestionSet(question_map=qmap)
 
@@ -308,6 +315,11 @@ def grade(
             "(e.g., student_id_column=id, answer_columns=[Q1,Q2])"
         ),
     ),
+    submissions_parser_strict: bool = typer.Option(
+        False,
+        "--submissions-parser-strict/--no-submissions-parser-strict",
+        help="Whether to fail on parsing errors when parsing submissions.",
+    ),
     # Question set
     question_set_path: Path | None = typer.Option(
         None, "--question-set", help="Path to question set file (e.g., YAML). If omitted, infer."
@@ -333,12 +345,23 @@ def grade(
         "--multi-value-delimiter",
         help="Delimiter for Multi-Valued inference",
     ),
+    empty_marker: str = typer.Option(
+        DEFAULT_EMPTY_MARKER,
+        "--empty-marker",
+        help="Marker indicating an empty answer",
+    ),
     # Rubric
     rubric_path: Path | None = typer.Option(
         None, "--rubric", help="Path to rubric file (e.g., YAML). If omitted, grading is skipped."
     ),
     rubric_loader_name: str = typer.Option(
         "YAML", "--rubric-loader", help="Registry key for rubric loader (e.g., 'YAML')"
+    ),
+    # Grading
+    rubric_grading_strict: bool = typer.Option(
+        False,
+        "--rubric-grading-strict/--no-rubric-grading-strict",
+        help="Whether to fail on errors during rubric grading.",
     ),
     # Saver
     saver_name: str | None = typer.Option(
@@ -383,11 +406,12 @@ def grade(
                 choice_option_limit=choice_option_limit,
                 choice_normalize_case=choice_normalize_case,
                 multi_value_delimiter=multi_value_delimiter,
+                empty_marker=empty_marker,
             )
             qset = QuestionSet(question_map=qmap)
 
         # Parse submissions
-        submissions: list[Submission] = qset.parse(raw_subs)
+        submissions: list[Submission] = qset.parse(raw_subs, strict=submissions_parser_strict)
 
         # Resolve Rubric (optional)
         used_rubric: Rubric | None = None
@@ -403,7 +427,7 @@ def grade(
             validation_errors = used_rubric.validate_rubric(qset)
             coverage = used_rubric.get_coverage(qset)
             if not validation_errors:
-                graded = used_rubric.grade(submissions)
+                graded = used_rubric.grade(submissions, strict=rubric_grading_strict)
 
         # Output summaries
         _print_question_set(qset, title="Question Set")

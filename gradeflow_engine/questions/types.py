@@ -5,8 +5,8 @@ QuestionId = str
 QuestionType = Literal["TEXT", "CHOICE", "NUMERIC", "MULTI_VALUED"]
 
 # Answer Types
-TextAnswer = str
-NumericAnswer = float | int
+TextAnswer = str | None
+NumericAnswer = float | int | None
 SingleValuedAnswer = TextAnswer | NumericAnswer
 
 ChoiceAnswer = set[str]

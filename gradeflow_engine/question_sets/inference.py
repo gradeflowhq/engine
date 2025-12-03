@@ -5,7 +5,7 @@ from ..questions.models.choice import ChoiceQuestion
 from ..questions.models.multi_valued import MultiValuedQuestion
 from ..questions.models.numeric import NumericQuestion
 from ..questions.models.text import TextQuestion
-from ..questions.parser import MultiValuedParserConfig
+from ..questions.parser import BaseParserConfig, MultiValuedParserConfig, TextParserConfig
 from ..questions.types import QuestionId
 from ..questions.utils import parse_multi_value, try_parse_number
 from ..submissions.models import RawSubmission
@@ -14,6 +14,7 @@ DEFAULT_CHOICE_DELIMITER = ","
 DEFAULT_CHOICE_OPTION_LIMIT = 7
 DEFAULT_CHOICE_NORMALIZE_CASE = True
 DEFAULT_MULTI_VALUE_DELIMITER = "~"
+DEFAULT_EMPTY_MARKER = "N/A"
 
 
 def _get_question_ids(raw_submissions: list[RawSubmission]) -> set[QuestionId]:
@@ -117,6 +118,7 @@ def _infer_question_for_qid(
     choice_option_limit: int,
     choice_normalize_case: bool,
     multi_value_delimiter: str,
+    empty_marker: str,
 ) -> Question:
     """
     Inference order:
@@ -132,7 +134,9 @@ def _infer_question_for_qid(
     choice_config = MultiValuedParserConfig(
         delimiter=choice_delimiter, normalize_case=choice_normalize_case
     )
-    multi_value_config = MultiValuedParserConfig(delimiter=multi_value_delimiter)
+    multi_value_config = MultiValuedParserConfig(
+        delimiter=multi_value_delimiter, empty_marker=empty_marker
+    )
 
     # Precompute observed values and counts for Choice using its config
     observed_values = _get_observed_values(raw_answers, config=choice_config)
@@ -155,7 +159,7 @@ def _infer_question_for_qid(
 
     # 2) Numeric majority
     elif len(_get_numeric_answers(raw_answers)) > len(raw_answers) / 2:
-        return NumericQuestion()
+        return NumericQuestion(config=BaseParserConfig(empty_marker=empty_marker))
 
     # 3) Choice: limited distinct values
     elif 0 < len(observed_values) <= choice_option_limit:
@@ -167,7 +171,7 @@ def _infer_question_for_qid(
 
     # 4) Fallback
     else:
-        return TextQuestion()
+        return TextQuestion(config=TextParserConfig(empty_marker=empty_marker))
 
 
 def infer_question_map(
@@ -176,6 +180,7 @@ def infer_question_map(
     choice_option_limit: int = DEFAULT_CHOICE_OPTION_LIMIT,
     choice_normalize_case: bool = DEFAULT_CHOICE_NORMALIZE_CASE,
     multi_value_delimiter: str = DEFAULT_MULTI_VALUE_DELIMITER,
+    empty_marker: str = DEFAULT_EMPTY_MARKER,
 ) -> dict[QuestionId, Question]:
     question_map: dict[QuestionId, Question] = {}
     for qid in _get_question_ids(raw_submissions):
@@ -186,5 +191,6 @@ def infer_question_map(
             choice_option_limit=choice_option_limit,
             choice_normalize_case=choice_normalize_case,
             multi_value_delimiter=multi_value_delimiter,
+            empty_marker=empty_marker,
         )
     return question_map

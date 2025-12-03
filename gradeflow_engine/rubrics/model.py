@@ -4,16 +4,29 @@ from ..question_sets.model import QuestionSet
 from ..questions.models import Question
 from ..questions.types import QuestionId
 from ..rules.models import QuestionRule
+from ..rules.models.manual import ManualQuestionRule
 from ..rules.result import QuestionResult
 from ..rules.types import RuleValidationError
 from ..rules.validators import validate_unique_target_questions_in_rules
 from ..submissions.models import GradedSubmission, Submission
 
 
-def grade_submission(rules: list[QuestionRule], submission: Submission) -> GradedSubmission:
+def grade_submission(
+    rules: list[QuestionRule], submission: Submission, strict: bool = False
+) -> GradedSubmission:
     results: list[QuestionResult] = []
     for rule in rules:
-        result = rule.process_submission(submission.answer_map)
+        try:
+            result = rule.process_submission(submission.answer_map)
+        except Exception as e:
+            if strict:
+                raise e
+            result = [
+                ManualQuestionRule(question_id=question_id).process_submission(
+                    submission.answer_map
+                )
+                for question_id in rule.get_target_question_ids()
+            ]
         if isinstance(result, list):
             results.extend(result)
         else:
@@ -37,8 +50,10 @@ class RubricCoverage(BaseModel):
 class Rubric(BaseModel):
     rules: list[QuestionRule]
 
-    def grade(self, submissions: list[Submission]) -> list[GradedSubmission]:
-        return [grade_submission(self.rules, submission) for submission in submissions]
+    def grade(self, submissions: list[Submission], strict: bool = False) -> list[GradedSubmission]:
+        return [
+            grade_submission(self.rules, submission, strict=strict) for submission in submissions
+        ]
 
     def validate_questions_exist(self, question_ids: set[QuestionId]) -> list[RuleValidationError]:
         return [

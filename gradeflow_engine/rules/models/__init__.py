@@ -3,11 +3,13 @@ from typing import Annotated
 from pydantic import Discriminator
 
 from .assumption_set import Assumption, AssumptionSetMultiQuestionRule
+from .bonus import BonusQuestionRule, BonusRule
 from .composite import CompositeQuestionRule, CompositeRule
 from .conditional import ConditionalMultiQuestionRule
 from .exact_match import ExactMatchQuestionRule, ExactMatchRule
 from .keywords import KeywordsQuestionRule, KeywordsRule
 from .length import LengthQuestionRule, LengthRule
+from .manual import ManualQuestionRule, ManualRule
 from .multi_valued import MultiValuedQuestionRule, MultiValuedRule
 from .multiple_choice import MultipleChoiceQuestionRule, MultipleChoiceRule
 from .numeric_range import NumericRangeQuestionRule, NumericRangeRule
@@ -16,13 +18,15 @@ from .programming import ProgrammingQuestionRule, ProgrammingRule
 from .regex import RegexQuestionRule, RegexRule
 
 SingleTargetRule = Annotated[
-    CompositeRule
+    BonusRule
+    | CompositeRule
     | ProgrammableRule
     | ProgrammingRule
     | ExactMatchRule
     | KeywordsRule
     | RegexRule
     | LengthRule
+    | ManualRule
     | MultiValuedRule
     | MultipleChoiceRule
     | NumericRangeRule,
@@ -30,13 +34,15 @@ SingleTargetRule = Annotated[
 ]
 
 SingleTargetQuestionRule = Annotated[
-    CompositeQuestionRule
+    BonusQuestionRule
+    | CompositeQuestionRule
     | ProgrammableQuestionRule
     | ProgrammingQuestionRule
     | ExactMatchQuestionRule
     | KeywordsQuestionRule
     | RegexQuestionRule
     | LengthQuestionRule
+    | ManualQuestionRule
     | MultiValuedQuestionRule
     | MultipleChoiceQuestionRule
     | NumericRangeQuestionRule,

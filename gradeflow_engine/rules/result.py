@@ -6,6 +6,7 @@ class Result(BaseModel):
     passed: bool = Field(description="Whether the answer passed the rule check")
     feedback: str = Field(description="Feedback or comments")
     rule: str = Field(description="ID of the rule that was applied")
+    graded: bool = Field(default=True, description="Whether the result has been graded")
 
 
 class QuestionResult(Result):

@@ -1,4 +1,3 @@
-# engine_nextgen/gradeflow_engine/core.py
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -9,6 +8,7 @@ from .question_sets.inference import (
     DEFAULT_CHOICE_DELIMITER,
     DEFAULT_CHOICE_NORMALIZE_CASE,
     DEFAULT_CHOICE_OPTION_LIMIT,
+    DEFAULT_EMPTY_MARKER,
     DEFAULT_MULTI_VALUE_DELIMITER,
 )
 from .question_sets.loaders import BaseQuestionSetLoader
@@ -161,6 +161,7 @@ def infer_question_set(
     choice_option_limit: int = DEFAULT_CHOICE_OPTION_LIMIT,
     choice_normalize_case: bool = DEFAULT_CHOICE_NORMALIZE_CASE,
     multi_value_delimiter: str = DEFAULT_MULTI_VALUE_DELIMITER,
+    empty_marker: str = DEFAULT_EMPTY_MARKER,
 ) -> QuestionSet:
     return QuestionSet.infer(
         raw_submissions,
@@ -168,6 +169,7 @@ def infer_question_set(
         choice_option_limit=choice_option_limit,
         choice_normalize_case=choice_normalize_case,
         multi_value_delimiter=multi_value_delimiter,
+        empty_marker=empty_marker,
     )
 
 
@@ -206,6 +208,7 @@ def run_pipeline(
     submissions_data: str | None = None,
     submissions_loader_name: str = "CSV",
     submissions_loader_kwargs: dict[str, object] | None = None,
+    submissions_parser_strict: bool = False,
     # Question set source (choose one; question_set preferred if both provided):
     question_set: QuestionSet | None = None,
     question_set_data: str | None = None,
@@ -218,6 +221,7 @@ def run_pipeline(
     rubric: Rubric | None = None,
     rubric_data: str | None = None,
     rubric_loader_name: str = "YAML",
+    rubric_grading_strict: bool = False,
     # Optional saver (only used if we have a rubric and grading occurs):
     saver_name: str | None = "CSV",
     submissions_saver_kwargs: dict[str, object] | None = None,
@@ -263,7 +267,7 @@ def run_pipeline(
         )
 
     # Parse submissions
-    submissions = qset.parse(raw_subs)
+    submissions = qset.parse(raw_subs, strict=submissions_parser_strict)
 
     # Resolve rubric, validate, and grade
     used_rubric: Rubric | None = None
@@ -278,7 +282,7 @@ def run_pipeline(
 
     if used_rubric is not None:
         validation_errors = used_rubric.validate_rubric(qset)
-        graded_submissions = used_rubric.grade(submissions)
+        graded_submissions = used_rubric.grade(submissions, strict=rubric_grading_strict)
         coverage = compute_rubric_coverage(used_rubric, qset)
 
     # Optional save
