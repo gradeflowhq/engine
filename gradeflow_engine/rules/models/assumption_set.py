@@ -18,7 +18,7 @@ AssumptionSetMode = Literal["MAX", "MIN"]
 
 
 def _convert_rule_to_question_rule(
-    rule: "SingleTargetRule", question_id: QuestionId
+    rule: "SingleTargetRule", question_id: QuestionId, max_points: float
 ) -> "SingleTargetQuestionRule":
     """Convert a SingleTargetRule to its corresponding SingleTargetQuestionRule variant."""
     from . import SingleTargetQuestionRule
@@ -26,6 +26,7 @@ def _convert_rule_to_question_rule(
     # Get all the rule's fields and add the question_id
     rule_data = rule.model_dump()
     rule_data["question_id"] = question_id
+    rule_data["max_points"] = max_points
 
     # Use Pydantic's discriminated union to parse into the correct QuestionRule type
     adapter: TypeAdapter[SingleTargetQuestionRule] = TypeAdapter(SingleTargetQuestionRule)
@@ -101,7 +102,11 @@ class AssumptionSetQuestionRule(AssumptionSetBaseRule, BaseSingleQuestionRule):
                 MultiQuestionAssumption(
                     name=assumption.name,
                     weight=assumption.weight,
-                    rules=[_convert_rule_to_question_rule(assumption.rule, self.question_id)],
+                    rules=[
+                        _convert_rule_to_question_rule(
+                            assumption.rule, self.question_id, self.max_points
+                        )
+                    ],
                 )
                 for assumption in self.assumptions
             ],

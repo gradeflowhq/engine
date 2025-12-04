@@ -54,8 +54,8 @@ class RegexRule(BaseRule):
             output=is_match,
             passed=is_match,
             feedback=(
-                f"The answer ({answer}) {'matches' if is_match else 'does not match'} "
-                f"the pattern ({self.pattern})."
+                f'"{answer}" {"matches" if is_match else "does not match"} '
+                f"the pattern: {self.pattern}."
             ),
             rule=self.__class__.__name__,
         )

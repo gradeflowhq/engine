@@ -5,7 +5,7 @@ from pydantic import Field
 from ...questions.models import Question
 from ...questions.models.choice import ChoiceQuestion
 from ...questions.types import Answer, QuestionType
-from ..aggregations.completeness import passed_fn, points_fn
+from ..aggregations.completeness import points_fn
 from ..constraints import QuestionConstraint
 from ..result import Result
 from ..types import CompletenessAggregation, RuleValidationError
@@ -23,6 +23,44 @@ def choice_output_fn(
         num_correct = sum(1 for choice in correct_set if choice in answer_set)
         num_incorrect = sum(1 for choice in answer_set if choice not in correct_set)
         return max(0.0, num_correct - num_incorrect) / len(correct_set)
+    else:
+        raise ValueError(f"Unknown mode: {mode}")
+
+
+def feedback_fn(
+    answer_set: set[str], correct_set: set[str], mode: CompletenessAggregation, passed: bool
+) -> str:
+    correct_choices = answer_set & correct_set
+    incorrect_choices = answer_set - correct_set
+    notselected_correct = correct_set - answer_set
+    feedback_parts: list[str] = []
+    if correct_choices:
+        feedback_parts.append(f"Correct choices: {', '.join(sorted(correct_choices))}.")
+    if incorrect_choices:
+        feedback_parts.append(f"Incorrect choices: {', '.join(sorted(incorrect_choices))}.")
+    if notselected_correct:
+        feedback_parts.append(
+            f"Not selected correct choices: {', '.join(sorted(notselected_correct))}."
+        )
+    feedback = " ".join(feedback_parts)
+    if mode == "ALL" and not passed:
+        feedback = "Not all correct choices were selected.\n" + feedback
+    if mode == "ANY" and not passed:
+        feedback = "No correct choices were selected.\n" + feedback
+    if mode == "PARTIAL" and len(incorrect_choices) + len(notselected_correct) > 0:
+        feedback = (
+            f"Partial credit awarded: "
+            f"({len(correct_choices)} - {len(incorrect_choices)}) / {len(correct_set)} "
+            "* max points.\n"
+        ) + feedback
+    return feedback
+
+
+def passed_fn(answer_set: set[str], correct_set: set[str], mode: CompletenessAggregation) -> bool:
+    if mode == "ALL":
+        return answer_set == correct_set
+    elif mode in ["ANY", "PARTIAL"]:
+        return len(answer_set & correct_set) > 0
     else:
         raise ValueError(f"Unknown mode: {mode}")
 
@@ -55,24 +93,20 @@ class MultipleChoiceRule(BaseRule):
         invalid_choices = self.answer - set(question.options)
         if invalid_choices:
             errors.append(
-                f"Invalid answer choices: {', '.join(invalid_choices)}"
-                f" for question with options: {', '.join(question.options)}"
+                f"Invalid answer choices: {', '.join(sorted(invalid_choices))}"
+                f" for question with options: {', '.join(sorted(question.options))}"
             )
         return errors
 
     def _process_answer(self, answer: Answer) -> Result:
-        assert isinstance(answer, set), "Answer must be a set for MultipleChoiceRule."
-
-        answer_set = set(map(str, answer))
-        matches = [choice in answer_set for choice in self.answer]
-        passed = passed_fn(matches, mode=self.mode)
-        output = choice_output_fn(answer_set, self.answer, mode=self.mode)
-        feedback = f"The answer ({', '.join(answer)}) " + (
-            "is correct."
-            if passed
-            else f"is incorrect. Correct choices are: {', '.join(self.answer)}."
+        assert isinstance(answer, set) and all(isinstance(a, str) for a in answer), (
+            "Answer must be a set of strings for MultipleChoiceRule."
         )
 
+        answer_set = set(map(str, answer))
+        passed = passed_fn(answer_set, self.answer, mode=self.mode)
+        output = choice_output_fn(answer_set, self.answer, mode=self.mode)
+        feedback = feedback_fn(answer_set, self.answer, mode=self.mode, passed=passed)
         return Result(
             output=output,
             passed=passed,

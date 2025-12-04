@@ -14,10 +14,10 @@ class ExactMatchRule(BaseRule):
 
     def _process_answer(self, answer: Answer) -> Result:
         is_match = any(str(answer) == str(correct_answer) for correct_answer in self.answers)
-        feedback = f"The answer ({answer}) " + (
-            f"matches one of the correct answers: {', '.join(self.answers)}."
-            if is_match
-            else f"does not match any of the correct answers: {', '.join(self.answers)}."
+        feedback = (
+            f"{answer} "
+            + ("matches one" if is_match else "does not match any")
+            + f" of the correct answers: {', '.join(self.answers)}."
         )
         return Result(
             output=is_match,

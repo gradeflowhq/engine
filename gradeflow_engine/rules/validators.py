@@ -17,6 +17,10 @@ if TYPE_CHECKING:
     from ..rules.models import QuestionRule
 
 
+def is_empty(a: Any) -> TypeGuard[None]:
+    return a is None
+
+
 def is_text(a: Any) -> TypeGuard[TextAnswer]:
     return isinstance(a, str) or is_numeric(a)
 
@@ -27,7 +31,7 @@ def is_numeric(a: Any) -> TypeGuard[NumericAnswer]:
 
 
 def is_single_valued(a: Any) -> TypeGuard[SingleValuedAnswer]:
-    return is_text(a) or is_numeric(a)
+    return is_text(a) or is_numeric(a) or is_empty(a)
 
 
 def is_choice(a: Any) -> TypeGuard[ChoiceAnswer]:

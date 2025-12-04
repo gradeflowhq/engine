@@ -31,7 +31,7 @@ class KeywordsRule(BaseRule):
         matches = [keyword in str(answer) for keyword in self.keywords]
         output = output_fn(matches, mode=self.mode)
         passed = passed_fn(matches, mode=self.mode)
-        feedback = f"The answer ({answer}) " + (
+        feedback = f'"{answer}" ' + (
             f"contains all keywords: {', '.join(self.keywords)}."
             if passed
             else f"does not contain {self.mode.lower()} keywords: {', '.join(self.keywords)}."

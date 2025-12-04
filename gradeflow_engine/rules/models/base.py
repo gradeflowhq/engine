@@ -5,7 +5,7 @@ from ...questions.types import Answer, QuestionId, QuestionType
 from ..constraints import QuestionConstraint
 from ..result import QuestionResult, Result
 from ..types import RuleValidationError
-from ..validators import validate_answer_type
+from ..validators import is_empty, validate_answer_type
 
 
 class BaseRule(BaseModel):
@@ -26,6 +26,13 @@ class BaseRule(BaseModel):
         raise NotImplementedError("Subclasses must implement this method.")
 
     def process_answer(self, answer: Answer) -> Result:
+        if is_empty(answer):
+            return Result(
+                output=0,
+                passed=False,
+                feedback="No answer provided.",
+                rule=self.type,  # type: ignore[attr-defined]
+            )
         validate_answer_type(answer, self.question_types)
         return self._process_answer(answer)
 

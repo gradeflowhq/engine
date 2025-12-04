@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class Result(BaseModel):
@@ -13,3 +13,8 @@ class QuestionResult(Result):
     question_id: str = Field(description="Question identifier")
     points: float = Field(description="Points awarded for this question")
     max_points: float = Field(description="Maximum points possible")
+
+    @field_validator("points", "max_points")
+    @classmethod
+    def round_to_two_decimals(cls, v: float) -> float:
+        return round(v, 2)

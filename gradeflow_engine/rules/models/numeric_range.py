@@ -17,13 +17,13 @@ class NumericRangeRule(BaseRule):
         assert isinstance(answer, (int, float)), "Answer must be numeric for NumericRangeRule."
 
         passed = True
-        feedback = f"The answer is {answer}."
+        feedback = f"{answer}"
         if self.min_value is not None and float(answer) < self.min_value:
             passed = False
-            feedback += f" It is less than the minimum value of {self.min_value}."
+            feedback += f" is less than the minimum value of {self.min_value}."
         if self.max_value is not None and float(answer) > self.max_value:
             passed = False
-            feedback += f" It is greater than the maximum value of {self.max_value}."
+            feedback += f" is greater than the maximum value of {self.max_value}."
 
         return Result(
             output=passed,
