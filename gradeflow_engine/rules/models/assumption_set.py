@@ -1,24 +1,47 @@
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, TypeAdapter
 
 from ...questions.models import Question
 from ...questions.types import Answer, QuestionId, QuestionType
 from ..result import QuestionResult
 from ..types import RuleValidationError
 from ..validators import validate_unique_target_questions_in_rules
-from .base import BaseMultiQuestionRule
+from .base import BaseMultiQuestionRule, BaseRule, BaseSingleQuestionRule
 
 if TYPE_CHECKING:
-    from . import SingleTargetQuestionRule
+    from . import SingleTargetQuestionRule, SingleTargetRule
 
 
 AssumptionSetMode = Literal["MAX", "MIN"]
 
 
-class Assumption(BaseModel):
-    name: str = Field(..., description="Name of the assumption")
+def _convert_rule_to_question_rule(
+    rule: "SingleTargetRule", question_id: QuestionId
+) -> "SingleTargetQuestionRule":
+    """Convert a SingleTargetRule to its corresponding SingleTargetQuestionRule variant."""
+    from . import SingleTargetQuestionRule
+
+    # Get all the rule's fields and add the question_id
+    rule_data = rule.model_dump()
+    rule_data["question_id"] = question_id
+
+    # Use Pydantic's discriminated union to parse into the correct QuestionRule type
+    adapter: TypeAdapter[SingleTargetQuestionRule] = TypeAdapter(SingleTargetQuestionRule)
+    return adapter.validate_python(rule_data)
+
+
+class BaseAssumption(BaseModel):
+    name: str | None = Field(default=None, description="Name of the assumption")
+    weight: float = Field(default=1.0, le=1.0, ge=0.0, description="Weight of the assumption")
+
+
+class Assumption(BaseAssumption):
+    rule: "SingleTargetRule" = Field(..., description="Rule that defines the assumption")
+
+
+class MultiQuestionAssumption(BaseAssumption):
     rules: list["SingleTargetQuestionRule"] = Field(
         ..., description="List of rules that define the assumption"
     )
@@ -26,19 +49,23 @@ class Assumption(BaseModel):
 
 @dataclass(frozen=True)
 class AssumptionResult:
-    assumption: Assumption
+    assumption: MultiQuestionAssumption
     question_results: list[QuestionResult]
 
 
 def evaluate_assumption(
-    assumption: Assumption, answer_map: dict[QuestionId, Answer]
+    question_assumption: MultiQuestionAssumption, answer_map: dict[QuestionId, Answer]
 ) -> AssumptionResult:
     question_results: list[QuestionResult] = []
-    for rule in assumption.rules:
+    assumption_marker = (
+        f"[Assumption: {question_assumption.name}] " if question_assumption.name else ""
+    )
+    for rule in question_assumption.rules:
         result = rule.process_submission(answer_map)
-        result.feedback = f"[Assumption: {assumption.name}] {result.feedback}"
+        result.feedback = f"{assumption_marker}{result.feedback}"
+        result.points *= question_assumption.weight
         question_results.append(result)
-    return AssumptionResult(assumption=assumption, question_results=question_results)
+    return AssumptionResult(assumption=question_assumption, question_results=question_results)
 
 
 def choose_assumption_result(
@@ -55,15 +82,48 @@ def choose_assumption_result(
     return assumption_result
 
 
-class AssumptionSetMultiQuestionRule(BaseMultiQuestionRule):
-    type: Literal["ASSUMPTION_SET"] = "ASSUMPTION_SET"
+class AssumptionSetBaseRule(BaseRule):
     question_types: frozenset[QuestionType] = frozenset(
         {"TEXT", "CHOICE", "NUMERIC", "MULTI_VALUED"}
     )
+    mode: AssumptionSetMode = Field("MAX", description="Mode to select which assumption to use")
+
+
+class AssumptionSetQuestionRule(AssumptionSetBaseRule, BaseSingleQuestionRule):
+    type: Literal["ASSUMPTION_SET"] = "ASSUMPTION_SET"
     assumptions: list[Assumption] = Field(
         ..., description="List of assumptions in the assumption set"
     )
-    mode: AssumptionSetMode = Field("MAX", description="Mode to select which assumption to use")
+
+    def model_post_init(self, _context: Any) -> None:
+        self._rule = AssumptionSetMultiQuestionRule(
+            assumptions=[
+                MultiQuestionAssumption(
+                    name=assumption.name,
+                    weight=assumption.weight,
+                    rules=[_convert_rule_to_question_rule(assumption.rule, self.question_id)],
+                )
+                for assumption in self.assumptions
+            ],
+            mode=self.mode,
+        )
+
+    def validate_compatibility(
+        self, question_map: dict[QuestionId, Question]
+    ) -> list[RuleValidationError]:
+        return self._rule.validate_compatibility(question_map)
+
+    def process_submission(self, answer_map: dict[QuestionId, Answer]) -> QuestionResult:
+        multi_question_result = self._rule.process_submission(answer_map)
+        # There should be only one question result since this is a single question rule
+        return multi_question_result[0]
+
+
+class AssumptionSetMultiQuestionRule(AssumptionSetBaseRule, BaseMultiQuestionRule):
+    type: Literal["ASSUMPTION_SET_MULTI"] = "ASSUMPTION_SET_MULTI"
+    assumptions: list[MultiQuestionAssumption] = Field(
+        ..., description="List of assumptions in the assumption set"
+    )
 
     def validate_compatibility(
         self, question_map: dict[QuestionId, Question]

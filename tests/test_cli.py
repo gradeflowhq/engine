@@ -93,7 +93,7 @@ def test_grade_command_with_rubric_and_save(tmp_path: Path) -> None:
           - type: EXACT_MATCH
             question_id: Q1
             max_points: 1
-            answer: "hello"
+            answers: ["hello"]
         """
     )
     rubric_path = tmp_path / "rubric.yaml"
@@ -163,7 +163,7 @@ def test_cli_grade_prints_rubric_coverage(tmp_path: Path):
         rules:
           - type: EXACT_MATCH
             question_id: Q1
-            answer: foo
+            answers: [foo]
             max_points: 1
         """
     )

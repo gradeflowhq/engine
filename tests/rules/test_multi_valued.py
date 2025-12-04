@@ -7,8 +7,8 @@ from gradeflow_engine.rules.models.multi_valued import MultiValuedQuestionRule
 def test_multi_valued_all_pass() -> None:
     # All inner rules match -> passed True and full points
     rules: list[SingleTargetRule] = [
-        ExactMatchRule(answer="A"),
-        ExactMatchRule(answer="B"),
+        ExactMatchRule(answers=["A"]),
+        ExactMatchRule(answers=["B"]),
     ]
     qrule = MultiValuedQuestionRule(question_id="q", rules=rules, aggregation="ALL", max_points=4.0)
 
@@ -23,8 +23,8 @@ def test_multi_valued_all_pass() -> None:
 def test_multi_valued_any_pass() -> None:
     # Only one inner rule matches -> ANY should pass and award full points
     rules: list[SingleTargetRule] = [
-        ExactMatchRule(answer="A"),
-        ExactMatchRule(answer="B"),
+        ExactMatchRule(answers=["A"]),
+        ExactMatchRule(answers=["B"]),
     ]
     qrule = MultiValuedQuestionRule(question_id="q", rules=rules, aggregation="ANY", max_points=3.0)
 
@@ -38,9 +38,9 @@ def test_multi_valued_any_pass() -> None:
 def test_multi_valued_partial_points() -> None:
     # PARTIAL aggregation returns fractional points
     rules: list[SingleTargetRule] = [
-        ExactMatchRule(answer="A"),
-        ExactMatchRule(answer="B"),
-        ExactMatchRule(answer="C"),
+        ExactMatchRule(answers=["A"]),
+        ExactMatchRule(answers=["B"]),
+        ExactMatchRule(answers=["C"]),
     ]
     qrule = MultiValuedQuestionRule(
         question_id="q", rules=rules, aggregation="PARTIAL", max_points=6.0

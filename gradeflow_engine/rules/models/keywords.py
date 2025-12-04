@@ -23,6 +23,7 @@ class KeywordsRule(BaseRule):
             "Mode of keyword matching: "
             "'ALL' requires all keywords to be present, "
             "'ANY' requires at least one."
+            "'PARTIAL' gives credit for each keyword present."
         ),
     )
 

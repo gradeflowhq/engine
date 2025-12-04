@@ -21,7 +21,12 @@ def parse_raw_answer_map(
 ) -> dict[QuestionId, Answer]:
     answer_map: dict[QuestionId, Answer] = {}
     for qid, raw_answer in raw_answer_map.items():
-        question = question_map[qid]
+        question = question_map.get(qid)
+        if question is None:
+            if strict:
+                raise ValueError(f"Unknown question ID in raw answer map: {qid}")
+            answer_map[qid] = f"{UNPARSABLE_MARKER}{raw_answer}"
+            continue
         answer: Answer
         try:
             answer = question.parse(raw_answer)

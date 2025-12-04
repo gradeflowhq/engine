@@ -2,7 +2,12 @@ from typing import Annotated
 
 from pydantic import Discriminator
 
-from .assumption_set import Assumption, AssumptionSetMultiQuestionRule
+from .assumption_set import (
+    Assumption,
+    AssumptionSetMultiQuestionRule,
+    AssumptionSetQuestionRule,
+    MultiQuestionAssumption,
+)
 from .bonus import BonusQuestionRule, BonusRule
 from .composite import CompositeQuestionRule, CompositeRule
 from .conditional import ConditionalMultiQuestionRule
@@ -34,7 +39,8 @@ SingleTargetRule = Annotated[
 ]
 
 SingleTargetQuestionRule = Annotated[
-    BonusQuestionRule
+    AssumptionSetQuestionRule
+    | BonusQuestionRule
     | CompositeQuestionRule
     | ProgrammableQuestionRule
     | ProgrammingQuestionRule
@@ -54,8 +60,10 @@ CompositeRule.model_rebuild()
 CompositeQuestionRule.model_rebuild()
 MultiValuedRule.model_rebuild()
 MultiValuedQuestionRule.model_rebuild()
+AssumptionSetQuestionRule.model_rebuild()
 AssumptionSetMultiQuestionRule.model_rebuild()
 Assumption.model_rebuild()
+MultiQuestionAssumption.model_rebuild()
 ConditionalMultiQuestionRule.model_rebuild()
 
 

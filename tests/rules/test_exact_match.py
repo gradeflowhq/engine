@@ -6,17 +6,17 @@ from gradeflow_engine.rules.models.exact_match import (
 
 
 def test_exact_match_text_answer() -> None:
-    rule = ExactMatchRule(answer="Paris")
+    rule = ExactMatchRule(answers=["Paris"])
     # TextAnswer is a plain str in this codebase
     result = rule.process_answer("Paris")
 
     assert result.output is True
-    assert "matches the correct answer" in result.feedback
+    assert "matches one of the correct answer" in result.feedback
     assert result.rule == "ExactMatchRule"
 
 
 def test_non_match_text_answer() -> None:
-    rule = ExactMatchRule(answer="Paris")
+    rule = ExactMatchRule(answers=["Paris"])
     result = rule.process_answer("London")
 
     assert result.output is False
@@ -24,7 +24,7 @@ def test_non_match_text_answer() -> None:
 
 
 def test_exact_match_numeric_answer() -> None:
-    rule = ExactMatchRule(answer="42")
+    rule = ExactMatchRule(answers=["42"])
     # numeric answer as int should compare equal when cast to str
     result = rule.process_answer(42)
 
@@ -32,7 +32,7 @@ def test_exact_match_numeric_answer() -> None:
 
 
 def test_exact_match_question_rule_points() -> None:
-    qrule = ExactMatchQuestionRule(question_id="q1", answer="yes", max_points=5.0)
+    qrule = ExactMatchQuestionRule(question_id="q1", answers=["yes"], max_points=5.0)
     submission: dict[QuestionId, Answer] = {"q1": "yes"}
     qresult = qrule.process_submission(submission)
 

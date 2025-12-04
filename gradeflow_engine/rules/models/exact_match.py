@@ -10,18 +10,19 @@ from .base import BaseRule, BaseSingleQuestionRule
 class ExactMatchRule(BaseRule):
     type: Literal["EXACT_MATCH"] = "EXACT_MATCH"
     question_types: frozenset[QuestionType] = frozenset({"TEXT", "NUMERIC"})
-    answer: str = Field(..., description="Expected exact answer")
+    answers: list[str] = Field(..., min_length=1, description="List of acceptable exact answers")
 
     def _process_answer(self, answer: Answer) -> Result:
-        is_match = str(answer) == str(self.answer)
-
+        is_match = any(str(answer) == str(correct_answer) for correct_answer in self.answers)
+        feedback = f"The answer ({answer}) " + (
+            f"matches one of the correct answers: {', '.join(self.answers)}."
+            if is_match
+            else f"does not match any of the correct answers: {', '.join(self.answers)}."
+        )
         return Result(
             output=is_match,
             passed=is_match,
-            feedback=(
-                f"The answer ({answer}) {'matches' if is_match else 'does not match'} "
-                f"the correct answer ({self.answer})."
-            ),
+            feedback=feedback,
             rule=self.__class__.__name__,
         )
 

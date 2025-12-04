@@ -124,7 +124,7 @@ def test_load_rubric_yaml_and_grade_pipeline_with_explicit_qset() -> None:
           - type: EXACT_MATCH
             question_id: Q1
             max_points: 1
-            answer: "hello"
+            answers: ["hello"]
         """
     )
     subs = load_submissions(csv_data, loader_name="CSV")
@@ -208,8 +208,8 @@ def test_compute_rubric_coverage_matches_rubric() -> None:
     qset = QuestionSet(question_map={"Q1": TextQuestion(), "Q2": TextQuestion()})
     rubric = Rubric(
         rules=[
-            ExactMatchQuestionRule(question_id="Q1", answer="foo", max_points=1.0),
-            ExactMatchQuestionRule(question_id="Q999", answer="bar", max_points=1.0),
+            ExactMatchQuestionRule(question_id="Q1", answers=["foo"], max_points=1.0),
+            ExactMatchQuestionRule(question_id="Q999", answers=["bar"], max_points=1.0),
         ]
     )
     cov1 = rubric.get_coverage(qset)
@@ -231,7 +231,7 @@ def test_run_pipeline_includes_coverage_when_rubric_supplied() -> None:
     qset = QuestionSet(question_map={"Q1": TextQuestion(), "Q2": TextQuestion()})
     rubric = Rubric(
         rules=[
-            ExactMatchQuestionRule(question_id="Q1", answer="foo", max_points=1.0),
+            ExactMatchQuestionRule(question_id="Q1", answers=["foo"], max_points=1.0),
         ]
     )
 

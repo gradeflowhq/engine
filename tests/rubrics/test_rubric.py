@@ -120,8 +120,8 @@ def test_rubric_get_coverage_basic() -> None:
     qset = QuestionSet(question_map={"Q1": TextQuestion(), "Q2": TextQuestion()})
 
     # Rubric targets Q1 (exists) and Q999 (non-existent)
-    r1 = ExactMatchQuestionRule(question_id="Q1", answer="foo", max_points=1.0)
-    r2 = ExactMatchQuestionRule(question_id="Q999", answer="bar", max_points=1.0)
+    r1 = ExactMatchQuestionRule(question_id="Q1", answers=["foo"], max_points=1.0)
+    r2 = ExactMatchQuestionRule(question_id="Q999", answers=["bar"], max_points=1.0)
     rubric = Rubric(rules=[r1, r2])
 
     cov: RubricCoverage = rubric.get_coverage(qset)
@@ -136,7 +136,7 @@ def test_rubric_get_coverage_basic() -> None:
 
 def test_rubric_get_coverage_empty_qset() -> None:
     qset = QuestionSet(question_map={})
-    r1 = ExactMatchQuestionRule(question_id="Q1", answer="foo", max_points=1.0)
+    r1 = ExactMatchQuestionRule(question_id="Q1", answers=["foo"], max_points=1.0)
     rubric = Rubric(rules=[r1])
 
     cov = rubric.get_coverage(qset)
