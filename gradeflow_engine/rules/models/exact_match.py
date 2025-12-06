@@ -13,9 +13,10 @@ class ExactMatchRule(BaseRule):
     answers: list[str] = Field(..., min_length=1, description="List of acceptable exact answers")
 
     def _process_answer(self, answer: Answer) -> Result:
-        is_match = any(str(answer) == str(correct_answer) for correct_answer in self.answers)
+        answer_str = str(answer)
+        is_match = any(answer_str == str(correct_answer) for correct_answer in self.answers)
         feedback = (
-            f"{answer} "
+            f"{answer_str} "
             + ("matches one" if is_match else "does not match any")
             + f" of the correct answers: {', '.join(self.answers)}."
         )

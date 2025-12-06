@@ -1,3 +1,5 @@
+import pytest
+
 from gradeflow_engine.questions.types import Answer, QuestionId
 from gradeflow_engine.rules.models.multiple_choice import (
     MultipleChoiceQuestionRule,
@@ -51,3 +53,134 @@ def test_multiple_choice_question_rule_all_any_points() -> None:
     )
     res = q_any.process_submission({"q2": {"B"}})
     assert res.points == 3.0
+
+
+def test_multiple_choice_all_mode_full_match_output_points_feedback_passed() -> None:
+    # ALL requires exact match of the correct set
+    qrule = MultipleChoiceQuestionRule(
+        question_id="q_all",
+        answer={"A", "B"},
+        mode="ALL",
+        max_points=4.0,
+    )
+    res = qrule.process_submission({"q_all": {"A", "B"}})
+
+    assert res.passed is True
+    assert res.output == 1.0
+    assert res.points == 4.0
+    # Feedback should indicate correct choices; no "Incorrect choice(s)." prefix when passed
+    assert "Correct choice(s) selected: A, B" in res.feedback
+    assert "Incorrect choice(s)." not in res.feedback
+
+
+def test_multiple_choice_all_mode_incorrect_output_points_feedback_passed() -> None:
+    # Missing a required choice -> fail
+    qrule = MultipleChoiceQuestionRule(
+        question_id="q_all_miss",
+        answer={"A", "B"},
+        mode="ALL",
+        max_points=3.0,
+    )
+    res = qrule.process_submission({"q_all_miss": {"A"}})
+
+    assert res.passed is False
+    assert res.output == 0.0
+    assert res.points == 0.0
+    # Feedback should include the ALL-mode incorrect prefix and indicate not-selected correct
+    assert res.feedback.startswith("Incorrect choice(s).")
+    assert "Correct choice(s) not selected: B." in res.feedback
+
+
+def test_multiple_choice_any_mode_pass_with_one_correct() -> None:
+    # ANY passes if at least one correct choice is selected
+    qrule = MultipleChoiceQuestionRule(
+        question_id="q_any",
+        answer={"A", "B"},
+        mode="ANY",
+        max_points=5.0,
+    )
+    res = qrule.process_submission({"q_any": {"B", "X"}})
+
+    assert res.passed is True
+    assert res.output == 1.0
+    assert res.points == 5.0
+    # Feedback should list correct and incorrect selections; no "No correct" prefix when passed
+    assert "Correct choice(s) selected: B." in res.feedback
+    assert "Incorrect choice(s) selected: X." in res.feedback
+    assert "No correct choice(s) were selected." not in res.feedback
+
+
+def test_multiple_choice_any_mode_fail_with_none_correct() -> None:
+    qrule = MultipleChoiceQuestionRule(
+        question_id="q_any_fail",
+        answer={"A", "B"},
+        mode="ANY",
+        max_points=2.0,
+    )
+    res = qrule.process_submission({"q_any_fail": {"X"}})
+
+    assert res.passed is False
+    assert res.output == 0.0
+    assert res.points == 0.0
+    # Feedback should start with ANY-mode failure message
+    assert res.feedback.startswith("No correct choice(s) were selected.")
+
+
+def test_multiple_choice_partial_mode_fractional_output_points_feedback_passed() -> None:
+    # Correct set has 3; student picks 2 correct and 1 incorrect -> (2 - 1) / 3 = 1/3
+    qrule = MultipleChoiceQuestionRule(
+        question_id="q_part",
+        answer={"A", "B", "C"},
+        mode="PARTIAL",
+        max_points=9.0,
+    )
+    res = qrule.process_submission({"q_part": {"A", "B", "X"}})
+
+    assert res.passed is True  # at least one correct selected -> passed True for PARTIAL
+    assert pytest.approx(res.output) == (1.0 / 3.0)
+    assert pytest.approx(res.points) == 3.0  # 9 * (1/3)
+    # Feedback includes Partial credit formula and details of correct/incorrect/not-selected
+    assert "Partial credit: (2 - 1) / 3 * max points (minimum: 0)." in res.feedback
+    assert "Correct choice(s) selected: A, B." in res.feedback
+    assert "Incorrect choice(s) selected: X." in res.feedback
+    assert "Correct choice(s) not selected: C." in res.feedback
+
+
+def test_multiple_choice_partial_mode_all_incorrect_zero_output_points_fail() -> None:
+    # No correct choices selected -> (0 - k)/n clipped to 0; fail and 0 points
+    qrule = MultipleChoiceQuestionRule(
+        question_id="q_part_fail",
+        answer={"A", "B"},
+        mode="PARTIAL",
+        max_points=4.0,
+    )
+    res = qrule.process_submission({"q_part_fail": {"X", "Y"}})
+
+    assert res.passed is False
+    assert res.output == 0.0
+    assert res.points == 0.0
+    # Feedback should contain Partial credit line and mention not-selected correct choices
+    assert "Partial credit:" in res.feedback
+    assert "Correct choice(s) not selected: A, B." in res.feedback
+
+
+def test_multiple_choice_rule_output_and_feedback_without_points() -> None:
+    # Base rule (non-question) tests output and feedback only
+    rule_all = MultipleChoiceRule(answer={"A", "B"}, mode="ALL")
+    res_all = rule_all.process_answer({"A"})
+    assert res_all.output == 0.0
+    assert res_all.passed is False
+    assert res_all.feedback.startswith("Incorrect choice(s).")
+
+    rule_any = MultipleChoiceRule(answer={"A", "B"}, mode="ANY")
+    res_any = rule_any.process_answer({"B"})
+    assert res_any.output == 1.0
+    assert res_any.passed is True
+    assert "Correct choice(s) selected: B." in res_any.feedback
+
+    rule_partial = MultipleChoiceRule(answer={"A", "B", "C"}, mode="PARTIAL")
+    res_partial = rule_partial.process_answer({"A", "X"})
+    # num_correct=1, num_incorrect=1 -> max(0, 1-1)/3 = 0.0
+    assert res_partial.output == 0.0
+    assert res_partial.passed is True
+    assert "Partial credit: (1 - 1) / 3 * max points (minimum: 0)." in res_partial.feedback

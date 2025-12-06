@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 def feedback_fn(results: list[Result]) -> str:
     return "\n".join(
-        f"[{i + 1}] {'✓' if result.passed else '✗'}\n{result.feedback}"
+        f"[{i + 1}] {'Correct' if result.passed else 'Incorrect'}\n{result.feedback}"
         for i, result in enumerate(results)
     )
 

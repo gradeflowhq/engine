@@ -1,25 +1,13 @@
-from collections.abc import Sequence
 from typing import Any, Literal
 
 from pydantic import Field
 
 from ..parser import BaseParserConfig, MultiValuedParserConfig, TextParserConfig
-from ..types import MultiValuedAnswer, SingleValuedAnswer
-from ..utils import parse_multi_value, try_parse_number
+from ..types import MultiValuedAnswer
+from ..utils import parse_multi_value
 from .base import BaseQuestion
 from .numeric import NumericQuestion
 from .text import TextQuestion
-
-
-def parse_multi_valued_answer(raw_multi_valued_answer: Sequence[str]) -> MultiValuedAnswer:
-    result: list[SingleValuedAnswer] = []
-    for value in raw_multi_valued_answer:
-        try:
-            num = try_parse_number(value)
-            result.append(num)
-        except ValueError:
-            result.append(value)
-    return result
 
 
 class MultiValuedQuestion(BaseQuestion[MultiValuedAnswer]):
@@ -54,13 +42,15 @@ class MultiValuedQuestion(BaseQuestion[MultiValuedAnswer]):
             trim_whitespace=self.config.trim_whitespace,
             normalize_case=self.config.normalize_case,
         )
-        parsed_answer = parse_multi_valued_answer(raw_multi_valued_answer)
-        if len(parsed_answer) != len(self.value_types):
+        if len(raw_multi_valued_answer) != len(self.value_types):
             raise ValueError(
-                f"Expected {len(self.value_types)} values, but got {len(parsed_answer)} values."
+                f"Expected {len(self.value_types)} values, "
+                f"but got {len(raw_multi_valued_answer)} values."
             )
-
-        for i, (answer, value_type) in enumerate(zip(parsed_answer, self.value_types, strict=True)):
+        parsed_answer: MultiValuedAnswer = [None] * len(self.value_types)
+        for i, (answer, value_type) in enumerate(
+            zip(raw_multi_valued_answer, self.value_types, strict=True)
+        ):
             if value_type == "NUMERIC":
                 parsed_answer[i] = self._numeric_question.parse(str(answer))
             elif value_type == "TEXT":

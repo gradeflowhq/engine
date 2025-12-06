@@ -35,23 +35,25 @@ def feedback_fn(
     notselected_correct = correct_set - answer_set
     feedback_parts: list[str] = []
     if correct_choices:
-        feedback_parts.append(f"Correct choices: {', '.join(sorted(correct_choices))}.")
+        feedback_parts.append(f"Correct choice(s) selected: {', '.join(sorted(correct_choices))}.")
     if incorrect_choices:
-        feedback_parts.append(f"Incorrect choices: {', '.join(sorted(incorrect_choices))}.")
+        feedback_parts.append(
+            f"Incorrect choice(s) selected: {', '.join(sorted(incorrect_choices))}."
+        )
     if notselected_correct:
         feedback_parts.append(
-            f"Not selected correct choices: {', '.join(sorted(notselected_correct))}."
+            f"Correct choice(s) not selected: {', '.join(sorted(notselected_correct))}."
         )
     feedback = " ".join(feedback_parts)
     if mode == "ALL" and not passed:
-        feedback = "Not all correct choices were selected.\n" + feedback
+        feedback = "Incorrect choice(s).\n" + feedback
     if mode == "ANY" and not passed:
-        feedback = "No correct choices were selected.\n" + feedback
+        feedback = "No correct choice(s) were selected.\n" + feedback
     if mode == "PARTIAL" and len(incorrect_choices) + len(notselected_correct) > 0:
         feedback = (
-            f"Partial credit awarded: "
+            f"Partial credit: "
             f"({len(correct_choices)} - {len(incorrect_choices)}) / {len(correct_set)} "
-            "* max points.\n"
+            "* max points (minimum: 0).\n"
         ) + feedback
     return feedback
 
