@@ -17,6 +17,7 @@ from .length import LengthQuestionRule, LengthRule
 from .manual import ManualQuestionRule, ManualRule
 from .multi_valued import MultiValuedQuestionRule, MultiValuedRule
 from .multiple_choice import MultipleChoiceQuestionRule, MultipleChoiceRule
+from .number_equal import NumberEqualQuestionRule, NumberEqualRule
 from .numeric_range import NumericRangeQuestionRule, NumericRangeRule
 from .programmable import ProgrammableQuestionRule, ProgrammableRule
 from .programming import ProgrammingQuestionRule, ProgrammingRule
@@ -34,6 +35,7 @@ SingleTargetRule = Annotated[
     | ManualRule
     | MultiValuedRule
     | MultipleChoiceRule
+    | NumberEqualRule
     | NumericRangeRule,
     Discriminator("type"),
 ]
@@ -51,6 +53,7 @@ SingleTargetQuestionRule = Annotated[
     | ManualQuestionRule
     | MultiValuedQuestionRule
     | MultipleChoiceQuestionRule
+    | NumberEqualQuestionRule
     | NumericRangeQuestionRule,
     Discriminator("type"),
 ]
