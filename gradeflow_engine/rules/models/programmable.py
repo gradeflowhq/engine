@@ -15,7 +15,7 @@ TIME_LIMIT_S = 5
 
 
 DEFAULT_PROGRAMMABLE_CODE = """\
-# 'answer' variable contains the student's answer
+# 'answer' variable contains the student's answer (can be str, float, list, or set)
 # You must set the following variables:
 # 'output' (float): A number between 0 and 1; max_points multiplier (only used in OUTPUT mode)
 # 'passed' (bool): Whether the answer passed (only used in PASS_FAIL mode)
@@ -63,7 +63,7 @@ def evaluate(code: str, answer: Answer) -> ProgrammableResult:
 
 class ProgrammableRule(BaseRule):
     type: Literal["PROGRAMMABLE"] = "PROGRAMMABLE"
-    question_types: frozenset[QuestionType] = frozenset({"TEXT", "NUMERIC"})
+    question_types: frozenset[QuestionType] = frozenset({"TEXT", "NUMERIC", "CHOICE", "MULTI_VALUED"})
     code: str = Field(
         default=DEFAULT_PROGRAMMABLE_CODE,
         description="Code to evaluate the answer. "
