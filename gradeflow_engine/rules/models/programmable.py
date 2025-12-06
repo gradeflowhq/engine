@@ -63,7 +63,9 @@ def evaluate(code: str, answer: Answer) -> ProgrammableResult:
 
 class ProgrammableRule(BaseRule):
     type: Literal["PROGRAMMABLE"] = "PROGRAMMABLE"
-    question_types: frozenset[QuestionType] = frozenset({"TEXT", "NUMERIC", "CHOICE", "MULTI_VALUED"})
+    question_types: frozenset[QuestionType] = frozenset(
+        {"TEXT", "NUMERIC", "CHOICE", "MULTI_VALUED"}
+    )
     code: str = Field(
         default=DEFAULT_PROGRAMMABLE_CODE,
         description="Code to evaluate the answer. "
