@@ -34,7 +34,10 @@ class CompositeRule(BaseRule):
             output=output,
             passed=passed,
             feedback=feedback,
-            rule=self.__class__.__name__,
+            rule=(
+                f"{self.__class__.__name__}"
+                f"[{', '.join(rule.__class__.__name__ for rule in self.rules)}]"
+            ),
         )
 
 
