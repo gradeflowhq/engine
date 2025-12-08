@@ -11,7 +11,6 @@ from .assumption_set import (
 from .bonus import BonusQuestionRule, BonusRule
 from .composite import CompositeQuestionRule, CompositeRule
 from .conditional import ConditionalMultiQuestionRule
-from .exact_match import ExactMatchQuestionRule, ExactMatchRule
 from .keywords import KeywordsQuestionRule, KeywordsRule
 from .length import LengthQuestionRule, LengthRule
 from .manual import ManualQuestionRule, ManualRule
@@ -22,13 +21,14 @@ from .numeric_range import NumericRangeQuestionRule, NumericRangeRule
 from .programmable import ProgrammableQuestionRule, ProgrammableRule
 from .programming import ProgrammingQuestionRule, ProgrammingRule
 from .regex import RegexQuestionRule, RegexRule
+from .text_match import TextMatchQuestionRule, TextMatchRule
 
 SingleTargetRule = Annotated[
     BonusRule
     | CompositeRule
     | ProgrammableRule
     | ProgrammingRule
-    | ExactMatchRule
+    | TextMatchRule
     | KeywordsRule
     | RegexRule
     | LengthRule
@@ -46,7 +46,7 @@ SingleTargetQuestionRule = Annotated[
     | CompositeQuestionRule
     | ProgrammableQuestionRule
     | ProgrammingQuestionRule
-    | ExactMatchQuestionRule
+    | TextMatchQuestionRule
     | KeywordsQuestionRule
     | RegexQuestionRule
     | LengthQuestionRule

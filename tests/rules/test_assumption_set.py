@@ -11,9 +11,9 @@ from gradeflow_engine.rules.models.assumption_set import (
     choose_assumption_result,
     evaluate_assumption,
 )
-from gradeflow_engine.rules.models.exact_match import ExactMatchQuestionRule, ExactMatchRule
 from gradeflow_engine.rules.models.length import LengthRule
 from gradeflow_engine.rules.models.numeric_range import NumericRangeQuestionRule, NumericRangeRule
+from gradeflow_engine.rules.models.text_match import TextMatchQuestionRule, TextMatchRule
 
 
 def test_choose_assumption_result_max_mode() -> None:
@@ -99,13 +99,13 @@ def test_mixed_rule_types_inside_assumption() -> None:
     a1 = MultiQuestionAssumption(
         name="a1",
         rules=[
-            ExactMatchQuestionRule(question_id="q1", answers=["yes"], max_points=2.0),
+            TextMatchQuestionRule(question_id="q1", answers=["yes"], max_points=2.0),
             NumericRangeQuestionRule(question_id="q2", min_value=0, max_value=10, max_points=1.0),
         ],
     )
     a2 = MultiQuestionAssumption(
         name="a2",
-        rules=[ExactMatchQuestionRule(question_id="q1", answers=["no"], max_points=2.0)],
+        rules=[TextMatchQuestionRule(question_id="q1", answers=["no"], max_points=2.0)],
     )
 
     rule = AssumptionSetMultiQuestionRule(assumptions=[a1, a2], mode="MAX")
@@ -157,8 +157,8 @@ def test_choose_assumption_result_empty_list_raises() -> None:
 
 
 def test_assumption_set_question_rule_max_mode_selects_higher_points() -> None:
-    a1 = Assumption(rule=ExactMatchRule(answers=["yes"]), weight=1.0)
-    a2 = Assumption(rule=ExactMatchRule(answers=["no"]), weight=0.5)
+    a1 = Assumption(rule=TextMatchRule(answers=["yes"]), weight=1.0)
+    a2 = Assumption(rule=TextMatchRule(answers=["no"]), weight=0.5)
     rule = AssumptionSetQuestionRule(
         question_id="q1",
         assumptions=[a1, a2],
@@ -176,8 +176,8 @@ def test_assumption_set_question_rule_max_mode_selects_higher_points() -> None:
 
 def test_assumption_set_question_rule_min_mode_selects_lower_points_deterministic_on_ties() -> None:
     # Both pass with equal points; MIN should pick deterministically the first assumption
-    a_hi = Assumption(name="1", rule=ExactMatchRule(answers=["ok"]))
-    a_lo = Assumption(name="2", rule=ExactMatchRule(answers=["ok"]))
+    a_hi = Assumption(name="1", rule=TextMatchRule(answers=["ok"]))
+    a_lo = Assumption(name="2", rule=TextMatchRule(answers=["ok"]))
 
     rule = AssumptionSetQuestionRule(
         question_id="q_low",
@@ -196,9 +196,9 @@ def test_assumption_set_question_rule_min_mode_selects_lower_points_deterministi
 
 
 def test_assumption_set_question_rule_numeric_vs_text_selection() -> None:
-    # Mixed inner rule types: ExactMatch vs NumericRange.
-    # Provide a numeric answer so the NumericRange assumption passes (ExactMatch fails).
-    a_text = Assumption(rule=ExactMatchRule(answers=["five"]))
+    # Mixed inner rule types: TextMatch vs NumericRange.
+    # Provide a numeric answer so the NumericRange assumption passes (TextMatch fails).
+    a_text = Assumption(rule=TextMatchRule(answers=["five"]))
     a_num = Assumption(rule=NumericRangeRule(min_value=0, max_value=10))
 
     rule = AssumptionSetQuestionRule(
@@ -234,7 +234,7 @@ def test_assumption_set_question_rule_missing_answer_raises_value_error() -> Non
 
 
 def test_assumption_set_question_rule_validate_questions_exist() -> None:
-    a = Assumption(rule=ExactMatchRule(answers=["x"]))
+    a = Assumption(rule=TextMatchRule(answers=["x"]))
     rule = AssumptionSetQuestionRule(question_id="QX", assumptions=[a], mode="MAX")
 
     errors = rule.validate_questions_exist({"Q1", "Q2"})
@@ -246,8 +246,8 @@ def test_assumption_set_question_rule_validate_questions_exist() -> None:
 
 
 def test_assumption_set_question_rule_feedback_includes_assumption_name_for_chosen_MAX() -> None:
-    a_yes = Assumption(name="A1-YesCase", rule=ExactMatchRule(answers=["yes"]))
-    a_no = Assumption(name="A2-NoCase", rule=ExactMatchRule(answers=["no"]))
+    a_yes = Assumption(name="A1-YesCase", rule=TextMatchRule(answers=["yes"]))
+    a_no = Assumption(name="A2-NoCase", rule=TextMatchRule(answers=["no"]))
 
     rule = AssumptionSetQuestionRule(
         question_id="q1",
@@ -268,8 +268,8 @@ def test_assumption_set_question_rule_feedback_includes_assumption_name_for_chos
 def test_assumption_set_question_rule_feedback_includes_assumption_name_when_other_matches() -> (
     None
 ):
-    a_yes = Assumption(name="A1-YesCase", rule=ExactMatchRule(answers=["yes"]))
-    a_no = Assumption(name="A2-NoCase", rule=ExactMatchRule(answers=["no"]))
+    a_yes = Assumption(name="A1-YesCase", rule=TextMatchRule(answers=["yes"]))
+    a_no = Assumption(name="A2-NoCase", rule=TextMatchRule(answers=["no"]))
 
     rule = AssumptionSetQuestionRule(
         question_id="q1",
@@ -305,8 +305,8 @@ def test_assumption_set_question_rule_name_omitted_when_none() -> None:
 
 def test_assumption_set_question_rule_weight_scales_points_and_affects_selection() -> None:
     # Both assumptions pass; different weights should affect points and MAX selection
-    a_low = Assumption(name="LowW", rule=ExactMatchRule(answers=["ok"]), weight=0.25)
-    a_high = Assumption(name="HighW", rule=ExactMatchRule(answers=["ok"]), weight=0.8)
+    a_low = Assumption(name="LowW", rule=TextMatchRule(answers=["ok"]), weight=0.25)
+    a_high = Assumption(name="HighW", rule=TextMatchRule(answers=["ok"]), weight=0.8)
 
     rule_max = AssumptionSetQuestionRule(question_id="QW", assumptions=[a_low, a_high], mode="MAX")
     rule_min = AssumptionSetQuestionRule(question_id="QW", assumptions=[a_low, a_high], mode="MIN")
@@ -360,14 +360,14 @@ def test_assumption_weight_bounds_validation() -> None:
 
     # Assumption weight out of bounds
     with pytest.raises(ValidationError):
-        Assumption(name="BadLow", rule=ExactMatchRule(answers=["x"]), weight=-0.1)
+        Assumption(name="BadLow", rule=TextMatchRule(answers=["x"]), weight=-0.1)
 
     with pytest.raises(ValidationError):
-        Assumption(name="BadHigh", rule=ExactMatchRule(answers=["x"]), weight=1.1)
+        Assumption(name="BadHigh", rule=TextMatchRule(answers=["x"]), weight=1.1)
 
     # Valid boundary values should be accepted
-    Assumption(name="Zero", rule=ExactMatchRule(answers=["x"]), weight=0.0)
-    Assumption(name="One", rule=ExactMatchRule(answers=["x"]), weight=1.0)
+    Assumption(name="Zero", rule=TextMatchRule(answers=["x"]), weight=0.0)
+    Assumption(name="One", rule=TextMatchRule(answers=["x"]), weight=1.0)
 
 
 def test_multi_question_assumption_weight_applies_per_result() -> None:

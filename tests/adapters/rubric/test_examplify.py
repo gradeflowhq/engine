@@ -3,10 +3,10 @@ from pathlib import Path
 from gradeflow_engine.core import load_rubric_via_adapter
 from gradeflow_engine.io.sources import FileSource, StringSource
 from gradeflow_engine.rubrics.model import Rubric
-from gradeflow_engine.rules.models.exact_match import ExactMatchQuestionRule, ExactMatchRule
 from gradeflow_engine.rules.models.multi_valued import MultiValuedQuestionRule
 from gradeflow_engine.rules.models.multiple_choice import MultipleChoiceQuestionRule
 from gradeflow_engine.rules.models.number_equal import NumberEqualQuestionRule
+from gradeflow_engine.rules.models.text_match import TextMatchQuestionRule, TextMatchRule
 
 
 def test_choice_uses_adjusted_over_original_and_mode_defaults() -> None:
@@ -33,7 +33,7 @@ def test_choice_uses_adjusted_over_original_and_mode_defaults() -> None:
 
 
 def test_fitb_single_and_multi_default_modes_and_points_floor_zero() -> None:
-    # Single blank -> ExactMatchQuestionRule (answers a|b)
+    # Single blank -> TextMatchQuestionRule (answers a|b)
     csv_single: str = (
         "Seq,ThrowOut,Type,Original Answer,Adjusted Answer,Adjusted Points,Original Points,"
         "GiveFullCreditToAllETs\n"
@@ -45,12 +45,12 @@ def test_fitb_single_and_multi_default_modes_and_points_floor_zero() -> None:
     )
     assert len(rubric_single.rules) == 1
     r2 = rubric_single.rules[0]
-    assert isinstance(r2, ExactMatchQuestionRule)
+    assert isinstance(r2, TextMatchQuestionRule)
     assert r2.question_id == "Q2"
     assert set(r2.answers) == {"a", "b"}
     assert r2.max_points == 1.0
 
-    # Multi blank -> MultiValuedQuestionRule with inner ExactMatchRules and
+    # Multi blank -> MultiValuedQuestionRule with inner TextMatchRules and
     # default aggregation PARTIAL
     csv_multi: str = (
         "Seq,ThrowOut,Type,Original Answer,Adjusted Answer,Adjusted Points,Original Points,"
@@ -67,7 +67,7 @@ def test_fitb_single_and_multi_default_modes_and_points_floor_zero() -> None:
     assert r3.question_id == "Q3"
     # Default multi_valued_mode is PARTIAL after refactor
     assert r3.aggregation == "PARTIAL"
-    assert all(isinstance(rr, ExactMatchRule) for rr in r3.rules)
+    assert all(isinstance(rr, TextMatchRule) for rr in r3.rules)
 
     # Negative points -> floored at 0.0
     csv_neg: str = (
@@ -81,7 +81,7 @@ def test_fitb_single_and_multi_default_modes_and_points_floor_zero() -> None:
     )
     assert len(rubric_neg.rules) == 1
     r4 = rubric_neg.rules[0]
-    assert isinstance(r4, ExactMatchQuestionRule)
+    assert isinstance(r4, TextMatchQuestionRule)
     assert r4.max_points == 0.0
 
 
@@ -103,9 +103,9 @@ def test_fitb_numeric_rules_when_parse_enabled_and_multi_valued_mode_override() 
     assert isinstance(r5, MultiValuedQuestionRule)
     assert r5.question_id == "Q5"
     assert r5.aggregation == "ALL"
-    # First position numeric → NumberEqualRule; second position text → ExactMatchRule
+    # First position numeric → NumberEqualRule; second position text → TextMatchRule
     assert r5.rules[0].type == "NUMBER_EQUAL"
-    assert r5.rules[1].type == "EXACT_MATCH"
+    assert r5.rules[1].type == "TEXT_MATCH"
 
 
 def test_skip_give_full_credit_rows_and_include_thrown_out_via_config() -> None:
@@ -148,8 +148,8 @@ def test_rubric_from_full_csv_defaults_modes_and_answers() -> None:
     """
     Default: parse_answer_string=False; choice_mode=PARTIAL; multi_valued_mode=PARTIAL
     - Choice rules use normalized answers; mode PARTIAL; points from Adjusted/Original
-    - FITB single default ExactMatchQuestionRule
-    - FITB multi default MultiValuedQuestionRule of ExactMatch inner rules with PARTIAL aggregation
+    - FITB single default TextMatchQuestionRule
+    - FITB multi default MultiValuedQuestionRule of TextMatch inner rules with PARTIAL aggregation
     """
     csv_path = _example_csv_path()
     rubric: Rubric = load_rubric_via_adapter(
@@ -160,7 +160,7 @@ def test_rubric_from_full_csv_defaults_modes_and_answers() -> None:
         r.question_id: r
         for r in rubric.rules
         if isinstance(
-            r, (MultipleChoiceQuestionRule, ExactMatchQuestionRule, MultiValuedQuestionRule)
+            r, (MultipleChoiceQuestionRule, TextMatchQuestionRule, MultiValuedQuestionRule)
         )
     }
 
@@ -196,11 +196,11 @@ def test_rubric_from_full_csv_defaults_modes_and_answers() -> None:
     r6 = rules["Q6"]
     assert isinstance(r6, MultiValuedQuestionRule)
     assert r6.aggregation == "PARTIAL"
-    assert all(isinstance(inner, ExactMatchRule) for inner in r6.rules)
+    assert all(isinstance(inner, TextMatchRule) for inner in r6.rules)
     assert r6.max_points == 2.0
 
     r7 = rules["Q7"]
-    assert isinstance(r7, ExactMatchQuestionRule)
+    assert isinstance(r7, TextMatchQuestionRule)
     assert r7.max_points == 2.0
     # variations of 'e^-1' present among acceptable answers
     assert any("e" in a for a in r7.answers)
@@ -208,22 +208,22 @@ def test_rubric_from_full_csv_defaults_modes_and_answers() -> None:
     r8 = rules["Q8"]
     assert isinstance(r8, MultiValuedQuestionRule)
     assert r8.aggregation == "PARTIAL"
-    assert all(isinstance(inner, ExactMatchRule) for inner in r8.rules)
+    assert all(isinstance(inner, TextMatchRule) for inner in r8.rules)
     assert r8.max_points == 2.0
 
     r11 = rules["Q11"]
     assert isinstance(r11, MultiValuedQuestionRule)
     assert r11.aggregation == "PARTIAL"
-    assert all(isinstance(inner, ExactMatchRule) for inner in r11.rules)
+    assert all(isinstance(inner, TextMatchRule) for inner in r11.rules)
     assert r11.max_points == 2.0
 
     r13 = rules["Q13"]
-    assert isinstance(r13, ExactMatchQuestionRule)
+    assert isinstance(r13, TextMatchQuestionRule)
     assert r13.max_points == 1.0
     assert set(r13.answers) >= {"0.1", "0.10", "0.098"}
 
     r14 = rules["Q14"]
-    assert isinstance(r14, ExactMatchQuestionRule)
+    assert isinstance(r14, TextMatchQuestionRule)
     assert r14.max_points == 2.0
 
 
@@ -231,7 +231,7 @@ def test_rubric_from_full_csv_parse_enabled_numeric_and_aggregation_override() -
     """
     Enable numeric parsing and override multi_valued_mode to ALL:
     - Q6/Q8/Q22: numeric-like -> NumberEqualRule inner rules; aggregation ALL
-    - Q7: textual single blank remains ExactMatchQuestionRule
+    - Q7: textual single blank remains TextMatchQuestionRule
     - Q13/Q18/Q19/Q23/Q24: numeric-like single blank -> NumberEqualQuestionRule
     """
     csv_path = _example_csv_path()
@@ -245,7 +245,7 @@ def test_rubric_from_full_csv_parse_enabled_numeric_and_aggregation_override() -
         for r in rubric.rules
         if isinstance(
             r,
-            (ExactMatchQuestionRule, MultiValuedQuestionRule, NumberEqualQuestionRule),
+            (TextMatchQuestionRule, MultiValuedQuestionRule, NumberEqualQuestionRule),
         )
     }
 
@@ -269,7 +269,7 @@ def test_rubric_from_full_csv_parse_enabled_numeric_and_aggregation_override() -
     assert r22.rules[1].type == "NUMBER_EQUAL"
 
     r7 = rules["Q7"]
-    assert isinstance(r7, ExactMatchQuestionRule)
+    assert isinstance(r7, TextMatchQuestionRule)
     assert r7.max_points == 2.0
 
     # Verify max points for numeric single-blank rules

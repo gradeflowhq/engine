@@ -7,8 +7,8 @@ from ..result import Result
 from .base import BaseRule, BaseSingleQuestionRule
 
 
-class ExactMatchRule(BaseRule):
-    type: Literal["EXACT_MATCH"] = "EXACT_MATCH"
+class TextMatchRule(BaseRule):
+    type: Literal["TEXT_MATCH"] = "TEXT_MATCH"
     question_types: frozenset[QuestionType] = frozenset({"TEXT", "NUMERIC"})
     answers: list[str] = Field(..., min_length=1, description="List of acceptable exact answers")
 
@@ -28,6 +28,6 @@ class ExactMatchRule(BaseRule):
         )
 
 
-class ExactMatchQuestionRule(ExactMatchRule, BaseSingleQuestionRule):
+class TextMatchQuestionRule(TextMatchRule, BaseSingleQuestionRule):
     def compute_points(self, result: Result) -> float:
         return self.max_points if result.passed else 0.0

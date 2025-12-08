@@ -5,10 +5,10 @@ from ...questions.models.choice import ChoiceQuestion
 from ...questions.parser import MultiValuedParserConfig
 from ...rubrics.model import Rubric
 from ...rules.models import QuestionRule, SingleTargetQuestionRule, SingleTargetRule
-from ...rules.models.exact_match import ExactMatchQuestionRule, ExactMatchRule
 from ...rules.models.multi_valued import MultiValuedQuestionRule
 from ...rules.models.multiple_choice import MultipleChoiceQuestionRule
 from ...rules.models.number_equal import NumberEqualQuestionRule, NumberEqualRule
+from ...rules.models.text_match import TextMatchQuestionRule, TextMatchRule
 from ..common.examplify import (
     CHOICE_DELIMITER,
     CHOICE_NORMALIZE_CASE,
@@ -41,11 +41,11 @@ class ExamplifyRubricAdapter(RubricAdapter):
         * Format: "{1} VAL1, {2} VAL2, ..." where VAL may be "A|B|...".
         * If parse_answer_string is True:
             - Single blank numeric-like → NumberEqualQuestionRule (answers parsed to numbers)
-            - Multi-blank: per-position numeric-like → NumberEqualRule, else ExactMatchRule
+            - Multi-blank: per-position numeric-like → NumberEqualRule, else TextMatchRule
             - Aggregation for multi-blank rules uses cfg.multi_valued_mode
           Else:
-            - Single blank → ExactMatchQuestionRule (string answers)
-            - Multi-blank → MultiValuedQuestionRule of ExactMatchRule(s) with cfg.multi_valued_mode
+            - Single blank → TextMatchQuestionRule (string answers)
+            - Multi-blank → MultiValuedQuestionRule of TextMatchRule(s) with cfg.multi_valued_mode
     - Points: use Adjusted Points or Original Points; floor at 0.0 when missing/negative.
     """
 
@@ -78,7 +78,7 @@ class ExamplifyRubricAdapter(RubricAdapter):
                 rule = self._build_fitb_rule(qid, source_answer, max_pts, cfg)
             else:
                 # Default to exact match on the literal answer string
-                rule = self._build_exact_match_rule(qid, [source_answer], max_pts)
+                rule = self._build_text_match_rule(qid, [source_answer], max_pts)
 
             if rule is not None:
                 rules.append(rule)
@@ -158,7 +158,7 @@ class ExamplifyRubricAdapter(RubricAdapter):
                 )
 
             # Default to exact string match
-            return ExactMatchQuestionRule(
+            return TextMatchQuestionRule(
                 question_id=qid,
                 answers=alts,
                 max_points=max_points,
@@ -173,7 +173,7 @@ class ExamplifyRubricAdapter(RubricAdapter):
                 parsed_numbers = parse_number_str_list(alts)
                 inner_rules.append(NumberEqualRule(answers=parsed_numbers))
             else:
-                inner_rules.append(ExactMatchRule(answers=alts))
+                inner_rules.append(TextMatchRule(answers=alts))
 
         return MultiValuedQuestionRule(
             question_id=qid,
@@ -182,12 +182,12 @@ class ExamplifyRubricAdapter(RubricAdapter):
             max_points=max_points,
         )
 
-    def _build_exact_match_rule(
+    def _build_text_match_rule(
         self, qid: str, answers: list[str], max_points: float
-    ) -> ExactMatchQuestionRule | None:
+    ) -> TextMatchQuestionRule | None:
         if not answers:
             return None
-        return ExactMatchQuestionRule(
+        return TextMatchQuestionRule(
             question_id=qid,
             answers=answers,
             max_points=max_points,

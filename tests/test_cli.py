@@ -93,7 +93,7 @@ def test_grade_command_with_rubric_and_save(tmp_path: Path) -> None:
     rubric_yaml = textwrap.dedent(
         """\
         rules:
-          - type: EXACT_MATCH
+          - type: TEXT_MATCH
             question_id: Q1
             max_points: 1
             answers: ["hello"]
@@ -158,11 +158,11 @@ def test_cli_grade_prints_rubric_coverage(tmp_path: Path):
     submissions_path = tmp_path / "subs.csv"
     submissions_path.write_text(submissions_csv, encoding="utf-8")
 
-    # Provide a rubric YAML targeting Q1 with EXACT_MATCH
+    # Provide a rubric YAML targeting Q1 with TEXT_MATCH
     rubric_yaml = textwrap.dedent(
         """\
         rules:
-          - type: EXACT_MATCH
+          - type: TEXT_MATCH
             question_id: Q1
             answers: [foo]
             max_points: 1
@@ -225,7 +225,7 @@ def test_grade_command_with_adapter_and_serializer_kv(tmp_path: Path) -> None:
     rubric_yaml = textwrap.dedent(
         """\
         rules:
-          - type: EXACT_MATCH
+          - type: TEXT_MATCH
             question_id: Q1
             answers: ["hello"]
             max_points: 1

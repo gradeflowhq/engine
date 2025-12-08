@@ -1,10 +1,10 @@
 import pytest
 
 from gradeflow_engine.rules.models.composite import CompositeQuestionRule, CompositeRule
-from gradeflow_engine.rules.models.exact_match import ExactMatchRule
 from gradeflow_engine.rules.models.keywords import KeywordsRule
 from gradeflow_engine.rules.models.length import LengthRule
 from gradeflow_engine.rules.models.numeric_range import NumericRangeRule
+from gradeflow_engine.rules.models.text_match import TextMatchRule
 
 
 def test_composite_all_mode_matches_and_points() -> None:
@@ -52,9 +52,9 @@ def test_composite_any_mode_all_fail() -> None:
 
 def test_composite_partial_mode_fractional_three_rules() -> None:
     # 3 subrules, 1 passes -> output should be 1/3
-    r1 = ExactMatchRule(answers=["a"])
-    r2 = ExactMatchRule(answers=["b"])
-    r3 = ExactMatchRule(answers=["c"])
+    r1 = TextMatchRule(answers=["a"])
+    r2 = TextMatchRule(answers=["b"])
+    r3 = TextMatchRule(answers=["c"])
     comp = CompositeRule(rules=[r1, r2, r3], aggregation="PARTIAL")
 
     res = comp.process_answer("a")
@@ -82,7 +82,7 @@ def test_composite_feedback_concatenation() -> None:
 def test_composite_exception_propagation_from_subrule() -> None:
     # NumericRangeRule will assert on non-numeric input (in its implementation it may raise)
     nr = NumericRangeRule(min_value=1, max_value=10)
-    em = ExactMatchRule(answers=["yes"])
+    em = TextMatchRule(answers=["yes"])
     comp = CompositeRule(rules=[em, nr], aggregation="ALL")
 
     # Passing a non-numeric string should cause NumericRangeRule to raise/assert inside it.

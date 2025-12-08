@@ -3,9 +3,9 @@ import pytest
 from gradeflow_engine.question_sets.model import QuestionSet
 from gradeflow_engine.questions.models import ChoiceQuestion, TextQuestion
 from gradeflow_engine.rubrics.model import Rubric, RubricCoverage
-from gradeflow_engine.rules.models.exact_match import ExactMatchQuestionRule
 from gradeflow_engine.rules.models.length import LengthQuestionRule
 from gradeflow_engine.rules.models.multiple_choice import MultipleChoiceQuestionRule
+from gradeflow_engine.rules.models.text_match import TextMatchQuestionRule
 from gradeflow_engine.submissions.models import Submission
 
 
@@ -120,8 +120,8 @@ def test_rubric_get_coverage_basic() -> None:
     qset = QuestionSet(question_map={"Q1": TextQuestion(), "Q2": TextQuestion()})
 
     # Rubric targets Q1 (exists) and Q999 (non-existent)
-    r1 = ExactMatchQuestionRule(question_id="Q1", answers=["foo"], max_points=1.0)
-    r2 = ExactMatchQuestionRule(question_id="Q999", answers=["bar"], max_points=1.0)
+    r1 = TextMatchQuestionRule(question_id="Q1", answers=["foo"], max_points=1.0)
+    r2 = TextMatchQuestionRule(question_id="Q999", answers=["bar"], max_points=1.0)
     rubric = Rubric(rules=[r1, r2])
 
     cov: RubricCoverage = rubric.get_coverage(qset)
@@ -136,7 +136,7 @@ def test_rubric_get_coverage_basic() -> None:
 
 def test_rubric_get_coverage_empty_qset() -> None:
     qset = QuestionSet(question_map={})
-    r1 = ExactMatchQuestionRule(question_id="Q1", answers=["foo"], max_points=1.0)
+    r1 = TextMatchQuestionRule(question_id="Q1", answers=["foo"], max_points=1.0)
     rubric = Rubric(rules=[r1])
 
     cov = rubric.get_coverage(qset)

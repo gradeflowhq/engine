@@ -7,7 +7,7 @@ from gradeflow_engine.rules.models.multiple_choice import (
 )
 
 
-def test_multiple_choice_all_mode_exact_match() -> None:
+def test_multiple_choice_all_mode_text_match() -> None:
     rule = MultipleChoiceRule(answer={"A", "B"}, mode="ALL")
     result = rule.process_answer({"A", "B"})
 

@@ -131,7 +131,7 @@ def test_run_pipeline_with_explicit_qset_and_rubric_and_output() -> None:
     rubric_yaml = textwrap.dedent(
         """\
         rules:
-          - type: EXACT_MATCH
+          - type: TEXT_MATCH
             question_id: Q1
             max_points: 1
             answers: ["hello"]
@@ -186,7 +186,7 @@ def test_run_pipeline_includes_coverage_when_rubric_supplied() -> None:
     rubric_yaml = textwrap.dedent(
         """\
         rules:
-          - type: EXACT_MATCH
+          - type: TEXT_MATCH
             question_id: Q1
             answers: ["foo"]
             max_points: 1.0
@@ -295,7 +295,7 @@ def test_run_pipeline_with_kwargs_for_adapters_and_serializers() -> None:
     rubric_yaml = textwrap.dedent(
         """\
         rules:
-          - type: EXACT_MATCH
+          - type: TEXT_MATCH
             question_id: Q1
             answers: ["hello"]
             max_points: 1
