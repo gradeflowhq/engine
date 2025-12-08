@@ -1,9 +1,23 @@
-from __future__ import annotations
-
 from collections.abc import Iterable
+from typing import Any, TypeVar
 
 from pydantic import BaseModel, Field
 
+# Adapters (registries)
+from .adapters.registries import (
+    QuestionSetAdapter,
+    RawSubmissionsAdapter,
+    RubricAdapter,
+    question_set_adapter_registry,
+    raw_submissions_adapter_registry,
+    rubric_adapter_registry,
+)
+from .io.sinks import DataSink
+
+# IO abstractions
+from .io.sources import DataSource
+
+# Domain models and inference defaults
 from .question_sets.inference import (
     DEFAULT_CHOICE_DELIMITER,
     DEFAULT_CHOICE_NORMALIZE_CASE,
@@ -11,48 +25,55 @@ from .question_sets.inference import (
     DEFAULT_EMPTY_MARKER,
     DEFAULT_MULTI_VALUE_DELIMITER,
 )
-from .question_sets.loaders import BaseQuestionSetLoader
 from .question_sets.model import QuestionSet
-from .question_sets.savers import BaseQuestionSetSaver
-from .question_sets.savers.base import QuestionSetSaverOutput
-from .registry import (
-    question_set_loader_registry,
-    question_set_saver_registry,
-    rubric_loader_registry,
-    submissions_loader_registry,
-    submissions_saver_registry,
-)
-from .rubrics.loaders import BaseRubricLoader
 from .rubrics.model import Rubric, RubricCoverage
 from .rules.types import RuleValidationError
-from .submissions.loaders import BaseSubmissionsLoader
+
+# Serializers (registries and types)
+from .serializations.base import DataBlob, Serializer
+from .serializations.registries import (
+    graded_submissions_serializer_registry,
+    question_set_serializer_registry,
+    rubric_serializer_registry,
+)
 from .submissions.models import GradedSubmission, RawSubmission, Submission
-from .submissions.savers import BaseSubmissionsSaver
-from .submissions.savers.base import SubmissionsSaverOutput
+
+C = TypeVar("C")
+
+
+def _instantiate(cls: type[C], kwargs: dict[str, Any] | None = None) -> C:
+    if kwargs is not None:
+        return cls(**kwargs)
+    return cls()
+
 
 # ---------------------------
-# Registry discovery helpers
+# Discovery helpers
 # ---------------------------
 
 
-def list_available_question_set_loaders() -> list[str]:
-    return question_set_loader_registry.available()
+def list_available_question_set_serializers() -> list[str]:
+    return question_set_serializer_registry.available()
 
 
-def list_available_question_set_savers() -> list[str]:
-    return question_set_saver_registry.available()
+def list_available_rubric_serializers() -> list[str]:
+    return rubric_serializer_registry.available()
 
 
-def list_available_rubric_loaders() -> list[str]:
-    return rubric_loader_registry.available()
+def list_available_graded_submissions_serializers() -> list[str]:
+    return graded_submissions_serializer_registry.available()
 
 
-def list_available_submissions_loaders() -> list[str]:
-    return submissions_loader_registry.available()
+def list_available_raw_submissions_adapters() -> list[str]:
+    return raw_submissions_adapter_registry.available()
 
 
-def list_available_submissions_savers() -> list[str]:
-    return submissions_saver_registry.available()
+def list_available_question_set_adapters() -> list[str]:
+    return question_set_adapter_registry.available()
+
+
+def list_available_rubric_adapters() -> list[str]:
+    return rubric_adapter_registry.available()
 
 
 # ---------------------------
@@ -60,129 +81,117 @@ def list_available_submissions_savers() -> list[str]:
 # ---------------------------
 
 
-def get_question_set_loader_class(name: str) -> type[BaseQuestionSetLoader]:
-    return question_set_loader_registry.get(name)
+def get_question_set_serializer_class(name: str) -> type[Serializer[QuestionSet]]:
+    return question_set_serializer_registry.get(name)
 
 
-def get_question_set_saver_class(name: str) -> type[BaseQuestionSetSaver]:
-    return question_set_saver_registry.get(name)
+def get_rubric_serializer_class(name: str) -> type[Serializer[Rubric]]:
+    return rubric_serializer_registry.get(name)
 
 
-def get_rubric_loader_class(name: str) -> type[BaseRubricLoader]:
-    return rubric_loader_registry.get(name)
+def get_graded_submissions_serializer_class(
+    name: str,
+) -> type[Serializer[Iterable[GradedSubmission]]]:
+    return graded_submissions_serializer_registry.get(name)
 
 
-def get_submissions_loader_class(name: str) -> type[BaseSubmissionsLoader]:
-    return submissions_loader_registry.get(name)
+def get_raw_submissions_adapter_class(name: str) -> type[RawSubmissionsAdapter]:
+    return raw_submissions_adapter_registry.get(name)
 
 
-def get_submissions_saver_class(name: str) -> type[BaseSubmissionsSaver]:
-    return submissions_saver_registry.get(name)
+def get_question_set_adapter_class(name: str) -> type[QuestionSetAdapter]:
+    return question_set_adapter_registry.get(name)
+
+
+def get_rubric_adapter_class(name: str) -> type[RubricAdapter]:
+    return rubric_adapter_registry.get(name)
 
 
 # ---------------------------
-# Load/save APIs
+# Serializer I/O helpers
 # ---------------------------
 
 
-def load_question_set(
-    data: str,
+def load_question_set_from_blob(
+    blob: DataBlob,
     *,
-    loader_name: str = "YAML",
+    serializer_name: str = "yaml",
+    serializer_kwargs: dict[str, object] | None = None,
 ) -> QuestionSet:
-    loader_cls = get_question_set_loader_class(loader_name)
-    loader = loader_cls()
-    return loader.load(data)
+    cls = get_question_set_serializer_class(serializer_name)
+    serializer = _instantiate(cls, serializer_kwargs)
+    return serializer.loads(blob)
 
 
-def save_question_set(
-    question_set: QuestionSet,
+def dump_question_set_to_blob(
+    qset: QuestionSet,
     *,
-    saver_name: str = "YAML",
-) -> QuestionSetSaverOutput:
-    saver_cls = get_question_set_saver_class(saver_name)
-    saver = saver_cls()
-    return saver.save(question_set)
+    serializer_name: str = "yaml",
+    serializer_kwargs: dict[str, object] | None = None,
+) -> DataBlob:
+    cls = get_question_set_serializer_class(serializer_name)
+    serializer = _instantiate(cls, serializer_kwargs)
+    return serializer.dumps(qset)
 
 
-def load_rubric(
-    data: str,
+def load_rubric_from_blob(
+    blob: DataBlob,
     *,
-    loader_name: str = "YAML",
+    serializer_name: str = "yaml",
+    serializer_kwargs: dict[str, object] | None = None,
 ) -> Rubric:
-    loader_cls = get_rubric_loader_class(loader_name)
-    loader = loader_cls()
-    return loader.load(data)
+    cls = get_rubric_serializer_class(serializer_name)
+    serializer = _instantiate(cls, serializer_kwargs)
+    return serializer.loads(blob)
 
 
-def load_submissions(
-    data: str,
-    *,
-    loader_name: str = "CSV",
-    **loader_kwargs: object,
-) -> list[RawSubmission]:
-    """
-    Load RawSubmission objects via the registered SubmissionsLoader.
-    Arbitrary keyword arguments are validated by the loader's Pydantic model.
-    Example kwargs for CSV loader: student_id_column="student_id", answer_columns=[...]
-    """
-    loader_cls = get_submissions_loader_class(loader_name)
-    # Validate and construct the loader with provided kwargs
-    loader = loader_cls.model_validate(loader_kwargs or {})
-    return loader.load(data)
-
-
-def save_graded_submissions(
+def dump_graded_submissions_to_blob(
     graded_submissions: Iterable[GradedSubmission],
     *,
-    saver_name: str = "CSV",
-    **saver_kwargs: object,
-) -> SubmissionsSaverOutput:
-    """
-    Save graded submissions via the registered SubmissionsSaver.
-    Arbitrary keyword arguments are validated by the saver’s Pydantic model.
-    Example kwargs for CSV saver: student_id_column="student_id", include_answers=True, ...
-    """
-    saver_cls = get_submissions_saver_class(saver_name)
-    # Validate and construct the saver with provided kwargs
-    saver = saver_cls.model_validate(saver_kwargs or {})
-    return saver.save(graded_submissions)
+    serializer_name: str = "csv",
+    serializer_kwargs: dict[str, object] | None = None,
+) -> DataBlob:
+    cls = get_graded_submissions_serializer_class(serializer_name)
+    serializer = _instantiate(cls, serializer_kwargs)
+    return serializer.dumps(graded_submissions)
 
 
 # ---------------------------
-# Inference
+# Adapter helpers
 # ---------------------------
 
 
-def infer_question_set(
-    raw_submissions: list[RawSubmission],
+def load_raw_submissions_via_adapter(
+    source: DataSource,
     *,
-    choice_delimiter: str = DEFAULT_CHOICE_DELIMITER,
-    choice_option_limit: int = DEFAULT_CHOICE_OPTION_LIMIT,
-    choice_normalize_case: bool = DEFAULT_CHOICE_NORMALIZE_CASE,
-    multi_value_delimiter: str = DEFAULT_MULTI_VALUE_DELIMITER,
-    empty_marker: str = DEFAULT_EMPTY_MARKER,
+    adapter_name: str = "csv",
+    adapter_kwargs: dict[str, object] | None = None,
+) -> list[RawSubmission]:
+    cls = get_raw_submissions_adapter_class(adapter_name)
+    adapter = _instantiate(cls, adapter_kwargs)
+    return adapter.load(source)
+
+
+def load_question_set_via_adapter(
+    source: DataSource,
+    *,
+    adapter_name: str = "examplify",
+    adapter_kwargs: dict[str, object] | None = None,
 ) -> QuestionSet:
-    return QuestionSet.infer(
-        raw_submissions,
-        choice_delimiter=choice_delimiter,
-        choice_option_limit=choice_option_limit,
-        choice_normalize_case=choice_normalize_case,
-        multi_value_delimiter=multi_value_delimiter,
-        empty_marker=empty_marker,
-    )
+    cls = get_question_set_adapter_class(adapter_name)
+    adapter = _instantiate(cls, adapter_kwargs)
+    return adapter.load(source)
 
 
-# ---------------------------
-# Coverage
-# ---------------------------
-
-
-def compute_rubric_coverage(
-    rubric: Rubric,
-    question_set: QuestionSet,
-) -> RubricCoverage:
-    return rubric.get_coverage(question_set)
+def load_rubric_via_adapter(
+    source: DataSource,
+    *,
+    adapter_name: str = "examplify",
+    adapter_kwargs: dict[str, object] | None = None,
+) -> Rubric:
+    cls = get_rubric_adapter_class(adapter_name)
+    adapter = _instantiate(cls, adapter_kwargs)
+    return adapter.load(source)
 
 
 # ---------------------------
@@ -197,7 +206,7 @@ class PipelineResult(BaseModel):
     rubric: Rubric | None = None
     validation_errors: list[RuleValidationError] = Field(default_factory=list[RuleValidationError])
     graded_submissions: list[GradedSubmission] = Field(default_factory=list[GradedSubmission])
-    output: SubmissionsSaverOutput | None = None
+    output: DataBlob | None = None
     coverage: RubricCoverage | None = None
 
 
@@ -205,94 +214,118 @@ def run_pipeline(
     *,
     # Submissions source (choose one; raw_submissions preferred if both provided):
     raw_submissions: list[RawSubmission] | None = None,
-    submissions_data: str | None = None,
-    submissions_loader_name: str = "CSV",
-    submissions_loader_kwargs: dict[str, object] | None = None,
+    submissions_source: DataSource | None = None,
+    submissions_adapter_name: str = "csv",
+    submissions_adapter_kwargs: dict[str, object] | None = None,
     submissions_parser_strict: bool = False,
-    # Question set source (choose one; question_set preferred if both provided):
-    question_set: QuestionSet | None = None,
-    question_set_data: str | None = None,
-    question_set_loader_name: str = "YAML",
-    # Inference defaults (used only if question_set is not supplied in either form):
+    # Question set source:
+    # Option A: serialized QuestionSet via serializer_name + question_set_source
+    question_set_source: DataSource | None = None,
+    question_set_serializer_name: str | None = None,
+    question_set_serializer_kwargs: dict[str, object] | None = None,
+    # Option B: vendor adapter via adapter_name + question_set_adapter_source
+    question_set_adapter_source: DataSource | None = None,
+    question_set_adapter_name: str = "examplify",
+    question_set_adapter_kwargs: dict[str, object] | None = None,
+    # Inference defaults (used only if neither A nor B provided):
     choice_delimiter: str = DEFAULT_CHOICE_DELIMITER,
     choice_option_limit: int = DEFAULT_CHOICE_OPTION_LIMIT,
+    choice_normalize_case: bool = DEFAULT_CHOICE_NORMALIZE_CASE,
     multi_value_delimiter: str = DEFAULT_MULTI_VALUE_DELIMITER,
-    # Rubric source (choose one; rubric preferred if both provided):
-    rubric: Rubric | None = None,
-    rubric_data: str | None = None,
-    rubric_loader_name: str = "YAML",
+    empty_marker: str = DEFAULT_EMPTY_MARKER,
+    # Rubric source (optional):
+    # Option A: serialized Rubric via serializer_name + rubric_source
+    rubric_source: DataSource | None = None,
+    rubric_serializer_name: str | None = None,
+    rubric_serializer_kwargs: dict[str, object] | None = None,
+    # Option B: vendor adapter via adapter_name + rubric_adapter_source
+    rubric_adapter_source: DataSource | None = None,
+    rubric_adapter_name: str = "examplify",
+    rubric_adapter_kwargs: dict[str, object] | None = None,
     rubric_grading_strict: bool = False,
-    # Optional saver (only used if we have a rubric and grading occurs):
-    saver_name: str | None = "CSV",
-    submissions_saver_kwargs: dict[str, object] | None = None,
+    # Optional graded output:
+    graded_output_serializer_name: str | None = "csv",
+    graded_output_serializer_kwargs: dict[str, object] | None = None,
+    graded_output_sink: DataSink | None = None,
 ) -> PipelineResult:
     """
-    End-to-end pipeline with explicit source control.
-    - submissions_loader_kwargs and submissions_saver_kwargs are passed to the respective
-      Pydantic models via model_validate for configuration.
+    End-to-end pipeline using IO sources/sinks, adapters (for external data), and serializers.
     """
-    # Validate mutually exclusive question set inputs
-    if question_set is not None and question_set_data is not None:
-        raise ValueError("Provide either question_set or question_set_data, not both.")
-
-    # Validate mutually exclusive rubric inputs
-    if rubric is not None and rubric_data is not None:
-        raise ValueError("Provide either rubric or rubric_data, not both.")
-
     # Resolve submissions
     if raw_submissions is not None:
         raw_subs = raw_submissions
-    elif submissions_data is not None:
-        raw_subs = load_submissions(
-            submissions_data,
-            loader_name=submissions_loader_name,
-            **(submissions_loader_kwargs or {}),
+    elif submissions_source is not None:
+        raw_subs = load_raw_submissions_via_adapter(
+            submissions_source,
+            adapter_name=submissions_adapter_name,
+            adapter_kwargs=submissions_adapter_kwargs,
         )
     else:
         raise ValueError(
-            "Submissions source is required: provide raw_submissions or submissions_data."
+            "Submissions source is required: provide raw_submissions or submissions_source."
         )
 
-    # Resolve question set
-    if question_set is not None:
-        qset = question_set
-    elif question_set_data is not None:
-        qset = load_question_set(question_set_data, loader_name=question_set_loader_name)
+    # Resolve question set: serialized, adapter, or infer
+    if question_set_serializer_name and question_set_source is not None:
+        qset = load_question_set_from_blob(
+            question_set_source.read(),
+            serializer_name=question_set_serializer_name,
+            serializer_kwargs=question_set_serializer_kwargs,
+        )
+    elif question_set_adapter_source is not None:
+        qset = load_question_set_via_adapter(
+            question_set_adapter_source,
+            adapter_name=question_set_adapter_name,
+            adapter_kwargs=question_set_adapter_kwargs,
+        )
     else:
-        qset = infer_question_set(
+        qset = QuestionSet.infer(
             raw_subs,
             choice_delimiter=choice_delimiter,
             choice_option_limit=choice_option_limit,
+            choice_normalize_case=choice_normalize_case,
             multi_value_delimiter=multi_value_delimiter,
+            empty_marker=empty_marker,
         )
 
     # Parse submissions
-    submissions = qset.parse(raw_subs, strict=submissions_parser_strict)
+    submissions: list[Submission] = qset.parse(raw_subs, strict=submissions_parser_strict)
 
-    # Resolve rubric, validate, and grade
+    # Resolve rubric (optional)
     used_rubric: Rubric | None = None
+    if rubric_serializer_name and rubric_source is not None:
+        used_rubric = load_rubric_from_blob(
+            rubric_source.read(),
+            serializer_name=rubric_serializer_name,
+            serializer_kwargs=rubric_serializer_kwargs,
+        )
+    elif rubric_adapter_source is not None:
+        used_rubric = load_rubric_via_adapter(
+            rubric_adapter_source,
+            adapter_name=rubric_adapter_name,
+            adapter_kwargs=rubric_adapter_kwargs,
+        )
+
+    # Validate and grade
     validation_errors: list[RuleValidationError] = []
     graded_submissions: list[GradedSubmission] = []
     coverage: RubricCoverage | None = None
 
-    if rubric is not None:
-        used_rubric = rubric
-    elif rubric_data is not None:
-        used_rubric = load_rubric(rubric_data, loader_name=rubric_loader_name)
-
     if used_rubric is not None:
         validation_errors = used_rubric.validate_rubric(qset)
         graded_submissions = used_rubric.grade(submissions, strict=rubric_grading_strict)
-        coverage = compute_rubric_coverage(used_rubric, qset)
+        coverage = used_rubric.get_coverage(qset)
 
-    # Optional save
-    output: SubmissionsSaverOutput | None = None
-    if saver_name is not None and graded_submissions:
-        output = save_graded_submissions(
+    # Optional serialize graded output
+    output: DataBlob | None = None
+    if graded_output_serializer_name and graded_submissions:
+        output = dump_graded_submissions_to_blob(
             graded_submissions,
-            saver_name=saver_name,
-            **(submissions_saver_kwargs or {}),
+            serializer_name=graded_output_serializer_name,
+            serializer_kwargs=graded_output_serializer_kwargs,
         )
+        if graded_output_sink is not None:
+            graded_output_sink.write(output)
 
     return PipelineResult(
         raw_submissions=raw_subs,
@@ -308,27 +341,25 @@ def run_pipeline(
 
 __all__ = [
     # Discovery
-    "list_available_question_set_loaders",
-    "list_available_question_set_savers",
-    "list_available_rubric_loaders",
-    "list_available_submissions_loaders",
-    "list_available_submissions_savers",
+    "list_available_question_set_serializers",
+    "list_available_rubric_serializers",
+    "list_available_graded_submissions_serializers",
+    "list_available_raw_submissions_adapters",
+    "list_available_question_set_adapters",
+    "list_available_rubric_adapters",
     # Getters
-    "get_question_set_loader_class",
-    "get_question_set_saver_class",
-    "get_rubric_loader_class",
-    "get_submissions_loader_class",
-    "get_submissions_saver_class",
-    # Loading/saving
-    "load_question_set",
-    "save_question_set",
-    "load_rubric",
-    "load_submissions",
-    "save_graded_submissions",
-    # Inference & pipeline
-    "infer_question_set",
+    "get_question_set_serializer_class",
+    "get_rubric_serializer_class",
+    "get_graded_submissions_serializer_class",
+    "get_raw_submissions_adapter_class",
+    "get_question_set_adapter_class",
+    "get_rubric_adapter_class",
+    # Serializer I/O
+    "load_question_set_from_blob",
+    "dump_question_set_to_blob",
+    "load_rubric_from_blob",
+    "dump_graded_submissions_to_blob",
+    # Pipeline
     "PipelineResult",
     "run_pipeline",
-    # Coverage
-    "compute_rubric_coverage",
 ]

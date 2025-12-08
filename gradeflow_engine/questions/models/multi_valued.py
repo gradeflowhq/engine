@@ -9,6 +9,8 @@ from .base import BaseQuestion
 from .numeric import NumericQuestion
 from .text import TextQuestion
 
+MultiValueTypes = Literal["TEXT", "NUMERIC"]
+
 
 class MultiValuedQuestion(BaseQuestion[MultiValuedAnswer]):
     type: Literal["MULTI_VALUED"] = "MULTI_VALUED"
@@ -16,7 +18,7 @@ class MultiValuedQuestion(BaseQuestion[MultiValuedAnswer]):
         default_factory=MultiValuedParserConfig,
         description="Parser configuration for multi-valued questions.",
     )
-    value_types: list[Literal["TEXT", "NUMERIC"]] = Field(
+    value_types: list[MultiValueTypes] = Field(
         ...,
         description=("Expected type for each value in the answer."),
     )
