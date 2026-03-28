@@ -10,15 +10,15 @@ from rich.panel import Panel
 from rich.table import Table
 
 from .core import (
-    dump_graded_submissions_to_blob,
     dump_question_set_to_blob,
-    list_available_graded_submissions_serializers,
+    dump_submissions_to_blob,
     list_available_question_set_adapters,
     # discovery
     list_available_question_set_serializers,
     list_available_raw_submissions_adapters,
     list_available_rubric_adapters,
     list_available_rubric_serializers,
+    list_available_submissions_serializers,
     # I/O helpers
     load_question_set_from_blob,
     load_question_set_via_adapter,
@@ -38,7 +38,7 @@ from .question_sets.inference import (
 )
 from .question_sets.model import QuestionSet
 from .rubrics.model import RubricCoverage
-from .submissions.models import GradedSubmission, Submission
+from .submissions.models import Submission
 
 # Fix width to avoid title wrapping in CI/test environments
 app = typer.Typer(help="GradeFlow Engine CLI")
@@ -62,6 +62,22 @@ def _parse_kv_pairs(pairs: list[str] | None) -> dict[str, object]:
             out[key] = yaml.safe_load(value)
         except Exception:
             out[key] = value
+    return out
+
+
+def _parse_str_kv_pairs(pairs: list[str] | None) -> dict[str, str]:
+    """
+    Parse key=value pairs into a dict[str, str].
+    Values are kept as plain strings (no YAML coercion), suitable for column name mappings.
+    """
+    if not pairs:
+        return {}
+    out: dict[str, str] = {}
+    for item in pairs:
+        if "=" not in item:
+            raise typer.BadParameter(f"Expected key=value, got: {item!r}")
+        key, value = item.split("=", 1)
+        out[key.strip()] = value
     return out
 
 
@@ -96,17 +112,17 @@ def _print_validation_errors(errors: list[str]) -> None:
     console.print(table)
 
 
-def _print_grades(graded_submissions: list[GradedSubmission]) -> None:
-    if not graded_submissions:
+def _print_grades(submissions: list[Submission]) -> None:
+    if not submissions:
         return
     console.rule("Graded Submissions")
     table = Table(box=box.SIMPLE)
     table.add_column("Student ID", style="green", no_wrap=True)
     table.add_column("Total Points", justify="right", no_wrap=True)
     table.add_column("Max Points", justify="right", no_wrap=True)
-    for gs in graded_submissions:
-        total_points = sum(r.points for r in gs.results)
-        total_max = sum(r.max_points for r in gs.results)
+    for gs in submissions:
+        total_points = sum(r.points for r in gs.result_map.values())
+        total_max = sum(r.max_points for r in gs.result_map.values())
         table.add_row(gs.student_id, f"{total_points:.2f}", f"{total_max:.2f}")
     console.print(table)
 
@@ -141,7 +157,7 @@ def list_components() -> None:
     sections = [
         ("Question Set Serializers", list_available_question_set_serializers()),
         ("Rubric Serializers", list_available_rubric_serializers()),
-        ("Graded Submissions Serializers", list_available_graded_submissions_serializers()),
+        ("Graded Submissions Serializers", list_available_submissions_serializers()),
         ("Raw Submissions Adapters", list_available_raw_submissions_adapters()),
         ("Question Set Adapters", list_available_question_set_adapters()),
         ("Rubric Adapters", list_available_rubric_adapters()),
@@ -168,6 +184,11 @@ def infer_questions(
         None,
         "--raw-submissions-adapter-config",
         help="key=value for raw adapter config (repeatable)",
+    ),
+    point_columns: list[str] | None = typer.Option(
+        None,
+        "--point-column",
+        help="question_id=csv_column mapping for pass-through point columns (repeatable)",
     ),
     choice_delimiter: str = typer.Option(
         DEFAULT_CHOICE_DELIMITER,
@@ -214,6 +235,9 @@ def infer_questions(
     try:
         raw_kwargs = _parse_kv_pairs(raw_adapter_kv)
         qset_ser_kwargs = _parse_kv_pairs(qset_serializer_kv)
+
+        if point_columns:
+            raw_kwargs["point_columns"] = _parse_str_kv_pairs(point_columns)
 
         raw_src = FileSource(submissions_path)
         raw_subs = load_raw_submissions_via_adapter(
@@ -265,6 +289,11 @@ def grade(
         None,
         "--raw-submissions-adapter-config",
         help="key=value for raw adapter config (repeatable)",
+    ),
+    point_columns: list[str] | None = typer.Option(
+        None,
+        "--point-column",
+        help="question_id=csv_column mapping for pass-through point columns (repeatable)",
     ),
     submissions_parser_strict: bool = typer.Option(
         False,
@@ -364,6 +393,9 @@ def grade(
         rubric_ad_kwargs = _parse_kv_pairs(rubric_adapter_kv)
         out_ser_kwargs = _parse_kv_pairs(out_serializer_kv)
 
+        if point_columns:
+            raw_kwargs["point_columns"] = _parse_str_kv_pairs(point_columns)
+
         # Load raw submissions
         raw_src = FileSource(submissions_path)
         raw_subs = load_raw_submissions_via_adapter(
@@ -414,13 +446,15 @@ def grade(
 
         # Validate and grade
         validation_errors: list[str] = []
-        graded: list[GradedSubmission] = []
+        graded: list[Submission] = []
         coverage: RubricCoverage | None = None
         if used_rubric is not None:
             validation_errors = used_rubric.validate_rubric(qset)
             coverage = used_rubric.get_coverage(qset)
             if not validation_errors:
-                graded = used_rubric.grade(submissions, strict=rubric_grading_strict)
+                graded = used_rubric.grade(
+                    submissions, qset.question_map, strict=rubric_grading_strict
+                )
 
         # Output summaries
         _print_question_set(qset, title="Question Set")
@@ -434,7 +468,7 @@ def grade(
 
         # Save graded submissions if requested and grading occurred
         if graded and graded_serializer:
-            blob = dump_graded_submissions_to_blob(
+            blob = dump_submissions_to_blob(
                 graded, serializer_name=graded_serializer, serializer_kwargs=out_ser_kwargs
             )
             if output_path:

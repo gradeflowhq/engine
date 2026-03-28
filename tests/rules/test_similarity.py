@@ -30,21 +30,19 @@ def test_similarity_question_rule_points() -> None:
         reference="yes",
         threshold=0.5,
         algorithm="levenshtein",
-        max_points=3.0,
     )
     submission1: dict[QuestionId, Answer] = {"q1": "yes"}
-    qresult = qrule.process_submission(submission1)
+    qresult = qrule.process_submission(submission1, {"q1": 3.0})["q1"]
 
-    assert qresult.question_id == "q1"
     assert qresult.max_points == 3.0
     assert qresult.points == 3.0
 
     submission2: dict[QuestionId, Answer] = {"q1": "ye"}
-    qresult = qrule.process_submission(submission2)
+    qresult = qrule.process_submission(submission2, {"q1": 3.0})["q1"]
 
     assert qresult.points == 3.0
 
     submission3: dict[QuestionId, Answer] = {"q1": "y"}
-    qresult = qrule.process_submission(submission3)
+    qresult = qrule.process_submission(submission3, {"q1": 3.0})["q1"]
 
     assert qresult.points == 0.0

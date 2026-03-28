@@ -64,14 +64,14 @@ def test_numeric_range_above_max_fails() -> None:
 
 
 def test_numeric_range_question_rule_points() -> None:
-    qrule = NumericRangeQuestionRule(question_id="q1", min_value=1, max_value=3, max_points=4.0)
+    qrule = NumericRangeQuestionRule(question_id="q1", min_value=1, max_value=3)
     submission: dict[QuestionId, Answer] = {"q1": 2}
-    qresult = qrule.process_submission(submission)
+    qresult = qrule.process_submission(submission, {"q1": 4.0})["q1"]
 
     assert qresult.points == 4.0
 
     submission = {"q1": 5}
-    qresult = qrule.process_submission(submission)
+    qresult = qrule.process_submission(submission, {"q1": 4.0})["q1"]
     assert qresult.points == 0.0
 
 

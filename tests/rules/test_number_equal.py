@@ -46,14 +46,15 @@ def test_number_equal_multiple_answers_any_match() -> None:
 
 
 def test_number_equal_question_rule_points() -> None:
-    qrule = NumberEqualQuestionRule(question_id="Q", answers=[2.0], max_points=3.0)
-    res_pass = qrule.process_submission({"Q": 2.0000001})  # within default tolerance 1e-6 -> pass
+    qrule = NumberEqualQuestionRule(question_id="Q", answers=[2.0])
+    res_pass = qrule.process_submission({"Q": 2.0000001}, {"Q": 3.0})[
+        "Q"
+    ]  # within default tolerance 1e-6 -> pass
     assert res_pass.passed is True
     assert res_pass.points == 3.0
     assert res_pass.max_points == 3.0
-    assert res_pass.question_id == "Q"
 
-    res_fail = qrule.process_submission({"Q": 2.01})
+    res_fail = qrule.process_submission({"Q": 2.01}, {"Q": 3.0})["Q"]
     assert res_fail.passed is False
     assert res_fail.points == 0.0
 
@@ -63,7 +64,7 @@ def test_number_equal_question_rule_missing_answer_raises() -> None:
         question_id="QX", answers=[1], config=NumberEqualConfig(approximate=False)
     )
     with pytest.raises(ValueError):
-        qrule.process_submission({})
+        qrule.process_submission({}, {})
 
 
 def test_number_equal_non_numeric_asserts() -> None:

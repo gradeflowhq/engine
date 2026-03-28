@@ -6,6 +6,7 @@ AnswerType = TypeVar("AnswerType", covariant=True)
 
 
 class BaseQuestion(BaseModel, Generic[AnswerType]):
+    max_points: float = Field(default=1.0, description="Maximum points for the question")
     description: str | None = Field(
         default=None, description="Optional description of the question."
     )

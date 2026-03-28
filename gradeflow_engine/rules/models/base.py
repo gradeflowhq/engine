@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from ...questions.models import Question
 from ...questions.types import Answer, QuestionId, QuestionType
@@ -6,6 +6,8 @@ from ..constraints import QuestionConstraint
 from ..result import QuestionResult, Result
 from ..types import RuleValidationError
 from ..validators import is_empty, validate_answer_type
+
+DEFAULT_MAX_POINTS = 1.0
 
 
 class BaseRule(BaseModel):
@@ -50,7 +52,6 @@ class BaseQuestionRule:
 
 class BaseSingleQuestionRule(BaseRule, BaseQuestionRule):
     question_id: QuestionId
-    max_points: float = Field(default=1.0, description="Maximum points for the question")
 
     def validate_compatibility(
         self, question_map: dict[QuestionId, Question]
@@ -70,23 +71,27 @@ class BaseSingleQuestionRule(BaseRule, BaseQuestionRule):
     def get_target_question_ids(self) -> set[QuestionId]:
         return {self.question_id}
 
-    def compute_points(self, result: Result) -> float:
+    def compute_points(self, result: Result, max_points: float) -> float:
         raise NotImplementedError("Subclasses must implement this method.")
 
-    def process_submission(self, answer_map: dict[QuestionId, Answer]) -> QuestionResult:
+    def process_submission(
+        self, answer_map: dict[QuestionId, Answer], max_points_map: dict[QuestionId, float]
+    ) -> dict[QuestionId, QuestionResult]:
         if self.question_id not in answer_map:
             raise ValueError(f"Answer for question ID {self.question_id} not found in submission.")
         answer = answer_map[self.question_id]
         result = self.process_answer(answer)
+        max_points = max_points_map.get(self.question_id, DEFAULT_MAX_POINTS)
         question_result = QuestionResult(
             **result.model_dump(),
-            question_id=self.question_id,
-            max_points=self.max_points,
-            points=self.compute_points(result),
+            max_points=max_points,
+            points=self.compute_points(result, max_points),
         )
-        return question_result
+        return {self.question_id: question_result}
 
 
 class BaseMultiQuestionRule(BaseRule, BaseQuestionRule):
-    def process_submission(self, answer_map: dict[QuestionId, Answer]) -> list[QuestionResult]:
+    def process_submission(
+        self, answer_map: dict[QuestionId, Answer], max_points_map: dict[QuestionId, float]
+    ) -> dict[QuestionId, QuestionResult]:
         raise NotImplementedError("Subclasses must implement this method.")

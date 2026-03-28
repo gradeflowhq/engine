@@ -16,11 +16,10 @@ def test_manual_rule_basic_result_properties() -> None:
 
 
 def test_manual_question_rule_points_zero() -> None:
-    qrule = ManualQuestionRule(question_id="Q1", max_points=5.0)
+    qrule = ManualQuestionRule(question_id="Q1")
     submission: dict[QuestionId, Answer] = {"Q1": "some answer"}
 
-    qres = qrule.process_submission(submission)
-    assert qres.question_id == "Q1"
+    qres = qrule.process_submission(submission, {"Q1": 5.0})["Q1"]
     assert qres.max_points == 5.0
     assert qres.points == 0.0
     # Feedback and graded flag propagated from ManualRule
@@ -32,7 +31,7 @@ def test_manual_question_rule_missing_answer_raises() -> None:
     qrule = ManualQuestionRule(question_id="Q_missing")
     # BaseSingleQuestionRule should raise when answer missing
     try:
-        _ = qrule.process_submission({})
+        _ = qrule.process_submission({}, {})
         raise AssertionError("Expected ValueError for missing answer")
     except ValueError:
         pass

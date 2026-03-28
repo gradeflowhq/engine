@@ -22,5 +22,5 @@ class ManualRule(BaseRule):
 
 
 class ManualQuestionRule(ManualRule, BaseSingleQuestionRule):
-    def compute_points(self, result: Result) -> float:
+    def compute_points(self, result: Result, max_points: float) -> float:
         return 0

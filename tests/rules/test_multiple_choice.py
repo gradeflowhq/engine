@@ -32,26 +32,22 @@ def test_multiple_choice_any_mode_passes_with_one() -> None:
 
 
 def test_multiple_choice_partial_mode_fractional_output_and_points() -> None:
-    qrule = MultipleChoiceQuestionRule(
-        question_id="q", answer={"A", "B", "C"}, mode="PARTIAL", max_points=6.0
-    )
+    qrule = MultipleChoiceQuestionRule(question_id="q", answer={"A", "B", "C"}, mode="PARTIAL")
     # Provide two correct and one incorrect -> num_correct=2, num_incorrect=1 -> (2-1)/3 = 1/3
     submission: dict[QuestionId, Answer] = {"q": {"A", "B", "X"}}
-    qresult = qrule.process_submission(submission)
+    qresult = qrule.process_submission(submission, {"q": 6.0})["q"]
 
     # Expect fractional points = 6 * (1/3) = 2.0
     assert abs(qresult.points - 2.0) < 1e-9
 
 
 def test_multiple_choice_question_rule_all_any_points() -> None:
-    q_all = MultipleChoiceQuestionRule(question_id="q1", answer={"A"}, mode="ALL", max_points=5.0)
-    res = q_all.process_submission({"q1": {"A"}})
+    q_all = MultipleChoiceQuestionRule(question_id="q1", answer={"A"}, mode="ALL")
+    res = q_all.process_submission({"q1": {"A"}}, {"q1": 5.0})["q1"]
     assert res.points == 5.0
 
-    q_any = MultipleChoiceQuestionRule(
-        question_id="q2", answer={"A", "B"}, mode="ANY", max_points=3.0
-    )
-    res = q_any.process_submission({"q2": {"B"}})
+    q_any = MultipleChoiceQuestionRule(question_id="q2", answer={"A", "B"}, mode="ANY")
+    res = q_any.process_submission({"q2": {"B"}}, {"q2": 3.0})["q2"]
     assert res.points == 3.0
 
 
@@ -61,9 +57,8 @@ def test_multiple_choice_all_mode_full_match_output_points_feedback_passed() -> 
         question_id="q_all",
         answer={"A", "B"},
         mode="ALL",
-        max_points=4.0,
     )
-    res = qrule.process_submission({"q_all": {"A", "B"}})
+    res = qrule.process_submission({"q_all": {"A", "B"}}, {"q_all": 4.0})["q_all"]
 
     assert res.passed is True
     assert res.output == 1.0
@@ -79,9 +74,8 @@ def test_multiple_choice_all_mode_incorrect_output_points_feedback_passed() -> N
         question_id="q_all_miss",
         answer={"A", "B"},
         mode="ALL",
-        max_points=3.0,
     )
-    res = qrule.process_submission({"q_all_miss": {"A"}})
+    res = qrule.process_submission({"q_all_miss": {"A"}}, {})["q_all_miss"]
 
     assert res.passed is False
     assert res.output == 0.0
@@ -97,9 +91,8 @@ def test_multiple_choice_any_mode_pass_with_one_correct() -> None:
         question_id="q_any",
         answer={"A", "B"},
         mode="ANY",
-        max_points=5.0,
     )
-    res = qrule.process_submission({"q_any": {"B", "X"}})
+    res = qrule.process_submission({"q_any": {"B", "X"}}, {"q_any": 5.0})["q_any"]
 
     assert res.passed is True
     assert res.output == 1.0
@@ -115,9 +108,8 @@ def test_multiple_choice_any_mode_fail_with_none_correct() -> None:
         question_id="q_any_fail",
         answer={"A", "B"},
         mode="ANY",
-        max_points=2.0,
     )
-    res = qrule.process_submission({"q_any_fail": {"X"}})
+    res = qrule.process_submission({"q_any_fail": {"X"}}, {})["q_any_fail"]
 
     assert res.passed is False
     assert res.output == 0.0
@@ -132,9 +124,8 @@ def test_multiple_choice_partial_mode_fractional_output_points_feedback_passed()
         question_id="q_part",
         answer={"A", "B", "C"},
         mode="PARTIAL",
-        max_points=9.0,
     )
-    res = qrule.process_submission({"q_part": {"A", "B", "X"}})
+    res = qrule.process_submission({"q_part": {"A", "B", "X"}}, {"q_part": 9.0})["q_part"]
 
     assert res.passed is True  # at least one correct selected -> passed True for PARTIAL
     assert pytest.approx(res.output) == (1.0 / 3.0)
@@ -152,9 +143,8 @@ def test_multiple_choice_partial_mode_all_incorrect_zero_output_points_fail() ->
         question_id="q_part_fail",
         answer={"A", "B"},
         mode="PARTIAL",
-        max_points=4.0,
     )
-    res = qrule.process_submission({"q_part_fail": {"X", "Y"}})
+    res = qrule.process_submission({"q_part_fail": {"X", "Y"}}, {})["q_part_fail"]
 
     assert res.passed is False
     assert res.output == 0.0

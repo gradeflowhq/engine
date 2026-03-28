@@ -59,22 +59,16 @@ def g():
     ]
 
     # ALL mode: both must pass for full points
-    q_all = ProgrammingQuestionRule(
-        question_id="q", testcases=testcases, mode="ALL", max_points=5.0
-    )
-    qresult = q_all.process_submission({"q": student_code})
+    q_all = ProgrammingQuestionRule(question_id="q", testcases=testcases, mode="ALL")
+    qresult = q_all.process_submission({"q": student_code}, {"q": 5.0})["q"]
     assert qresult.points == 5.0
 
     # ANY mode: at least one passes (here both pass so full points)
-    q_any = ProgrammingQuestionRule(
-        question_id="q", testcases=testcases, mode="ANY", max_points=5.0
-    )
-    qresult = q_any.process_submission({"q": student_code})
+    q_any = ProgrammingQuestionRule(question_id="q", testcases=testcases, mode="ANY")
+    qresult = q_any.process_submission({"q": student_code}, {"q": 5.0})["q"]
     assert qresult.points == 5.0
 
     # PARTIAL: should get proportional credit (here 2/2)
-    q_partial = ProgrammingQuestionRule(
-        question_id="q", testcases=testcases, mode="PARTIAL", max_points=6.0
-    )
-    qresult = q_partial.process_submission({"q": student_code})
+    q_partial = ProgrammingQuestionRule(question_id="q", testcases=testcases, mode="PARTIAL")
+    qresult = q_partial.process_submission({"q": student_code}, {"q": 6.0})["q"]
     assert qresult.points == 6.0

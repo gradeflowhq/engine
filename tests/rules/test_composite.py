@@ -17,10 +17,8 @@ def test_composite_all_mode_matches_and_points() -> None:
     assert result.output == 1.0
     assert "contains all keywords" in result.feedback
 
-    qcomp = CompositeQuestionRule(
-        question_id="q", rules=[kw, ln], aggregation="ALL", max_points=8.0
-    )
-    qres = qcomp.process_submission({"q": "foo bar"})
+    qcomp = CompositeQuestionRule(question_id="q", rules=[kw, ln], aggregation="ALL")
+    qres = qcomp.process_submission({"q": "foo bar"}, {"q": 8.0})["q"]
     assert qres.points == 8.0
 
 
@@ -33,10 +31,8 @@ def test_composite_any_mode_passes_when_one_subrule_passes() -> None:
     assert result.passed is True
     assert result.output == 1.0
 
-    qcomp = CompositeQuestionRule(
-        question_id="q", rules=[kw, ln], aggregation="ANY", max_points=10.0
-    )
-    qres = qcomp.process_submission({"q": "hello"})
+    qcomp = CompositeQuestionRule(question_id="q", rules=[kw, ln], aggregation="ANY")
+    qres = qcomp.process_submission({"q": "hello"}, {"q": 10.0})["q"]
     assert qres.points == 10.0
 
 
@@ -61,10 +57,8 @@ def test_composite_partial_mode_fractional_three_rules() -> None:
     assert abs(res.output - (1.0 / 3.0)) < 1e-9
     assert res.passed is True  # PARTIAL treated like ANY for passed_fn
 
-    qcomp = CompositeQuestionRule(
-        question_id="q", rules=[r1, r2, r3], aggregation="PARTIAL", max_points=9.0
-    )
-    qres = qcomp.process_submission({"q": "a"})
+    qcomp = CompositeQuestionRule(question_id="q", rules=[r1, r2, r3], aggregation="PARTIAL")
+    qres = qcomp.process_submission({"q": "a"}, {"q": 9.0})["q"]
     assert abs(qres.points - 3.0) < 1e-9
 
 

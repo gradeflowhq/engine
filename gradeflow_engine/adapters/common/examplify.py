@@ -70,7 +70,7 @@ def points_from_row(row: dict[str, str | None]) -> float:
             return float(s)
         except ValueError:
             continue
-    return 0.0
+    return 1.0
 
 
 def extract_blank_segments(answer: str) -> list[str]:

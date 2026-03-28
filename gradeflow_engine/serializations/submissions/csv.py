@@ -8,12 +8,12 @@ from pydantic import BaseModel, Field
 
 from ...questions.types import Answer
 from ...rules.result import QuestionResult
-from ...submissions.models import GradedSubmission
+from ...submissions.models import Submission
 from ..base import DataBlob, Serializer
-from ..registries import graded_submissions_serializer_registry
+from ..registries import submissions_serializer_registry
 
 
-class CsvGradedSubmissionsConfig(BaseModel):
+class CsvSubmissionsConfig(BaseModel):
     format: Literal["csv"] = "csv"
     student_id_column: str = Field(default="student_id")
     include_answers: bool = Field(default=True)
@@ -58,22 +58,25 @@ def _get_total_percent(results: list[QuestionResult], rounding_base: float) -> f
     return _get_total_points(results, rounding_base=rounding_base) / total_max * 100
 
 
-def _question_remarks(result: QuestionResult) -> str:
+def _question_remarks(question_id: str, result: QuestionResult) -> str:
     percent = int(result.points / result.max_points * 100) if result.max_points > 0 else 0.0
-    return f"""[[{result.question_id}]] {result.points}/{result.max_points} points | {percent}%
+    return f"""[[{question_id}]] {result.points}/{result.max_points} points | {percent}%
 
 {result.feedback}
 """
 
 
 def _remarks(
-    results: list[QuestionResult],
+    result_map: dict[str, QuestionResult],
+    ordered_qids: list[str],
     total_points: float,
     total_max_points: float,
     total_percent: float,
 ) -> str:
     return (
-        "\n\n".join(_question_remarks(res) for res in results)
+        "\n\n".join(
+            _question_remarks(qid, result_map[qid]) for qid in ordered_qids if qid in result_map
+        )
         + f"""
 ---
 
@@ -82,11 +85,11 @@ Total: {total_points}/{total_max_points} points | {total_percent}%
     )
 
 
-def _collect_question_ids(submissions: list[GradedSubmission]) -> list[str]:
+def _collect_question_ids(submissions: list[Submission]) -> list[str]:
     qids: set[str] = set()
-    for gs in submissions:
-        qids.update(gs.answer_map.keys())
-        qids.update(res.question_id for res in gs.results)
+    for s in submissions:
+        qids.update(s.answer_map.keys())
+        qids.update(s.result_map.keys())
     return natsorted(qids)
 
 
@@ -122,25 +125,18 @@ def _generate_fieldnames(
     return fields
 
 
-def _build_result_lookup(
-    results: list[QuestionResult], ordered_qids: list[str]
-) -> tuple[dict[str, QuestionResult], list[QuestionResult]]:
-    result_by_qid = {res.question_id: res for res in results}
-    ordered = [result_by_qid[qid] for qid in ordered_qids if qid in result_by_qid]
-    return result_by_qid, ordered
-
-
 def _create_row(
-    gs: GradedSubmission,
+    gs: Submission,
     ordered_qids: list[str],
     *,
-    config: CsvGradedSubmissionsConfig,
+    config: CsvSubmissionsConfig,
 ) -> dict[str, str]:
     row: dict[str, str] = {config.student_id_column: gs.student_id}
-    result_by_qid, ordered_results = _build_result_lookup(gs.results, ordered_qids)
-    total_points = _get_total_points(gs.results, rounding_base=config.rounding_base)
-    total_max_points = _get_total_max_points(gs.results, rounding_base=config.rounding_base)
-    total_percent = _get_total_percent(gs.results, rounding_base=config.rounding_base)
+    result_by_qid = gs.result_map
+    ordered_results = [result_by_qid[qid] for qid in ordered_qids if qid in result_by_qid]
+    total_points = _get_total_points(ordered_results, rounding_base=config.rounding_base)
+    total_max_points = _get_total_max_points(ordered_results, rounding_base=config.rounding_base)
+    total_percent = _get_total_percent(ordered_results, rounding_base=config.rounding_base)
     rounded_total_points = _maybe_round(total_points, config.rounding_base)
     rounded_total_max_points = _maybe_round(total_max_points, config.rounding_base)
     rounded_total_percent = _maybe_round(total_percent, config.rounding_base)
@@ -164,7 +160,9 @@ def _create_row(
             res = result_by_qid.get(qid)
             row[f"{qid}__feedback"] = (res.feedback or "") if res else ""
     if config.include_remarks:
-        row["remarks"] = _remarks(ordered_results, total_points, total_max_points, total_percent)
+        row["remarks"] = _remarks(
+            result_by_qid, ordered_qids, total_points, total_max_points, total_percent
+        )
         if config.include_rounded_total:
             row["remarks"] += f"""
 Rounded Total: {rounded_total_points}/{rounded_total_max_points} points | {rounded_total_percent}%
@@ -180,15 +178,15 @@ Rounded Total: {rounded_total_points}/{rounded_total_max_points} points | {round
     return row
 
 
-class CsvGradedSubmissionsSerializer(Serializer[Iterable[GradedSubmission]]):
+class CsvSubmissionsSerializer(Serializer[Iterable[Submission]]):
     format = "csv"
     media_type = "text/csv"
-    config: CsvGradedSubmissionsConfig = CsvGradedSubmissionsConfig()
+    config: CsvSubmissionsConfig = CsvSubmissionsConfig()
 
     def __init__(self, **kwargs: object) -> None:
         self.config = self.config.model_validate(kwargs)
 
-    def dumps(self, submissions: Iterable[GradedSubmission]) -> DataBlob:
+    def dumps(self, submissions: Iterable[Submission]) -> DataBlob:
         subs = list(submissions)
         ordered_qids = _collect_question_ids(subs)
         fieldnames = _generate_fieldnames(
@@ -211,8 +209,8 @@ class CsvGradedSubmissionsSerializer(Serializer[Iterable[GradedSubmission]]):
             data=out.getvalue().encode("utf-8"), media_type=self.media_type, extension="csv"
         )
 
-    def loads(self, blob) -> Iterable[GradedSubmission]:
+    def loads(self, blob) -> Iterable[Submission]:
         raise NotImplementedError("Deserializing graded submissions from CSV is not supported.")
 
 
-graded_submissions_serializer_registry.register("csv", CsvGradedSubmissionsSerializer)
+submissions_serializer_registry.register("csv", CsvSubmissionsSerializer)

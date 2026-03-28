@@ -27,9 +27,9 @@ def test_length_within_range_and_points() -> None:
     assert result.output is True
     assert result.passed is True
 
-    qrule = LengthQuestionRule(question_id="q1", min_length=2, max_length=5, max_points=2.0)
+    qrule = LengthQuestionRule(question_id="q1", min_length=2, max_length=5)
     submission: dict[QuestionId, Answer] = {"q1": "hey"}
-    qresult = qrule.process_submission(submission)
+    qresult = qrule.process_submission(submission, {"q1": 2.0})["q1"]
 
     assert qresult.points == 2.0
     assert qresult.max_points == 2.0
@@ -60,7 +60,7 @@ def test_length_exact_length() -> None:
 
 
 def test_length_question_rule_min_only_points() -> None:
-    qrule = LengthQuestionRule(question_id="q2", min_length=2, max_points=1.5)
+    qrule = LengthQuestionRule(question_id="q2", min_length=2)
     submission: dict[QuestionId, Answer] = {"q2": "ok"}
-    qresult = qrule.process_submission(submission)
+    qresult = qrule.process_submission(submission, {"q2": 1.5})["q2"]
     assert qresult.points == 1.5

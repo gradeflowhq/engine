@@ -20,20 +20,16 @@ def test_choose_assumption_result_max_mode() -> None:
     # two assumptions: one gives 1 point, the other gives 0 points
     a1 = MultiQuestionAssumption(
         name="a1",
-        rules=[
-            NumericRangeQuestionRule(question_id="q1", min_value=0, max_value=10, max_points=1.0)
-        ],
+        rules=[NumericRangeQuestionRule(question_id="q1", min_value=0, max_value=10)],
     )
     a2 = MultiQuestionAssumption(
         name="a2",
-        rules=[
-            NumericRangeQuestionRule(question_id="q1", min_value=100, max_value=200, max_points=1.0)
-        ],
+        rules=[NumericRangeQuestionRule(question_id="q1", min_value=100, max_value=200)],
     )
 
     answers: dict[QuestionId, Answer] = {"q1": 5}
-    ar1 = evaluate_assumption(a1, answers)
-    ar2 = evaluate_assumption(a2, answers)
+    ar1 = evaluate_assumption(a1, answers, {})
+    ar2 = evaluate_assumption(a2, answers, {})
 
     chosen = choose_assumption_result([ar1, ar2], mode="MAX")
 
@@ -46,20 +42,20 @@ def test_choose_assumption_result_min_mode() -> None:
     a1 = MultiQuestionAssumption(
         name="a1",
         rules=[
-            NumericRangeQuestionRule(question_id="q1", min_value=0, max_value=10, max_points=1.0),
-            NumericRangeQuestionRule(question_id="q2", min_value=0, max_value=10, max_points=1.0),
+            NumericRangeQuestionRule(question_id="q1", min_value=0, max_value=10),
+            NumericRangeQuestionRule(question_id="q2", min_value=0, max_value=10),
         ],
     )
     a2 = MultiQuestionAssumption(
         name="a2",
         rules=[
-            NumericRangeQuestionRule(question_id="q1", min_value=0, max_value=10, max_points=1.0),
+            NumericRangeQuestionRule(question_id="q1", min_value=0, max_value=10),
         ],
     )
 
     answers: dict[QuestionId, Answer] = {"q1": 5, "q2": 5}
-    ar1 = evaluate_assumption(a1, answers)
-    ar2 = evaluate_assumption(a2, answers)
+    ar1 = evaluate_assumption(a1, answers, {})
+    ar2 = evaluate_assumption(a2, answers, {})
 
     chosen = choose_assumption_result([ar1, ar2], mode="MIN")
 
@@ -71,52 +67,48 @@ def test_assumption_set_process_submission_returns_chosen_question_results() -> 
     # Build an AssumptionSet rule with two assumptions that target different questions
     a1 = MultiQuestionAssumption(
         name="a1",
-        rules=[
-            NumericRangeQuestionRule(question_id="q1", min_value=0, max_value=10, max_points=2.0)
-        ],
+        rules=[NumericRangeQuestionRule(question_id="q1", min_value=0, max_value=10)],
     )
     a2 = MultiQuestionAssumption(
         name="a2",
-        rules=[
-            NumericRangeQuestionRule(question_id="q2", min_value=0, max_value=10, max_points=3.0)
-        ],
+        rules=[NumericRangeQuestionRule(question_id="q2", min_value=0, max_value=10)],
     )
 
     rule = AssumptionSetMultiQuestionRule(assumptions=[a1, a2], mode="MAX")
 
     # q2 within range -> a2 chosen -> return its QuestionResult(s)
     submission: dict[QuestionId, Answer] = {"q1": 100, "q2": 5}
-    qresults = rule.process_submission(submission)
+    qresults = rule.process_submission(submission, {"q1": 2.0, "q2": 3.0})
 
     assert len(qresults) == 1
-    assert qresults[0].question_id == "q2"
-    assert qresults[0].points == 3.0
+    assert "q2" in qresults
+    assert qresults["q2"].points == 3.0
     # feedback should contain chosen assumption name
-    assert "[Assumption: a2]" in qresults[0].feedback
+    assert "[Assumption: a2]" in qresults["q2"].feedback
 
 
 def test_mixed_rule_types_inside_assumption() -> None:
     a1 = MultiQuestionAssumption(
         name="a1",
         rules=[
-            TextMatchQuestionRule(question_id="q1", answers=["yes"], max_points=2.0),
-            NumericRangeQuestionRule(question_id="q2", min_value=0, max_value=10, max_points=1.0),
+            TextMatchQuestionRule(question_id="q1", answers=["yes"]),
+            NumericRangeQuestionRule(question_id="q2", min_value=0, max_value=10),
         ],
     )
     a2 = MultiQuestionAssumption(
         name="a2",
-        rules=[TextMatchQuestionRule(question_id="q1", answers=["no"], max_points=2.0)],
+        rules=[TextMatchQuestionRule(question_id="q1", answers=["no"])],
     )
 
     rule = AssumptionSetMultiQuestionRule(assumptions=[a1, a2], mode="MAX")
 
     submission: dict[QuestionId, Answer] = {"q1": "yes", "q2": 5}
-    qresults = rule.process_submission(submission)
+    qresults = rule.process_submission(submission, {})
 
     assert len(qresults) == 2
-    ids = {r.question_id for r in qresults}
+    ids = set(qresults.keys())
     assert ids == {"q1", "q2"}
-    assert all("[Assumption: a1]" in r.feedback for r in qresults)
+    assert all("[Assumption: a1]" in r.feedback for r in qresults.values())
 
 
 def test_missing_answer_raises_value_error() -> None:
@@ -126,26 +118,22 @@ def test_missing_answer_raises_value_error() -> None:
     )
     rule = AssumptionSetMultiQuestionRule(assumptions=[a], mode="MAX")
     with pytest.raises(ValueError):
-        rule.process_submission({})
+        rule.process_submission({}, {})
 
 
 def test_tie_between_assumptions_is_deterministic() -> None:
     a1 = MultiQuestionAssumption(
         name="a1",
-        rules=[
-            NumericRangeQuestionRule(question_id="q1", min_value=0, max_value=10, max_points=1.0)
-        ],
+        rules=[NumericRangeQuestionRule(question_id="q1", min_value=0, max_value=10)],
     )
     a2 = MultiQuestionAssumption(
         name="a2",
-        rules=[
-            NumericRangeQuestionRule(question_id="q1", min_value=0, max_value=10, max_points=1.0)
-        ],
+        rules=[NumericRangeQuestionRule(question_id="q1", min_value=0, max_value=10)],
     )
 
     answers: dict[QuestionId, Answer] = {"q1": 5}
-    ar1 = evaluate_assumption(a1, answers)
-    ar2 = evaluate_assumption(a2, answers)
+    ar1 = evaluate_assumption(a1, answers, {})
+    ar2 = evaluate_assumption(a2, answers, {})
 
     chosen = choose_assumption_result([ar1, ar2], mode="MAX")
     assert chosen.assumption.name == "a1"
@@ -166,9 +154,8 @@ def test_assumption_set_question_rule_max_mode_selects_higher_points() -> None:
     )
 
     submission: dict[QuestionId, Answer] = {"q1": "yes"}
-    qresult = rule.process_submission(submission)
+    qresult = rule.process_submission(submission, {})["q1"]
 
-    assert qresult.question_id == "q1"
     assert qresult.passed is True
     assert qresult.points == 1.0
     assert qresult.max_points == 1.0
@@ -186,9 +173,8 @@ def test_assumption_set_question_rule_min_mode_selects_lower_points_deterministi
     )
 
     submission: dict[QuestionId, Answer] = {"q_low": "ok"}
-    qresult = rule.process_submission(submission)
+    qresult = rule.process_submission(submission, {})["q_low"]
 
-    assert qresult.question_id == "q_low"
     assert qresult.passed is True
     assert qresult.points == 1.0
     assert qresult.max_points == 1.0
@@ -208,9 +194,8 @@ def test_assumption_set_question_rule_numeric_vs_text_selection() -> None:
     )
 
     submission: dict[QuestionId, Answer] = {"q1": 5}
-    qresult = rule.process_submission(submission)
+    qresult = rule.process_submission(submission, {})["q1"]
 
-    assert qresult.question_id == "q1"
     assert qresult.passed is True
     assert qresult.points == 1.0
     assert qresult.max_points == 1.0
@@ -230,7 +215,7 @@ def test_assumption_set_question_rule_missing_answer_raises_value_error() -> Non
     a = Assumption(rule=NumericRangeRule(min_value=0, max_value=1))
     rule = AssumptionSetQuestionRule(question_id="q_missing", assumptions=[a], mode="MAX")
     with pytest.raises(ValueError):
-        rule.process_submission({})
+        rule.process_submission({}, {})
 
 
 def test_assumption_set_question_rule_validate_questions_exist() -> None:
@@ -256,11 +241,10 @@ def test_assumption_set_question_rule_feedback_includes_assumption_name_for_chos
     )
 
     submission: dict[QuestionId, Answer] = {"q1": "yes"}
-    qresult = rule.process_submission(submission)
+    qresult = rule.process_submission(submission, {})["q1"]
 
     assert qresult.passed is True
     assert qresult.points == 1.0
-    assert qresult.question_id == "q1"
     assert "[Assumption: A1-YesCase]" in qresult.feedback
     assert "[Assumption: A2-NoCase]" not in qresult.feedback
 
@@ -278,11 +262,10 @@ def test_assumption_set_question_rule_feedback_includes_assumption_name_when_oth
     )
 
     submission: dict[QuestionId, Answer] = {"q1": "no"}
-    qresult = rule.process_submission(submission)
+    qresult = rule.process_submission(submission, {})["q1"]
 
     assert qresult.passed is True
     assert qresult.points == 1.0
-    assert qresult.question_id == "q1"
     assert "[Assumption: A2-NoCase]" in qresult.feedback
     assert "[Assumption: A1-YesCase]" not in qresult.feedback
 
@@ -296,7 +279,7 @@ def test_assumption_set_question_rule_name_omitted_when_none() -> None:
     )
 
     submission: dict[QuestionId, Answer] = {"q_num": 5}
-    qresult = rule.process_submission(submission)
+    qresult = rule.process_submission(submission, {})["q_num"]
 
     assert qresult.passed is True
     assert qresult.points == 1.0
@@ -314,12 +297,12 @@ def test_assumption_set_question_rule_weight_scales_points_and_affects_selection
     submission: dict[QuestionId, Answer] = {"QW": "ok"}
 
     # MAX should choose higher weighted points (HighW -> 0.8 * 1.0)
-    res_max = rule_max.process_submission(submission)
+    res_max = rule_max.process_submission(submission, {})["QW"]
     assert res_max.points == pytest.approx(0.8)
     assert "[Assumption: HighW]" in res_max.feedback
 
     # MIN should choose lower weighted points (LowW -> 0.25 * 1.0)
-    res_min = rule_min.process_submission(submission)
+    res_min = rule_min.process_submission(submission, {})["QW"]
     assert res_min.points == pytest.approx(0.25)
     assert "[Assumption: LowW]" in res_min.feedback
 
@@ -330,29 +313,29 @@ def test_assumption_set_multi_question_weighting_and_selection() -> None:
         name="LowW",
         weight=0.3,
         rules=[
-            NumericRangeQuestionRule(question_id="Q1", min_value=0, max_value=10, max_points=2.0),
-            NumericRangeQuestionRule(question_id="Q2", min_value=0, max_value=10, max_points=3.0),
+            NumericRangeQuestionRule(question_id="Q1", min_value=0, max_value=10),
+            NumericRangeQuestionRule(question_id="Q2", min_value=0, max_value=10),
         ],
     )
     a_high = MultiQuestionAssumption(
         name="HighW",
         weight=0.9,
         rules=[
-            NumericRangeQuestionRule(question_id="Q1", min_value=0, max_value=10, max_points=1.0),
-            NumericRangeQuestionRule(question_id="Q2", min_value=0, max_value=10, max_points=1.0),
+            NumericRangeQuestionRule(question_id="Q1", min_value=0, max_value=10),
+            NumericRangeQuestionRule(question_id="Q2", min_value=0, max_value=10),
         ],
     )
 
     rule = AssumptionSetMultiQuestionRule(assumptions=[a_low, a_high], mode="MAX")
     submission: dict[QuestionId, Answer] = {"Q1": 5, "Q2": 7}
-    results = rule.process_submission(submission)
+    results = rule.process_submission(submission, {})
 
-    # Totals:
-    # LowW: (2.0 + 3.0) * 0.3 = 1.5
+    # Totals (default max_points=1.0 per question):
+    # LowW: (1.0 + 1.0) * 0.3 = 0.6
     # HighW: (1.0 + 1.0) * 0.9 = 1.8 -> chosen
-    total_points = sum(r.points for r in results)
+    total_points = sum(r.points for r in results.values())
     assert total_points == pytest.approx(1.8)
-    assert all("[Assumption: HighW]" in r.feedback for r in results)
+    assert all("[Assumption: HighW]" in r.feedback for r in results.values())
 
 
 def test_assumption_weight_bounds_validation() -> None:
@@ -376,17 +359,17 @@ def test_multi_question_assumption_weight_applies_per_result() -> None:
         name="W",
         weight=0.5,
         rules=[
-            NumericRangeQuestionRule(question_id="Q1", min_value=0, max_value=10, max_points=2.0),
-            NumericRangeQuestionRule(question_id="Q2", min_value=0, max_value=10, max_points=4.0),
+            NumericRangeQuestionRule(question_id="Q1", min_value=0, max_value=10),
+            NumericRangeQuestionRule(question_id="Q2", min_value=0, max_value=10),
         ],
     )
     rule = AssumptionSetMultiQuestionRule(assumptions=[assumption], mode="MAX")
     submission: dict[QuestionId, Answer] = {"Q1": 3, "Q2": 7}
 
-    results = rule.process_submission(submission)
+    results = rule.process_submission(submission, {"Q1": 2.0, "Q2": 4.0})
     # After weighting: Q1 -> 1.0, Q2 -> 2.0
-    pts_by_qid = {r.question_id: r.points for r in results}
+    pts_by_qid = {qid: r.points for qid, r in results.items()}
     assert pts_by_qid["Q1"] == pytest.approx(1.0)
     assert pts_by_qid["Q2"] == pytest.approx(2.0)
     # Feedback should include the assumption name
-    assert all("[Assumption: W]" in r.feedback for r in results)
+    assert all("[Assumption: W]" in r.feedback for r in results.values())

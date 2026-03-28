@@ -21,5 +21,5 @@ class BonusRule(BaseRule):
 
 
 class BonusQuestionRule(BonusRule, BaseSingleQuestionRule):
-    def compute_points(self, result: Result) -> float:
-        return self.max_points
+    def compute_points(self, result: Result, max_points: float) -> float:
+        return max_points

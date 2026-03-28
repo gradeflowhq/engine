@@ -77,5 +77,5 @@ class MultiValuedRule(BaseRule):
 
 
 class MultiValuedQuestionRule(MultiValuedRule, BaseSingleQuestionRule):
-    def compute_points(self, result: Result) -> float:
-        return points_fn(result, mode=self.aggregation, max_points=self.max_points)
+    def compute_points(self, result: Result, max_points: float) -> float:
+        return points_fn(result, mode=self.aggregation, max_points=max_points)

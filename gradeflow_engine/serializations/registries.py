@@ -4,7 +4,7 @@ from typing import Generic, TypeVar
 from ..question_sets.model import QuestionSet
 from ..registry import Registry
 from ..rubrics.model import Rubric
-from ..submissions.models import GradedSubmission
+from ..submissions.models import Submission
 from .base import Serializer
 
 T = TypeVar("T")
@@ -19,6 +19,6 @@ question_set_serializer_registry: SerializerRegistry[QuestionSet] = SerializerRe
 )
 rubric_serializer_registry: SerializerRegistry[Rubric] = SerializerRegistry("rubric_serializer")
 
-graded_submissions_serializer_registry: SerializerRegistry[Iterable[GradedSubmission]] = (
-    SerializerRegistry("graded_submissions_serializer")
+submissions_serializer_registry: SerializerRegistry[Iterable[Submission]] = SerializerRegistry(
+    "submissions_serializer"
 )

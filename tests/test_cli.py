@@ -315,3 +315,106 @@ def test_grade_command_qset_adapter_kv_include_thrown_out(tmp_path: Path) -> Non
         ],
     )
     assert result.exit_code == 0, result.output
+
+
+def test_grade_command_point_column_pass_through(tmp_path: Path) -> None:
+    # Submissions CSV has a pre-scored column for Q1; rubric only targets Q2.
+    # Q1 should appear in graded output with the pass-through points.
+    csv_text = textwrap.dedent(
+        """\
+        student_id,Q1,Q2,q1_score
+        s1,yes,hello,3.0
+        s2,no,world,0.0
+        """
+    )
+    sub_path = tmp_path / "subs.csv"
+    sub_path.write_text(csv_text, encoding="utf-8")
+
+    qset_yaml = textwrap.dedent(
+        """\
+        question_map:
+          Q1: {type: TEXT}
+          Q2: {type: TEXT}
+        """
+    )
+    qset_path = tmp_path / "qset.yaml"
+    qset_path.write_text(qset_yaml, encoding="utf-8")
+
+    rubric_yaml = textwrap.dedent(
+        """\
+        rules:
+          - type: TEXT_MATCH
+            question_id: Q2
+            answers: ["hello"]
+            max_points: 1
+        """
+    )
+    rubric_path = tmp_path / "rubric.yaml"
+    rubric_path.write_text(rubric_yaml, encoding="utf-8")
+
+    out_path = tmp_path / "graded"
+
+    result = runner.invoke(
+        cli_module.app,
+        [
+            "grade",
+            "--submissions",
+            str(sub_path),
+            "--question-set",
+            str(qset_path),
+            "--question-set-serializer",
+            "yaml",
+            "--rubric",
+            str(rubric_path),
+            "--rubric-serializer",
+            "yaml",
+            "--point-column",
+            "Q1=q1_score",
+            "--out-serializer",
+            "csv",
+            "--out",
+            str(out_path),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+
+    saved = out_path.with_suffix(".csv")
+    assert saved.exists()
+    lines = saved.read_text(encoding="utf-8").splitlines()
+    header = lines[0].split(",")
+
+    # Q1 pass-through points column should be present
+    assert "Q1__points" in header
+    q1_pts_idx = header.index("Q1__points")
+
+    s1_row = [r for r in lines[1:] if r.startswith("s1")][0].split(",")
+    s2_row = [r for r in lines[1:] if r.startswith("s2")][0].split(",")
+
+    assert s1_row[q1_pts_idx] == "3.0"
+    assert s2_row[q1_pts_idx] == "0.0"
+
+
+def test_infer_command_point_column_excluded_from_answers(tmp_path: Path) -> None:
+    # The score column should not be inferred as a question.
+    csv_text = textwrap.dedent(
+        """\
+        student_id,Q1,q1_score
+        s1,yes,2.0
+        s2,no,0.0
+        """
+    )
+    sub_path = tmp_path / "subs.csv"
+    sub_path.write_text(csv_text, encoding="utf-8")
+
+    result = runner.invoke(
+        cli_module.app,
+        [
+            "infer",
+            str(sub_path),
+            "--point-column",
+            "Q1=q1_score",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "Q1" in result.output
+    assert "q1_score" not in result.output

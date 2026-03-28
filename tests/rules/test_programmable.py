@@ -39,8 +39,8 @@ output = 0.6
 passed = output >= 0.5
 feedback = 'partial'
 """
-    qrule = ProgrammableQuestionRule(question_id="q", code=code, mode="OUTPUT", max_points=10.0)
-    qresult = qrule.process_submission({"q": "ignored"})
+    qrule = ProgrammableQuestionRule(question_id="q", code=code, mode="OUTPUT")
+    qresult = qrule.process_submission({"q": "ignored"}, {"q": 10.0})["q"]
 
     assert qresult.points == 6.0
 
@@ -65,8 +65,8 @@ passed = True
 output = 1.0
 feedback = 'good'
 """
-    qrule = ProgrammableQuestionRule(question_id="q", code=code, mode="PASS_FAIL", max_points=4.0)
-    qresult = qrule.process_submission({"q": "ignored"})
+    qrule = ProgrammableQuestionRule(question_id="q", code=code, mode="PASS_FAIL")
+    qresult = qrule.process_submission({"q": "ignored"}, {"q": 4.0})["q"]
 
     assert qresult.points == 4.0
 
@@ -95,8 +95,8 @@ def test_programmable_output_bounds_and_defaults() -> None:
     code = """
 output = 0.0
 """
-    qrule = ProgrammableQuestionRule(question_id="q", code=code, mode="OUTPUT", max_points=5.0)
-    qresult = qrule.process_submission({"q": "ignored"})
+    qrule = ProgrammableQuestionRule(question_id="q", code=code, mode="OUTPUT")
+    qresult = qrule.process_submission({"q": "ignored"}, {"q": 5.0})["q"]
     assert qresult.points == 0.0
 
     # If code doesn't set any variables, defaults should be used (output 0.0, passed False)

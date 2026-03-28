@@ -28,8 +28,6 @@ def test_choice_uses_adjusted_over_original_and_mode_defaults() -> None:
     assert r.mode == "PARTIAL"
     # Answer should reflect adjusted ("a, b"), normalized and trimmed
     assert r.answer == {"a", "b"}
-    # Prefer Adjusted Points (2) over Original Points (1)
-    assert r.max_points == 2.0
 
 
 def test_fitb_single_and_multi_default_modes_and_points_floor_zero() -> None:
@@ -48,7 +46,6 @@ def test_fitb_single_and_multi_default_modes_and_points_floor_zero() -> None:
     assert isinstance(r2, TextMatchQuestionRule)
     assert r2.question_id == "Q2"
     assert set(r2.answers) == {"a", "b"}
-    assert r2.max_points == 1.0
 
     # Multi blank -> MultiValuedQuestionRule with inner TextMatchRules and
     # default aggregation PARTIAL
@@ -82,7 +79,6 @@ def test_fitb_single_and_multi_default_modes_and_points_floor_zero() -> None:
     assert len(rubric_neg.rules) == 1
     r4 = rubric_neg.rules[0]
     assert isinstance(r4, TextMatchQuestionRule)
-    assert r4.max_points == 0.0
 
 
 def test_fitb_numeric_rules_when_parse_enabled_and_multi_valued_mode_override() -> None:
@@ -169,39 +165,32 @@ def test_rubric_from_full_csv_defaults_modes_and_answers() -> None:
     assert isinstance(r1, MultipleChoiceQuestionRule)
     assert r1.mode == "PARTIAL"
     assert r1.answer == {"b", "c", "f", "g"}
-    assert r1.max_points == 2.0
 
     r2 = rules["Q2"]
     assert isinstance(r2, MultipleChoiceQuestionRule)
     assert r2.answer == {"a"}
-    assert r2.max_points == 1.0
 
     r3 = rules["Q3"]
     assert isinstance(r3, MultipleChoiceQuestionRule)
     assert r3.answer == {"a", "c", "d"}
-    assert r3.max_points == 1.0
 
     r4 = rules["Q4"]
     assert isinstance(r4, MultipleChoiceQuestionRule)
     # Prefer Adjusted Answer for rule (A, B, C, E)
     assert r4.answer == {"a", "b", "c", "e"}
-    assert r4.max_points == 2.0
 
     r5 = rules["Q5"]
     assert isinstance(r5, MultipleChoiceQuestionRule)
     assert r5.answer == {"a", "c", "d", "e"}
-    assert r5.max_points == 2.0
 
     # FITB defaults (PARTIAL aggregation)
     r6 = rules["Q6"]
     assert isinstance(r6, MultiValuedQuestionRule)
     assert r6.aggregation == "PARTIAL"
     assert all(isinstance(inner, TextMatchRule) for inner in r6.rules)
-    assert r6.max_points == 2.0
 
     r7 = rules["Q7"]
     assert isinstance(r7, TextMatchQuestionRule)
-    assert r7.max_points == 2.0
     # variations of 'e^-1' present among acceptable answers
     assert any("e" in a for a in r7.answers)
 
@@ -209,22 +198,18 @@ def test_rubric_from_full_csv_defaults_modes_and_answers() -> None:
     assert isinstance(r8, MultiValuedQuestionRule)
     assert r8.aggregation == "PARTIAL"
     assert all(isinstance(inner, TextMatchRule) for inner in r8.rules)
-    assert r8.max_points == 2.0
 
     r11 = rules["Q11"]
     assert isinstance(r11, MultiValuedQuestionRule)
     assert r11.aggregation == "PARTIAL"
     assert all(isinstance(inner, TextMatchRule) for inner in r11.rules)
-    assert r11.max_points == 2.0
 
     r13 = rules["Q13"]
     assert isinstance(r13, TextMatchQuestionRule)
-    assert r13.max_points == 1.0
     assert set(r13.answers) >= {"0.1", "0.10", "0.098"}
 
     r14 = rules["Q14"]
     assert isinstance(r14, TextMatchQuestionRule)
-    assert r14.max_points == 2.0
 
 
 def test_rubric_from_full_csv_parse_enabled_numeric_and_aggregation_override() -> None:
@@ -252,7 +237,6 @@ def test_rubric_from_full_csv_parse_enabled_numeric_and_aggregation_override() -
     r6 = rules["Q6"]
     assert isinstance(r6, MultiValuedQuestionRule)
     assert r6.aggregation == "ALL"
-    assert r6.max_points == 2.0
     assert r6.rules[0].type == "NUMBER_EQUAL"
     assert r6.rules[1].type == "NUMBER_EQUAL"
 
@@ -270,13 +254,11 @@ def test_rubric_from_full_csv_parse_enabled_numeric_and_aggregation_override() -
 
     r7 = rules["Q7"]
     assert isinstance(r7, TextMatchQuestionRule)
-    assert r7.max_points == 2.0
 
-    # Verify max points for numeric single-blank rules
-    for qid, max_pts in [("Q13", 1.0), ("Q18", 1.0), ("Q19", 2.0), ("Q23", 1.0), ("Q24", 1.0)]:
+    # Verify numeric single-blank rules are the right type
+    for qid in ["Q13", "Q18", "Q19", "Q23", "Q24"]:
         rule = rules[qid]
         assert isinstance(rule, NumberEqualQuestionRule)
-        assert rule.max_points == max_pts
 
 
 def test_rubric_include_thrown_out_and_skip_full_credit() -> None:
@@ -308,7 +290,6 @@ def test_rubric_include_thrown_out_and_skip_full_credit() -> None:
     assert isinstance(r, MultipleChoiceQuestionRule)
     assert r.question_id == "Q40"
     assert r.answer == {"x", "y"}
-    assert r.max_points == 2.0  # prefer Adjusted Points
 
     # GiveFullCreditToAllETs row: skipped (no rule emitted)
     csv_fullcredit = (

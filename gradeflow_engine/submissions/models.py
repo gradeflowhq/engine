@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ..questions.types import Answer, QuestionId
 from ..rules.result import QuestionResult
@@ -7,6 +7,7 @@ from .types import StudentId
 
 class BaseSubmission(BaseModel):
     student_id: StudentId
+    result_map: dict[QuestionId, QuestionResult] = Field(default_factory=dict)
 
 
 class RawSubmission(BaseSubmission):
@@ -15,7 +16,3 @@ class RawSubmission(BaseSubmission):
 
 class Submission(BaseSubmission):
     answer_map: dict[QuestionId, Answer]
-
-
-class GradedSubmission(Submission):
-    results: list[QuestionResult]

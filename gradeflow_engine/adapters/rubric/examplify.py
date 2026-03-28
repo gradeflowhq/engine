@@ -20,7 +20,6 @@ from ..common.examplify import (
     is_all_numeric_str,
     make_dict_reader,
     parse_number_str_list,
-    points_from_row,
     split_alternatives,
 )
 from ..registries import RubricAdapter, rubric_adapter_registry
@@ -69,16 +68,14 @@ class ExamplifyRubricAdapter(RubricAdapter):
             if self._skip_row(row, cfg, source_answer):
                 continue
 
-            max_pts = self._max_points(row)
-
             rule: SingleTargetQuestionRule | None
             if qtype == "choice":
-                rule = self._build_choice_rule(qid, source_answer, max_pts, cfg)
+                rule = self._build_choice_rule(qid, source_answer, cfg)
             elif qtype == "fill in the blank":
-                rule = self._build_fitb_rule(qid, source_answer, max_pts, cfg)
+                rule = self._build_fitb_rule(qid, source_answer, cfg)
             else:
                 # Default to exact match on the literal answer string
-                rule = self._build_text_match_rule(qid, [source_answer], max_pts)
+                rule = self._build_text_match_rule(qid, [source_answer])
 
             if rule is not None:
                 rules.append(rule)
@@ -106,15 +103,11 @@ class ExamplifyRubricAdapter(RubricAdapter):
             return True
         return not bool(source)
 
-    def _max_points(self, row: dict[str, str | None]) -> float:
-        pts = points_from_row(row)
-        return pts if pts > 0 else 0.0
-
     # -----------------
     # Builders
     # -----------------
     def _build_choice_rule(
-        self, qid: str, source: str, max_points: float, cfg: ExamplifyRuleConfig
+        self, qid: str, source: str, cfg: ExamplifyRuleConfig
     ) -> MultipleChoiceQuestionRule | None:
         # Parse using the same configuration constants the QuestionSet uses
         choice_cfg = MultiValuedParserConfig(
@@ -130,11 +123,10 @@ class ExamplifyRubricAdapter(RubricAdapter):
             question_id=qid,
             answer=answer_set,
             mode=cfg.choice_mode,
-            max_points=max_points,
         )
 
     def _build_fitb_rule(
-        self, qid: str, source: str, max_points: float, cfg: ExamplifyRuleConfig
+        self, qid: str, source: str, cfg: ExamplifyRuleConfig
     ) -> SingleTargetQuestionRule | None:
         # Multi-value FITB format: "{1} VAL1, {2} VAL2, ..." where VAL may be "A|B|..."
         segments = extract_blank_segments(source) or [source]
@@ -154,14 +146,12 @@ class ExamplifyRubricAdapter(RubricAdapter):
                 return NumberEqualQuestionRule(
                     question_id=qid,
                     answers=parsed_numbers,
-                    max_points=max_points,
                 )
 
             # Default to exact string match
             return TextMatchQuestionRule(
                 question_id=qid,
                 answers=alts,
-                max_points=max_points,
             )
 
         # Multiple blanks: build inner rules per position
@@ -179,18 +169,14 @@ class ExamplifyRubricAdapter(RubricAdapter):
             question_id=qid,
             rules=inner_rules,
             aggregation=cfg.multi_valued_mode,
-            max_points=max_points,
         )
 
-    def _build_text_match_rule(
-        self, qid: str, answers: list[str], max_points: float
-    ) -> TextMatchQuestionRule | None:
+    def _build_text_match_rule(self, qid: str, answers: list[str]) -> TextMatchQuestionRule | None:
         if not answers:
             return None
         return TextMatchQuestionRule(
             question_id=qid,
             answers=answers,
-            max_points=max_points,
         )
 
 

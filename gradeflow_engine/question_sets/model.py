@@ -1,3 +1,5 @@
+from collections.abc import Mapping
+
 from pydantic import BaseModel
 
 from ..questions.constants import UNPARSABLE_MARKER
@@ -15,7 +17,7 @@ from .inference import (
 
 
 def parse_raw_answer_map(
-    question_map: dict[QuestionId, Question],
+    question_map: Mapping[QuestionId, Question],
     raw_answer_map: dict[QuestionId, str],
     strict: bool = False,
 ) -> dict[QuestionId, Answer]:
@@ -41,11 +43,23 @@ def parse_raw_answer_map(
 
 
 def parse_raw_submission(
-    question_map: dict[QuestionId, Question], raw_submission: RawSubmission, strict: bool = False
+    question_map: Mapping[QuestionId, Question], raw_submission: RawSubmission, strict: bool = False
 ) -> Submission:
     answer_map = parse_raw_answer_map(question_map, raw_submission.raw_answer_map, strict=strict)
-    parsed_submission = Submission(student_id=raw_submission.student_id, answer_map=answer_map)
-    return parsed_submission
+    # Fix max_points for any pre-populated result_map entries.
+    result_map = {
+        qid: (
+            result.model_copy(update={"max_points": question_map[qid].max_points})
+            if qid in question_map
+            else result
+        )
+        for qid, result in raw_submission.result_map.items()
+    }
+    return Submission(
+        student_id=raw_submission.student_id,
+        answer_map=answer_map,
+        result_map=result_map,
+    )
 
 
 class QuestionSet(BaseModel):

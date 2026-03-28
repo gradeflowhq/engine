@@ -18,6 +18,7 @@ from ..common.examplify import (
     get_str,
     is_all_numeric_str,
     make_dict_reader,
+    points_from_row,
     split_alternatives,
 )
 from ..registries import QuestionSetAdapter, question_set_adapter_registry
@@ -43,14 +44,10 @@ class ExamplifyQuestionSetAdapter(QuestionSetAdapter):
             description = self._desc(row)
             original_ans, adjusted_ans = self._answers(row)
 
-            if qtype == "choice":
-                qmap[qid] = self._build_choice_question(description, original_ans, adjusted_ans)
-            elif qtype == "fill in the blank":
-                qmap[qid] = self._build_fitb_question(
-                    description, adjusted_ans or original_ans, cfg
-                )
-            else:
-                qmap[qid] = TextQuestion(description=description)
+            max_points = points_from_row(row)
+            qmap[qid] = self._build_question(
+                qtype, description, original_ans, adjusted_ans, cfg, max_points
+            )
 
         return QuestionSet(question_map=qmap)
 
@@ -71,11 +68,29 @@ class ExamplifyQuestionSetAdapter(QuestionSetAdapter):
         return get_str(row, "Original Answer"), get_str(row, "Adjusted Answer")
 
     # --------- builders ---------
+    def _build_question(
+        self,
+        qtype: str,
+        description: str | None,
+        original_ans: str,
+        adjusted_ans: str,
+        cfg: ExamplifyParseConfig,
+        max_points: float,
+    ) -> Question:
+        if qtype == "choice":
+            return self._build_choice_question(description, original_ans, adjusted_ans, max_points)
+        if qtype == "fill in the blank":
+            return self._build_fitb_question(
+                description, adjusted_ans or original_ans, cfg, max_points
+            )
+        return TextQuestion(description=description, max_points=max_points)
+
     def _build_choice_question(
         self,
         description: str | None,
         original_ans: str,
         adjusted_ans: str,
+        max_points: float,
     ) -> ChoiceQuestion:
         opts: set[str] = set()
         for src in (original_ans, adjusted_ans):
@@ -114,6 +129,7 @@ class ExamplifyQuestionSetAdapter(QuestionSetAdapter):
             config=choice_cfg,
             options=opts,
             allow_multiple=allow_multiple,
+            max_points=max_points,
         )
 
     def _build_fitb_question(
@@ -121,9 +137,10 @@ class ExamplifyQuestionSetAdapter(QuestionSetAdapter):
         description: str | None,
         source: str | None,
         cfg: ExamplifyParseConfig,
+        max_points: float,
     ) -> TextQuestion | NumericQuestion | MultiValuedQuestion:
         if not source:
-            return TextQuestion(description=description)
+            return TextQuestion(description=description, max_points=max_points)
 
         # Multi-value FITB format: "{1} VAL1, {2} VAL2, ..." where VAL may be "A|B|..."
         segments = extract_blank_segments(source) or [source]
@@ -138,6 +155,7 @@ class ExamplifyQuestionSetAdapter(QuestionSetAdapter):
                 return NumericQuestion(
                     description=description,
                     config=BaseParserConfig(empty_marker=EMPTY_MARKER),
+                    max_points=max_points,
                 )
             return TextQuestion(
                 description=description,
@@ -146,6 +164,7 @@ class ExamplifyQuestionSetAdapter(QuestionSetAdapter):
                     trim_whitespace=TRIM_WHITESPACE,
                     normalize_case=False,
                 ),
+                max_points=max_points,
             )
 
         # Multiple blanks
@@ -165,6 +184,7 @@ class ExamplifyQuestionSetAdapter(QuestionSetAdapter):
             description=description,
             config=mv_cfg,
             value_types=value_types,
+            max_points=max_points,
         )
 
 

@@ -79,16 +79,23 @@ class ConditionalMultiQuestionRule(BaseMultiQuestionRule):
             for qid in rule.get_target_question_ids()
         }
 
-    def process_submission(self, answer_map: dict[QuestionId, Answer]) -> list[QuestionResult]:
-        if_results = [rule.process_submission(answer_map) for rule in self.if_rules]
+    def process_submission(
+        self, answer_map: dict[QuestionId, Answer], max_points_map: dict[QuestionId, float]
+    ) -> dict[QuestionId, QuestionResult]:
+        if_results = [
+            rule.process_submission(answer_map, max_points_map)[rule.question_id]
+            for rule in self.if_rules
+        ]
         condition_met = check_condition(if_results, self.if_aggregation)
-        if condition_met:
-            results = [rule.process_submission(answer_map) for rule in self.then_rules]
-        else:
-            results = [rule.process_submission(answer_map) for rule in self.else_rules]
-        for result in results:
-            if_question_ids = {res.question_id for res in if_results}
+        active_rules = self.then_rules if condition_met else self.else_rules
+        if_question_ids = {rule.question_id for rule in self.if_rules}
+        results: dict[QuestionId, QuestionResult] = {}
+        for rule in active_rules:
+            qid = rule.question_id
+            result = rule.process_submission(answer_map, max_points_map)[qid]
             result.feedback = (
-                f"[Condition {', '.join(if_question_ids)}: {condition_met}] {result.feedback}"
+                f"[Condition {', '.join(sorted(if_question_ids))}: {condition_met}]"
+                f" {result.feedback}"
             )
+            results[qid] = result
         return results

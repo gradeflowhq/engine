@@ -16,11 +16,10 @@ def test_bonus_rule_basic_result_properties() -> None:
 
 
 def test_bonus_question_rule_awards_full_points() -> None:
-    qrule = BonusQuestionRule(question_id="Q1", max_points=3.5)
+    qrule = BonusQuestionRule(question_id="Q1")
     submission: dict[QuestionId, Answer] = {"Q1": "ignored"}
 
-    qres = qrule.process_submission(submission)
-    assert qres.question_id == "Q1"
+    qres = qrule.process_submission(submission, {"Q1": 3.5})["Q1"]
     assert qres.max_points == 3.5
     assert qres.points == 3.5
     assert qres.passed is True
@@ -30,7 +29,7 @@ def test_bonus_question_rule_awards_full_points() -> None:
 def test_bonus_question_rule_missing_answer_raises() -> None:
     qrule = BonusQuestionRule(question_id="Q_missing")
     try:
-        _ = qrule.process_submission({})
+        _ = qrule.process_submission({}, {})
         raise AssertionError("Expected ValueError for missing answer")
     except ValueError:
         pass

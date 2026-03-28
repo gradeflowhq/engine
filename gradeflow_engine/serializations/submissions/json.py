@@ -4,12 +4,12 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from ...submissions.models import GradedSubmission
+from ...submissions.models import Submission
 from ..base import DataBlob, Serializer
-from ..registries import graded_submissions_serializer_registry
+from ..registries import submissions_serializer_registry
 
 
-class JsonGradedSubmissionsConfig(BaseModel):
+class JsonSubmissionsConfig(BaseModel):
     format: Literal["json"] = "json"
     ensure_ascii: bool = Field(default=False)
 
@@ -21,15 +21,15 @@ class _Encoder(json.JSONEncoder):
         return super().default(o)
 
 
-class JsonGradedSubmissionsSerializer(Serializer[Iterable[GradedSubmission]]):
+class JsonSubmissionsSerializer(Serializer[Iterable[Submission]]):
     format = "json"
     media_type = "application/json"
-    config: JsonGradedSubmissionsConfig = JsonGradedSubmissionsConfig()
+    config: JsonSubmissionsConfig = JsonSubmissionsConfig()
 
     def __init__(self, **kwargs: object) -> None:
         self.config = self.config.model_validate(kwargs)
 
-    def dumps(self, submissions: Iterable[GradedSubmission]) -> DataBlob:
+    def dumps(self, submissions: Iterable[Submission]) -> DataBlob:
         items = [gs.model_dump() for gs in submissions]
         text = json.dumps(
             items,
@@ -38,8 +38,8 @@ class JsonGradedSubmissionsSerializer(Serializer[Iterable[GradedSubmission]]):
         )
         return DataBlob(data=text.encode("utf-8"), media_type=self.media_type, extension="json")
 
-    def loads(self, blob) -> Iterable[GradedSubmission]:
-        raise NotImplementedError("Deserializing graded submissions from JSON is not supported.")
+    def loads(self, blob) -> Iterable[Submission]:
+        raise NotImplementedError("Deserializing submissions from JSON is not supported.")
 
 
-graded_submissions_serializer_registry.register("json", JsonGradedSubmissionsSerializer)
+submissions_serializer_registry.register("json", JsonSubmissionsSerializer)

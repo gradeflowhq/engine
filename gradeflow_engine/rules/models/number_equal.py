@@ -92,5 +92,5 @@ class NumberEqualRule(BaseRule):
 
 
 class NumberEqualQuestionRule(NumberEqualRule, BaseSingleQuestionRule):
-    def compute_points(self, result: Result) -> float:
-        return self.max_points if result.passed else 0.0
+    def compute_points(self, result: Result, max_points: float) -> float:
+        return max_points if result.passed else 0.0

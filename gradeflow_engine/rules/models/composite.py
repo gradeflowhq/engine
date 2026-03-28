@@ -52,5 +52,5 @@ class CompositeQuestionRule(CompositeRule, BaseSingleQuestionRule):
             errors.extend(rule.validate_question_compatibility(question_map[self.question_id]))
         return errors
 
-    def compute_points(self, result: Result) -> float:
-        return points_fn(result, mode=self.aggregation, max_points=self.max_points)
+    def compute_points(self, result: Result, max_points: float) -> float:
+        return points_fn(result, mode=self.aggregation, max_points=max_points)

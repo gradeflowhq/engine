@@ -45,5 +45,5 @@ class KeywordsRule(BaseRule):
 
 
 class KeywordsQuestionRule(KeywordsRule, BaseSingleQuestionRule):
-    def compute_points(self, result: Result) -> float:
-        return points_fn(result, mode=self.mode, max_points=self.max_points)
+    def compute_points(self, result: Result, max_points: float) -> float:
+        return points_fn(result, mode=self.mode, max_points=max_points)

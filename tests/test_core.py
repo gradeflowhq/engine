@@ -2,14 +2,14 @@ import textwrap
 
 from gradeflow_engine.core import (
     PipelineResult,
-    dump_graded_submissions_to_blob,
     dump_question_set_to_blob,
-    list_available_graded_submissions_serializers,
+    dump_submissions_to_blob,
     list_available_question_set_adapters,
     list_available_question_set_serializers,
     list_available_raw_submissions_adapters,
     list_available_rubric_adapters,
     list_available_rubric_serializers,
+    list_available_submissions_serializers,
     load_question_set_from_blob,
     load_raw_submissions_via_adapter,
     run_pipeline,
@@ -17,14 +17,14 @@ from gradeflow_engine.core import (
 from gradeflow_engine.io.sources import StringSource
 from gradeflow_engine.question_sets.model import QuestionSet
 from gradeflow_engine.serializations.base import DataBlob
-from gradeflow_engine.submissions.models import GradedSubmission, RawSubmission
+from gradeflow_engine.submissions.models import RawSubmission, Submission
 
 
 def test_registries_available() -> None:
     # Serializers
     assert "yaml" in list_available_question_set_serializers()
     assert "yaml" in list_available_rubric_serializers()
-    assert "csv" in list_available_graded_submissions_serializers()
+    assert "csv" in list_available_submissions_serializers()
     # Adapters
     assert "csv" in list_available_raw_submissions_adapters()
     assert "examplify" in list_available_question_set_adapters()
@@ -98,7 +98,7 @@ def test_load_and_save_question_set_yaml_roundtrip() -> None:
     assert set(qset.question_map.keys()) == {"Q1", "Q2"}
 
     # Confirm graded submissions serializers are present (sanity)
-    blob_out = dump_graded_submissions_to_blob([], serializer_name="csv")
+    blob_out = dump_submissions_to_blob([], serializer_name="csv")
     assert blob_out.extension == "csv"
 
     # Save and load question set via serializer
@@ -150,12 +150,12 @@ def test_run_pipeline_with_explicit_qset_and_rubric_and_output() -> None:
         graded_output_serializer_name="csv",
     )
     assert not result.validation_errors
-    assert len(result.graded_submissions) == 2
+    assert len(result.submissions) == 2
     # s1 should get 1 point, s2 should get 0
-    s1 = next(gs for gs in result.graded_submissions if gs.student_id == "s1")
-    s2 = next(gs for gs in result.graded_submissions if gs.student_id == "s2")
-    assert sum(r.points for r in s1.results) == 1.0
-    assert sum(r.points for r in s2.results) == 0.0
+    s1 = next(gs for gs in result.submissions if gs.student_id == "s1")
+    s2 = next(gs for gs in result.submissions if gs.student_id == "s2")
+    assert sum(r.points for r in s1.result_map.values()) == 1.0
+    assert sum(r.points for r in s2.result_map.values()) == 0.0
     assert result.output is not None
     assert result.output.extension == "csv"
     assert "total_points" in result.output.data.decode("utf-8")
@@ -257,13 +257,12 @@ def test_core_raw_adapter_kwargs_custom_student_id_and_filter() -> None:
 
 
 def test_core_dump_graded_submissions_serializer_kwargs_csv_config() -> None:
-    # Verify serializer_kwargs are honored for CsvGradedSubmissionsSerializer
-    gs = GradedSubmission(
+    # Verify serializer_kwargs are honored for CsvSubmissionsSerializer
+    gs = Submission(
         student_id="s1",
         answer_map={"Q1": "hello"},
-        results=[],
     )
-    blob = dump_graded_submissions_to_blob(
+    blob = dump_submissions_to_blob(
         [gs],
         serializer_name="csv",
         serializer_kwargs={"student_id_column": "id", "include_total": False},
@@ -317,7 +316,7 @@ def test_run_pipeline_with_kwargs_for_adapters_and_serializers() -> None:
     )
 
     assert not result.validation_errors
-    assert len(result.graded_submissions) == 2
+    assert len(result.submissions) == 2
     # Check that the output CSV used the custom student_id column "sid"
     assert result.output is not None
     out_csv = result.output.data.decode("utf-8")

@@ -1,8 +1,12 @@
-from gradeflow_engine.question_sets.model import QuestionSet
+import pytest
+
+from gradeflow_engine.adapters.raw_submissions.csv import ORIGINAL_POINTS_RULE_NAME
+from gradeflow_engine.question_sets.model import QuestionSet, parse_raw_submission
 from gradeflow_engine.questions.models import ChoiceQuestion, TextQuestion
 from gradeflow_engine.questions.models.multi_valued import MultiValuedQuestion
 from gradeflow_engine.questions.models.numeric import NumericQuestion
 from gradeflow_engine.questions.parser import MultiValuedParserConfig
+from gradeflow_engine.rules.result import QuestionResult
 from gradeflow_engine.submissions.models import RawSubmission
 
 
@@ -61,3 +65,28 @@ def test_multi_valued_question_parse() -> None:
     raw = "1, two, 3.0, three"
     parsed = qs.parse([RawSubmission(student_id="m1", raw_answer_map={"m": raw})])[0]
     assert parsed.answer_map["m"] == [1, "two", 3.0, "three"]
+
+
+def test_parse_raw_submission_corrects_passthrough_max_points_from_question_map() -> None:
+    # A passthrough result_map entry from CSV import has max_points set to the raw score (3.5).
+    # parse_raw_submission should correct it to the authoritative value from the question map (5.0).
+    passthrough_result = QuestionResult(
+        output=3.5,
+        passed=True,
+        feedback="",
+        rule=ORIGINAL_POINTS_RULE_NAME,
+        points=3.5,
+        max_points=3.5,  # raw CSV value — should be corrected during parsing
+    )
+    raw = RawSubmission(
+        student_id="s1",
+        raw_answer_map={"q2": "yes"},
+        result_map={"q1": passthrough_result},
+    )
+    question_map = {"q1": TextQuestion(max_points=5.0), "q2": TextQuestion(max_points=2.0)}
+
+    parsed = parse_raw_submission(question_map, raw)
+
+    q1 = parsed.result_map["q1"]
+    assert q1.points == pytest.approx(3.5)  # unchanged
+    assert q1.max_points == pytest.approx(5.0)  # corrected from question_map

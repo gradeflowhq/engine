@@ -1,3 +1,5 @@
+from collections.abc import Mapping
+
 from pydantic import BaseModel, Field
 
 from ..question_sets.model import QuestionSet
@@ -8,35 +10,31 @@ from ..rules.models.manual import ManualQuestionRule
 from ..rules.result import QuestionResult
 from ..rules.types import RuleValidationError
 from ..rules.validators import validate_unique_target_questions_in_rules
-from ..submissions.models import GradedSubmission, Submission
+from ..submissions.models import Submission
 
 
 def grade_submission(
-    rules: list[QuestionRule], submission: Submission, strict: bool = False
-) -> GradedSubmission:
-    results: list[QuestionResult] = []
+    rules: list[QuestionRule],
+    submission: Submission,
+    question_map: Mapping[QuestionId, Question],
+    strict: bool = False,
+) -> Submission:
+    max_points_map: dict[QuestionId, float] = {qid: q.max_points for qid, q in question_map.items()}
+    result_map: dict[QuestionId, QuestionResult] = dict(submission.result_map)
     for rule in rules:
         try:
-            result = rule.process_submission(submission.answer_map)
+            result = rule.process_submission(submission.answer_map, max_points_map)
         except Exception as e:
             if strict:
                 raise e
-            result = [
-                ManualQuestionRule(question_id=question_id).process_submission(
-                    submission.answer_map
-                )
+            result = {
+                question_id: ManualQuestionRule(question_id=question_id).process_submission(
+                    submission.answer_map, max_points_map
+                )[question_id]
                 for question_id in rule.get_target_question_ids()
-            ]
-        if isinstance(result, list):
-            results.extend(result)
-        else:
-            results.append(result)
-    graded_submission = GradedSubmission(
-        student_id=submission.student_id,
-        answer_map=submission.answer_map,
-        results=results,
-    )
-    return graded_submission
+            }
+        result_map.update(result)
+    return submission.model_copy(update={"result_map": result_map})
 
 
 class RubricCoverage(BaseModel):
@@ -50,9 +48,15 @@ class RubricCoverage(BaseModel):
 class Rubric(BaseModel):
     rules: list[QuestionRule]
 
-    def grade(self, submissions: list[Submission], strict: bool = False) -> list[GradedSubmission]:
+    def grade(
+        self,
+        submissions: list[Submission],
+        question_map: Mapping[QuestionId, Question],
+        strict: bool = False,
+    ) -> list[Submission]:
         return [
-            grade_submission(self.rules, submission, strict=strict) for submission in submissions
+            grade_submission(self.rules, submission, question_map, strict=strict)
+            for submission in submissions
         ]
 
     def validate_questions_exist(self, question_ids: set[QuestionId]) -> list[RuleValidationError]:

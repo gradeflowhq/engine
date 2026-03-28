@@ -1,8 +1,8 @@
 import csv
 from io import StringIO
 
-from gradeflow_engine.core import dump_graded_submissions_to_blob
-from gradeflow_engine.submissions.models import GradedSubmission
+from gradeflow_engine.core import dump_submissions_to_blob
+from gradeflow_engine.submissions.models import Submission
 
 
 def _parse_csv(data: str) -> tuple[list[dict[str, str]], list[str]]:
@@ -13,10 +13,10 @@ def _parse_csv(data: str) -> tuple[list[dict[str, str]], list[str]]:
 
 
 def test_csv_serializer_headers_and_values(
-    graded_submissions_sample: list[GradedSubmission],
+    graded_submissions_sample: list[Submission],
 ) -> None:
-    subs: list[GradedSubmission] = graded_submissions_sample
-    blob = dump_graded_submissions_to_blob(subs, serializer_name="csv")
+    subs: list[Submission] = graded_submissions_sample
+    blob = dump_submissions_to_blob(subs, serializer_name="csv")
     assert blob.extension == "csv"
 
     data: str = blob.data.decode("utf-8")

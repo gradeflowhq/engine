@@ -42,11 +42,10 @@ def test_regex_case_sensitive_fails() -> None:
 
 def test_regex_question_rule_points_and_flags() -> None:
     cfg = RegexConfig(multi_line=True, dotall=True)
-    qrule = RegexQuestionRule(question_id="q1", pattern=r"^start.*end$", config=cfg, max_points=2.5)
+    qrule = RegexQuestionRule(question_id="q1", pattern=r"^start.*end$", config=cfg)
     submission: dict[QuestionId, Answer] = {"q1": "start\nmiddle\nend"}
-    qresult = qrule.process_submission(submission)
+    qresult = qrule.process_submission(submission, {"q1": 2.5})["q1"]
 
-    assert qresult.question_id == "q1"
     assert qresult.max_points == 2.5
     assert qresult.points == 2.5
 

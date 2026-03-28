@@ -32,16 +32,15 @@ def test_text_match_numeric_answer() -> None:
 
 
 def test_text_match_question_rule_points() -> None:
-    qrule = TextMatchQuestionRule(question_id="q1", answers=["yes"], max_points=5.0)
+    qrule = TextMatchQuestionRule(question_id="q1", answers=["yes"])
     submission: dict[QuestionId, Answer] = {"q1": "yes"}
-    qresult = qrule.process_submission(submission)
+    qresult = qrule.process_submission(submission, {"q1": 5.0})["q1"]
 
-    assert qresult.question_id == "q1"
     assert qresult.max_points == 5.0
     assert qresult.points == 5.0
 
     submission = {"q1": "no"}
-    qresult = qrule.process_submission(submission)
+    qresult = qrule.process_submission(submission, {"q1": 5.0})["q1"]
 
     assert qresult.points == 0.0
 

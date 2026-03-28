@@ -18,38 +18,32 @@ def make_question_set() -> QuestionSet:
 
 def test_length_rule_grading_and_points() -> None:
     # length rule for q1: min 5, max 20, max_points defaults to 1.0
-    length_rule = LengthQuestionRule(question_id="q1", min_length=5, max_length=20, max_points=2.0)
+    length_rule = LengthQuestionRule(question_id="q1", min_length=5, max_length=20)
     rubric = Rubric(rules=[length_rule])
+    q1_map = {"q1": TextQuestion(max_points=2.0)}
 
     # submission with short answer -> fail and 0 points
     submission = Submission(student_id="s1", answer_map={"q1": "hey"})
-    graded = rubric.grade([submission])[0]
+    graded = rubric.grade([submission], q1_map)[0]
     assert graded.student_id == "s1"
-    assert len(graded.results) == 1
-    res = graded.results[0]
-    assert res.question_id == "q1"
+    assert len(graded.result_map) == 1
+    res = graded.result_map["q1"]
     assert res.passed is False
     assert res.points == 0.0
 
     # submission with adequate length -> pass and full points
     submission2 = Submission(student_id="s2", answer_map={"q1": "hello world"})
-    graded2 = rubric.grade([submission2])[0]
-    res2 = graded2.results[0]
+    graded2 = rubric.grade([submission2], q1_map)[0]
+    res2 = graded2.result_map["q1"]
     assert res2.passed is True
     assert res2.points == 2.0
 
 
 def test_multiple_choice_modes_and_combined_rules() -> None:
     # q2 choices correct are 'a' and 'b'
-    mc_all = MultipleChoiceQuestionRule(
-        question_id="q2", answer={"a", "b"}, mode="ALL", max_points=3.0
-    )
-    mc_any = MultipleChoiceQuestionRule(
-        question_id="q2", answer={"a", "b"}, mode="ANY", max_points=3.0
-    )
-    mc_partial = MultipleChoiceQuestionRule(
-        question_id="q2", answer={"a", "b"}, mode="PARTIAL", max_points=3.0
-    )
+    mc_all = MultipleChoiceQuestionRule(question_id="q2", answer={"a", "b"}, mode="ALL")
+    mc_any = MultipleChoiceQuestionRule(question_id="q2", answer={"a", "b"}, mode="ANY")
+    mc_partial = MultipleChoiceQuestionRule(question_id="q2", answer={"a", "b"}, mode="PARTIAL")
 
     # Use each rule separately to check behaviour
     r_all = Rubric(rules=[mc_all])
@@ -58,23 +52,23 @@ def test_multiple_choice_modes_and_combined_rules() -> None:
 
     sub = Submission(student_id="s1", answer_map={"q2": {"a"}})
 
-    g_all = r_all.grade([sub])[0].results[0]
+    g_all = r_all.grade([sub], {})[0].result_map["q2"]
     assert g_all.passed is False  # ALL requires both a and b
 
-    g_any = r_any.grade([sub])[0].results[0]
+    g_any = r_any.grade([sub], {})[0].result_map["q2"]
     assert g_any.passed is True
 
-    g_part = r_part.grade([sub])[0].results[0]
+    g_part = r_part.grade([sub], {"q2": ChoiceQuestion(max_points=3.0)})[0].result_map["q2"]
     # partial with one correct and zero incorrect should give 0.5 of max points
     assert pytest.approx(g_part.points) == 1.5  # type: ignore
 
     # combine length rule for q1 and multiple choice rule for q2 in same rubric
-    length_rule = LengthQuestionRule(question_id="q1", min_length=1, max_length=100, max_points=1.0)
+    length_rule = LengthQuestionRule(question_id="q1", min_length=1, max_length=100)
     combined = Rubric(rules=[length_rule, mc_any])
     sub2 = Submission(student_id="s2", answer_map={"q1": "ok", "q2": {"z"}})
-    graded = combined.grade([sub2])[0]
+    graded = combined.grade([sub2], {})[0]
     # should produce two results (one per rule)
-    assert len(graded.results) == 2
+    assert len(graded.result_map) == 2
 
 
 def test_missing_answer_raises_value_error() -> None:
@@ -83,7 +77,7 @@ def test_missing_answer_raises_value_error() -> None:
     # submission missing q2
     sub = Submission(student_id="s1", answer_map={})
     with pytest.raises(ValueError):
-        rubric.grade([sub])
+        rubric.grade([sub], {})
 
 
 def test_validate_questions_exist_and_compatibility_and_unique() -> None:
@@ -120,8 +114,8 @@ def test_rubric_get_coverage_basic() -> None:
     qset = QuestionSet(question_map={"Q1": TextQuestion(), "Q2": TextQuestion()})
 
     # Rubric targets Q1 (exists) and Q999 (non-existent)
-    r1 = TextMatchQuestionRule(question_id="Q1", answers=["foo"], max_points=1.0)
-    r2 = TextMatchQuestionRule(question_id="Q999", answers=["bar"], max_points=1.0)
+    r1 = TextMatchQuestionRule(question_id="Q1", answers=["foo"])
+    r2 = TextMatchQuestionRule(question_id="Q999", answers=["bar"])
     rubric = Rubric(rules=[r1, r2])
 
     cov: RubricCoverage = rubric.get_coverage(qset)
@@ -136,7 +130,7 @@ def test_rubric_get_coverage_basic() -> None:
 
 def test_rubric_get_coverage_empty_qset() -> None:
     qset = QuestionSet(question_map={})
-    r1 = TextMatchQuestionRule(question_id="Q1", answers=["foo"], max_points=1.0)
+    r1 = TextMatchQuestionRule(question_id="Q1", answers=["foo"])
     rubric = Rubric(rules=[r1])
 
     cov = rubric.get_coverage(qset)

@@ -92,10 +92,10 @@ class ProgrammableRule(BaseRule):
 
 
 class ProgrammableQuestionRule(ProgrammableRule, BaseSingleQuestionRule):
-    def compute_points(self, result: Result) -> float:
+    def compute_points(self, result: Result, max_points: float) -> float:
         if self.mode == "OUTPUT":
-            return result.output * self.max_points
+            return result.output * max_points
         elif self.mode == "PASS_FAIL":
-            return self.max_points if result.passed else 0.0
+            return max_points if result.passed else 0.0
         else:
             raise ValueError(f"Unknown mode: {self.mode}")

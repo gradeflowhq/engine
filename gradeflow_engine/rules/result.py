@@ -10,7 +10,6 @@ class Result(BaseModel):
 
 
 class QuestionResult(Result):
-    question_id: str = Field(description="Question identifier")
     points: float = Field(description="Points awarded for this question")
     max_points: float = Field(description="Maximum points possible")
 

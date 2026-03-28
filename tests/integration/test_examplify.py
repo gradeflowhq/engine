@@ -84,7 +84,7 @@ def test_examplify_imports_and_grading_match_et_results() -> None:
 
     # Parse submissions and grade
     submissions = qset.parse(raw_submissions, strict=False)
-    graded = rubric.grade(submissions, strict=False)
+    graded = rubric.grade(submissions, qset.question_map, strict=False)
     assert graded, "No graded submissions produced"
 
     # Build lookups: student_id -> total points and per-question points
@@ -93,8 +93,8 @@ def test_examplify_imports_and_grading_match_et_results() -> None:
     for gs in graded:
         qpoints: dict[str, float] = {}
         total = 0.0
-        for res in gs.results:
-            qpoints[res.question_id] = float(res.points)
+        for qid, res in gs.result_map.items():
+            qpoints[qid] = float(res.points)
             total += float(res.points)
         engine_total_by_sid[gs.student_id] = total
         engine_qpoints_by_sid[gs.student_id] = qpoints

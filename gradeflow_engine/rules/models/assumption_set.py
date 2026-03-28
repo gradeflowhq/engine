@@ -18,7 +18,7 @@ AssumptionSetMode = Literal["MAX", "MIN"]
 
 
 def _convert_rule_to_question_rule(
-    rule: "SingleTargetRule", question_id: QuestionId, max_points: float
+    rule: "SingleTargetRule", question_id: QuestionId
 ) -> "SingleTargetQuestionRule":
     """Convert a SingleTargetRule to its corresponding SingleTargetQuestionRule variant."""
     from . import SingleTargetQuestionRule
@@ -26,7 +26,6 @@ def _convert_rule_to_question_rule(
     # Get all the rule's fields and add the question_id
     rule_data = rule.model_dump()
     rule_data["question_id"] = question_id
-    rule_data["max_points"] = max_points
 
     # Use Pydantic's discriminated union to parse into the correct QuestionRule type
     adapter: TypeAdapter[SingleTargetQuestionRule] = TypeAdapter(SingleTargetQuestionRule)
@@ -55,14 +54,16 @@ class AssumptionResult:
 
 
 def evaluate_assumption(
-    question_assumption: MultiQuestionAssumption, answer_map: dict[QuestionId, Answer]
+    question_assumption: MultiQuestionAssumption,
+    answer_map: dict[QuestionId, Answer],
+    max_points_map: dict[QuestionId, float],
 ) -> AssumptionResult:
     question_results: list[QuestionResult] = []
     assumption_marker = (
         f"[Assumption: {question_assumption.name}] " if question_assumption.name else ""
     )
     for rule in question_assumption.rules:
-        result = rule.process_submission(answer_map)
+        result = rule.process_submission(answer_map, max_points_map)[rule.question_id]
         result.feedback = f"{assumption_marker}{result.feedback}"
         result.points *= question_assumption.weight
         question_results.append(result)
@@ -102,11 +103,7 @@ class AssumptionSetQuestionRule(AssumptionSetBaseRule, BaseSingleQuestionRule):
                 MultiQuestionAssumption(
                     name=assumption.name,
                     weight=assumption.weight,
-                    rules=[
-                        _convert_rule_to_question_rule(
-                            assumption.rule, self.question_id, self.max_points
-                        )
-                    ],
+                    rules=[_convert_rule_to_question_rule(assumption.rule, self.question_id)],
                 )
                 for assumption in self.assumptions
             ],
@@ -118,10 +115,10 @@ class AssumptionSetQuestionRule(AssumptionSetBaseRule, BaseSingleQuestionRule):
     ) -> list[RuleValidationError]:
         return self._rule.validate_compatibility(question_map)
 
-    def process_submission(self, answer_map: dict[QuestionId, Answer]) -> QuestionResult:
-        multi_question_result = self._rule.process_submission(answer_map)
-        # There should be only one question result since this is a single question rule
-        return multi_question_result[0]
+    def process_submission(
+        self, answer_map: dict[QuestionId, Answer], max_points_map: dict[QuestionId, float]
+    ) -> dict[QuestionId, QuestionResult]:
+        return self._rule.process_submission(answer_map, max_points_map)
 
 
 class AssumptionSetMultiQuestionRule(AssumptionSetBaseRule, BaseMultiQuestionRule):
@@ -163,9 +160,19 @@ class AssumptionSetMultiQuestionRule(AssumptionSetBaseRule, BaseMultiQuestionRul
             for qid in rule.get_target_question_ids()
         }
 
-    def process_submission(self, answer_map: dict[QuestionId, Answer]) -> list[QuestionResult]:
+    def process_submission(
+        self, answer_map: dict[QuestionId, Answer], max_points_map: dict[QuestionId, float]
+    ) -> dict[QuestionId, QuestionResult]:
         results: list[AssumptionResult] = [
-            evaluate_assumption(assumption, answer_map) for assumption in self.assumptions
+            evaluate_assumption(assumption, answer_map, max_points_map)
+            for assumption in self.assumptions
         ]
         chosen_assumption_result = choose_assumption_result(results, self.mode)
-        return chosen_assumption_result.question_results
+        return {
+            rule.question_id: result
+            for rule, result in zip(
+                chosen_assumption_result.assumption.rules,
+                chosen_assumption_result.question_results,
+                strict=True,
+            )
+        }

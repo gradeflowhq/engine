@@ -32,11 +32,11 @@ from .rules.types import RuleValidationError
 # Serializers (registries and types)
 from .serializations.base import DataBlob, Serializer
 from .serializations.registries import (
-    graded_submissions_serializer_registry,
     question_set_serializer_registry,
     rubric_serializer_registry,
+    submissions_serializer_registry,
 )
-from .submissions.models import GradedSubmission, RawSubmission, Submission
+from .submissions.models import RawSubmission, Submission
 
 C = TypeVar("C")
 
@@ -60,8 +60,8 @@ def list_available_rubric_serializers() -> list[str]:
     return rubric_serializer_registry.available()
 
 
-def list_available_graded_submissions_serializers() -> list[str]:
-    return graded_submissions_serializer_registry.available()
+def list_available_submissions_serializers() -> list[str]:
+    return submissions_serializer_registry.available()
 
 
 def list_available_raw_submissions_adapters() -> list[str]:
@@ -89,10 +89,10 @@ def get_rubric_serializer_class(name: str) -> type[Serializer[Rubric]]:
     return rubric_serializer_registry.get(name)
 
 
-def get_graded_submissions_serializer_class(
+def get_submissions_serializer_class(
     name: str,
-) -> type[Serializer[Iterable[GradedSubmission]]]:
-    return graded_submissions_serializer_registry.get(name)
+) -> type[Serializer[Iterable[Submission]]]:
+    return submissions_serializer_registry.get(name)
 
 
 def get_raw_submissions_adapter_class(name: str) -> type[RawSubmissionsAdapter]:
@@ -145,15 +145,15 @@ def load_rubric_from_blob(
     return serializer.loads(blob)
 
 
-def dump_graded_submissions_to_blob(
-    graded_submissions: Iterable[GradedSubmission],
+def dump_submissions_to_blob(
+    submissions: Iterable[Submission],
     *,
     serializer_name: str = "csv",
     serializer_kwargs: dict[str, object] | None = None,
 ) -> DataBlob:
-    cls = get_graded_submissions_serializer_class(serializer_name)
+    cls = get_submissions_serializer_class(serializer_name)
     serializer = _instantiate(cls, serializer_kwargs)
-    return serializer.dumps(graded_submissions)
+    return serializer.dumps(submissions)
 
 
 # ---------------------------
@@ -202,10 +202,9 @@ def load_rubric_via_adapter(
 class PipelineResult(BaseModel):
     raw_submissions: list[RawSubmission]
     question_set: QuestionSet
-    submissions: list[Submission]
+    submissions: list[Submission] = Field(default_factory=list[Submission])
     rubric: Rubric | None = None
     validation_errors: list[RuleValidationError] = Field(default_factory=list[RuleValidationError])
-    graded_submissions: list[GradedSubmission] = Field(default_factory=list[GradedSubmission])
     output: DataBlob | None = None
     coverage: RubricCoverage | None = None
 
@@ -308,19 +307,20 @@ def run_pipeline(
 
     # Validate and grade
     validation_errors: list[RuleValidationError] = []
-    graded_submissions: list[GradedSubmission] = []
     coverage: RubricCoverage | None = None
 
     if used_rubric is not None:
         validation_errors = used_rubric.validate_rubric(qset)
-        graded_submissions = used_rubric.grade(submissions, strict=rubric_grading_strict)
+        submissions = used_rubric.grade(
+            submissions, qset.question_map, strict=rubric_grading_strict
+        )
         coverage = used_rubric.get_coverage(qset)
 
     # Optional serialize graded output
     output: DataBlob | None = None
-    if graded_output_serializer_name and graded_submissions:
-        output = dump_graded_submissions_to_blob(
-            graded_submissions,
+    if graded_output_serializer_name and submissions:
+        output = dump_submissions_to_blob(
+            submissions,
             serializer_name=graded_output_serializer_name,
             serializer_kwargs=graded_output_serializer_kwargs,
         )
@@ -333,7 +333,6 @@ def run_pipeline(
         submissions=submissions,
         rubric=used_rubric,
         validation_errors=validation_errors,
-        graded_submissions=graded_submissions,
         output=output,
         coverage=coverage,
     )
@@ -343,14 +342,14 @@ __all__ = [
     # Discovery
     "list_available_question_set_serializers",
     "list_available_rubric_serializers",
-    "list_available_graded_submissions_serializers",
+    "list_available_submissions_serializers",
     "list_available_raw_submissions_adapters",
     "list_available_question_set_adapters",
     "list_available_rubric_adapters",
     # Getters
     "get_question_set_serializer_class",
     "get_rubric_serializer_class",
-    "get_graded_submissions_serializer_class",
+    "get_submissions_serializer_class",
     "get_raw_submissions_adapter_class",
     "get_question_set_adapter_class",
     "get_rubric_adapter_class",
@@ -358,7 +357,7 @@ __all__ = [
     "load_question_set_from_blob",
     "dump_question_set_to_blob",
     "load_rubric_from_blob",
-    "dump_graded_submissions_to_blob",
+    "dump_submissions_to_blob",
     # Pipeline
     "PipelineResult",
     "run_pipeline",
