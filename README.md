@@ -91,10 +91,27 @@ gradeflow-engine grade \
   --out path/to/results.csv
 ```
 
+Pass pre-existing point columns through (e.g. manually graded questions scored outside the engine):
+
+```bash
+gradeflow-engine grade \
+  --submissions path/to/submissions.csv \
+  --raw-submissions-adapter csv \
+  --point-column Q4=Q4_pts \
+  --point-column Q5=Q5_pts \
+  --question-set path/to/question_set.yaml \
+  --question-set-serializer yaml \
+  --rubric path/to/rubric.yaml \
+  --rubric-serializer yaml \
+  --out-serializer csv \
+  --out path/to/graded_results.csv
+```
+
 Notes:
 - If you omit `--question-set` and `--question-set-adapter-src`, the engine will infer one from submissions
 - If you omit `--rubric` and `--rubric-adapter-src`, parsing and reporting will occur, but grading is skipped
 - Adapters handle external formats (Examplify); serializers handle YAML/CSV/JSON I/O
+- `--point-column question_id=csv_column` can be repeated; those CSV columns are excluded from answers and imported as pre-graded `result_map` entries
 
 ## Quick Start (Python API)
 
@@ -104,7 +121,7 @@ Use the core API for scripted pipelines.
 from gradeflow_engine.core import (
     load_raw_submissions_via_adapter,
     load_rubric_from_blob,
-    dump_graded_submissions_to_blob,
+    dump_submissions_to_blob,
     run_pipeline,
 )
 from gradeflow_engine.io.sources import StringSource
@@ -163,10 +180,10 @@ rubric = load_rubric_from_blob(
 
 # Grade submissions - parse with question set then grade with rubric
 submissions = question_set.parse(raw_submissions)
-graded_submissions = rubric.grade(submissions)
+graded_submissions = rubric.grade(submissions, question_set.question_map)
 
 # Serialize results to CSV
-csv_blob = dump_graded_submissions_to_blob(
+csv_blob = dump_submissions_to_blob(
     graded_submissions,
     serializer_name="csv",
     serializer_kwargs={
@@ -185,7 +202,8 @@ print("Validation errors:", rubric.validate_rubric(question_set))
 ### Submissions (CSV)
 
 - A header row is required. Default `student_id_column` is `student_id`.
-- `answer_columns` can be provided; if omitted, all non-ID columns are treated as answers.
+- `answer_columns` can be provided; if omitted, all non-ID/non-point columns are treated as answers.
+- `point_columns`: optional `dict[str, str]` mapping `question_id` → CSV column name. When provided, those columns are excluded from answers and their values are loaded as pre-existing `QuestionResult` entries in the submission's `result_map`. Useful for importing manually graded or pass-through scored columns.
 
 Example:
 
@@ -194,6 +212,35 @@ student_id,Q1,Q2,Q3
 S1,red,10,foo
 S2,red,9,foobar
 S3,blue,,bar
+```
+
+Example with pre-existing points column:
+
+```csv
+student_id,Q1,Q2,Q3,Q4_pts
+S1,red,10,foo,8.0
+S2,red,9,foobar,6.5
+S3,blue,,bar,
+```
+
+Used via CLI:
+
+```bash
+gradeflow-engine grade \
+  --submissions path/to/submissions.csv \
+  --raw-submissions-adapter csv \
+  --point-column Q4=Q4_pts \
+  ...
+```
+
+Or via Python:
+
+```python
+load_raw_submissions_via_adapter(
+    source,
+    adapter_name="csv",
+    adapter_kwargs={"point_columns": {"Q4": "Q4_pts"}},
+)
 ```
 
 ### QuestionSet (YAML)
@@ -205,6 +252,7 @@ question_map:
   Q1:
     type: "CHOICE"
     description: "Choose a color"
+    max_points: 2.0
     config:
       delimiter: ","
       trim_whitespace: true
@@ -215,11 +263,15 @@ question_map:
   Q2:
     type: "NUMERIC"
     description: "Enter a number"
+    max_points: 1.0
 
   Q3:
     type: "TEXT"
     description: "Enter a short text"
+    max_points: 1.0
 ```
+
+Each question has an optional `max_points` field (default `1.0`). When loading from Examplify, `max_points` is populated from the exam export's point values.
 
 You can generate this via inference and save with the YAML saver.
 
@@ -448,7 +500,7 @@ rules:
     max_points: 10
 ```
 
-### Graded Submissions (CSV output)
+### Submissions (CSV output)
 
 CSV serializer produces:
 
@@ -529,7 +581,7 @@ The engine uses separate registries for adapters and serializers:
 **Serializers** (YAML/CSV/JSON I/O):
 - `QuestionSetSerializer`: Serialize/deserialize question sets
 - `RubricSerializer`: Serialize/deserialize rubrics
-- `GradedSubmissionsSerializer`: Serialize graded results
+- `SubmissionsSerializer`: Serialize graded results
 
 Built-in adapters:
 - CSV (submissions)
@@ -549,12 +601,13 @@ from gradeflow_engine.core import (
     list_available_rubric_adapters,
     list_available_question_set_serializers,
     list_available_rubric_serializers,
-    list_available_graded_submissions_serializers,
+    list_available_submissions_serializers,
     get_raw_submissions_adapter_class,
 )
 
 print(list_available_raw_submissions_adapters())  # ["csv", "examplify"]
 print(list_available_question_set_serializers())  # ["yaml"]
+print(list_available_submissions_serializers())    # ["csv", "json"]
 
 CsvAdapter = get_raw_submissions_adapter_class("csv")
 ```
