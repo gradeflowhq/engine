@@ -28,7 +28,7 @@ import json
 variables = json.loads({initial_json!r})
 
 code = {code!r}
-exec(code, {{}}, variables)
+exec(code, variables)
 
 def _is_jsonable(v):
     try:
