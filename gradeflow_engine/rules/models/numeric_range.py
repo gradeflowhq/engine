@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, computed_field
 
 from ...questions.types import Answer, QuestionType
 from ..result import Result
@@ -8,10 +8,29 @@ from .base import BaseRule, BaseSingleQuestionRule
 
 
 class NumericRangeRule(BaseRule):
-    type: Literal["NUMERIC_RANGE"] = "NUMERIC_RANGE"
-    question_types: frozenset[QuestionType] = frozenset({"NUMERIC"})
+    type: Literal["NUMERIC_RANGE"] = Field(
+        default="NUMERIC_RANGE", frozen=True, json_schema_extra={"readOnly": True}
+    )
+    name: Literal["Numeric Range"] = Field(
+        default="Numeric Range", frozen=True, json_schema_extra={"readOnly": True}
+    )
+    question_types: frozenset[QuestionType] = Field(
+        default=frozenset({"NUMERIC"}), frozen=True, json_schema_extra={"readOnly": True}
+    )
     min_value: float | None = Field(default=None, description="Minimum acceptable value")
     max_value: float | None = Field(default=None, description="Maximum acceptable value")
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def description(self) -> str:
+        if self.min_value is not None and self.max_value is not None:
+            return f"Between {self.min_value} and {self.max_value}."
+        elif self.min_value is not None:
+            return f"Greater than or equal to {self.min_value}."
+        elif self.max_value is not None:
+            return f"Less than or equal to {self.max_value}."
+        else:
+            return "No numeric range specified."
 
     def _process_answer(self, answer: Answer) -> Result:
         assert isinstance(answer, (int, float)), "Answer must be numeric for NumericRangeRule."

@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Literal
 
-from pydantic import Field
+from pydantic import Field, computed_field
 
 from ...questions.models import Question
 from ...questions.types import Answer, QuestionId, QuestionType
@@ -24,9 +24,16 @@ def check_condition(results: list[QuestionResult], aggregation: BooleanAggregati
 
 
 class ConditionalMultiQuestionRule(BaseMultiQuestionRule):
-    type: Literal["CONDITIONAL"] = "CONDITIONAL"
-    question_types: frozenset[QuestionType] = frozenset(
-        {"TEXT", "CHOICE", "NUMERIC", "MULTI_VALUED"}
+    type: Literal["CONDITIONAL"] = Field(
+        default="CONDITIONAL", frozen=True, json_schema_extra={"readOnly": True}
+    )
+    name: Literal["Conditional"] = Field(
+        default="Conditional", frozen=True, json_schema_extra={"readOnly": True}
+    )
+    question_types: frozenset[QuestionType] = Field(
+        default=frozenset({"TEXT", "CHOICE", "NUMERIC", "MULTI_VALUED"}),
+        frozen=True,
+        json_schema_extra={"readOnly": True},
     )
     if_rules: list["SingleTargetQuestionRule"] = Field(
         ..., min_length=1, description="List of rules to evaluate the 'if' condition"
@@ -47,6 +54,20 @@ class ConditionalMultiQuestionRule(BaseMultiQuestionRule):
     else_rules: list["SingleTargetQuestionRule"] = Field(
         ..., description="List of rules to evaluate if 'if' condition is not met"
     )
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def description(self) -> str:
+        if_condition = f"\n{self.if_aggregation}\n".join(
+            f"IF [{rule.question_id}]:\n{rule.description}" for rule in self.if_rules
+        )
+        then_condition = "\n\n".join(
+            f"THEN [{rule.question_id}]:\n{rule.description}" for rule in self.then_rules
+        )
+        else_condition = "\n\n".join(
+            f"ELSE [{rule.question_id}]:\n{rule.description}" for rule in self.else_rules
+        )
+        return f"{if_condition}\n\n{then_condition}\n\n{else_condition}"
 
     def validate_compatibility(
         self, question_map: dict[QuestionId, Question]

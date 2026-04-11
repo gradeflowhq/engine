@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import Field, computed_field
 
 from ...questions.types import Answer, QuestionType
 from ..executors import python
@@ -62,9 +62,16 @@ def evaluate(code: str, answer: Answer) -> ProgrammableResult:
 
 
 class ProgrammableRule(BaseRule):
-    type: Literal["PROGRAMMABLE"] = "PROGRAMMABLE"
-    question_types: frozenset[QuestionType] = frozenset(
-        {"TEXT", "NUMERIC", "CHOICE", "MULTI_VALUED"}
+    type: Literal["PROGRAMMABLE"] = Field(
+        default="PROGRAMMABLE", frozen=True, json_schema_extra={"readOnly": True}
+    )
+    name: Literal["Programmable"] = Field(
+        default="Programmable", frozen=True, json_schema_extra={"readOnly": True}
+    )
+    question_types: frozenset[QuestionType] = Field(
+        default=frozenset({"TEXT", "NUMERIC", "CHOICE", "MULTI_VALUED"}),
+        frozen=True,
+        json_schema_extra={"readOnly": True},
     )
     code: str = Field(
         default=DEFAULT_PROGRAMMABLE_CODE,
@@ -80,6 +87,14 @@ class ProgrammableRule(BaseRule):
             "'OUTPUT' uses the 'output' variable (0-1) for scoring."
         ),
     )
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def description(self) -> str:
+        return (
+            f"Custom code that uses {'`output`' if self.mode == 'OUTPUT' else '`passed`'} "
+            "variable to determine score."
+        )
 
     def _process_answer(self, answer: Answer) -> Result:
         result = evaluate(self.code, answer)

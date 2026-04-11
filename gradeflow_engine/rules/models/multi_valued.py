@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Literal
 
-from pydantic import Field
+from pydantic import Field, computed_field
 
 from ...questions.models import MultiValuedQuestion, NumericQuestion, Question, TextQuestion
 from ...questions.types import Answer, QuestionType
@@ -21,8 +21,15 @@ def feedback_fn(results: list[Result]) -> str:
 
 
 class MultiValuedRule(BaseRule):
-    type: Literal["MULTI_VALUED"] = "MULTI_VALUED"
-    question_types: frozenset[QuestionType] = frozenset({"MULTI_VALUED"})
+    type: Literal["MULTI_VALUED"] = Field(
+        default="MULTI_VALUED", frozen=True, json_schema_extra={"readOnly": True}
+    )
+    name: Literal["Multi Valued"] = Field(
+        default="Multi Valued", frozen=True, json_schema_extra={"readOnly": True}
+    )
+    question_types: frozenset[QuestionType] = Field(
+        default=frozenset({"MULTI_VALUED"}), frozen=True, json_schema_extra={"readOnly": True}
+    )
     rules: list["SingleTargetRule"] = Field(
         ...,
         min_length=1,
@@ -32,6 +39,13 @@ class MultiValuedRule(BaseRule):
         default="ALL",
         description="Aggregation method",
     )
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def description(self) -> str:
+        return "\n\n".join(
+            f"Value {i + 1}:\n{rule.description}" for i, rule in enumerate(self.rules)
+        )
 
     def validate_question_compatibility(self, question: Question) -> list[RuleValidationError]:
         errors: list[RuleValidationError] = []

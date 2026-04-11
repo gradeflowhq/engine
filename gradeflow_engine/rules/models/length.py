@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, computed_field
 
 from ...questions.types import Answer, QuestionType
 from ..result import Result
@@ -8,13 +8,33 @@ from .base import BaseRule, BaseSingleQuestionRule
 
 
 class LengthRule(BaseRule):
-    type: Literal["LENGTH"] = "LENGTH"
-    question_types: frozenset[QuestionType] = frozenset({"TEXT"})
+    type: Literal["LENGTH"] = Field(
+        default="LENGTH", frozen=True, json_schema_extra={"readOnly": True}
+    )
+    name: Literal["Length"] = Field(
+        default="Length", frozen=True, json_schema_extra={"readOnly": True}
+    )
+    question_types: frozenset[QuestionType] = Field(
+        default=frozenset({"TEXT"}), frozen=True, json_schema_extra={"readOnly": True}
+    )
     min_length: int | None = Field(default=None, description="Minimum length of the answer")
     max_length: int | None = Field(default=None, description="Maximum length of the answer")
     mode: Literal["words", "characters"] = Field(
         default="characters", description="Mode of length measurement"
     )
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def description(self) -> str:
+        length_desc = "characters" if self.mode == "characters" else "words"
+        if self.min_length is not None and self.max_length is not None:
+            return f"Between {self.min_length} and {self.max_length} {length_desc}."
+        elif self.min_length is not None:
+            return f"At least {self.min_length} {length_desc}."
+        elif self.max_length is not None:
+            return f"At most {self.max_length} {length_desc}."
+        else:
+            return "No length constraints."
 
     def _process_answer(self, answer: Answer) -> Result:
         answer_length = len(str(answer).split(" ")) if self.mode == "words" else len(str(answer))

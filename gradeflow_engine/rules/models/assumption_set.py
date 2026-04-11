@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import BaseModel, Field, TypeAdapter
+from pydantic import BaseModel, Field, TypeAdapter, computed_field
 
 from ...questions.models import Question
 from ...questions.types import Answer, QuestionId, QuestionType
@@ -85,17 +85,32 @@ def choose_assumption_result(
 
 
 class AssumptionSetBaseRule(BaseRule):
-    question_types: frozenset[QuestionType] = frozenset(
-        {"TEXT", "CHOICE", "NUMERIC", "MULTI_VALUED"}
+    question_types: frozenset[QuestionType] = Field(
+        default=frozenset({"TEXT", "CHOICE", "NUMERIC", "MULTI_VALUED"}),
+        frozen=True,
+        json_schema_extra={"readOnly": True},
     )
     mode: AssumptionSetMode = Field("MAX", description="Mode to select which assumption to use")
 
 
 class AssumptionSetQuestionRule(AssumptionSetBaseRule, BaseSingleQuestionRule):
-    type: Literal["ASSUMPTION_SET"] = "ASSUMPTION_SET"
+    type: Literal["ASSUMPTION_SET"] = Field(
+        default="ASSUMPTION_SET", frozen=True, json_schema_extra={"readOnly": True}
+    )
+    name: Literal["Assumption Set"] = Field(
+        default="Assumption Set", frozen=True, json_schema_extra={"readOnly": True}
+    )
     assumptions: list[Assumption] = Field(
         ..., description="List of assumptions in the assumption set"
     )
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def description(self) -> str:
+        return "\n\n".join(
+            f"Assumption {i + 1} ({assumption.name or 'Unnamed'}):\n{assumption.rule.description}"
+            for i, assumption in enumerate(self.assumptions)
+        )
 
     def model_post_init(self, _context: Any) -> None:
         self._rule = AssumptionSetMultiQuestionRule(
@@ -122,10 +137,24 @@ class AssumptionSetQuestionRule(AssumptionSetBaseRule, BaseSingleQuestionRule):
 
 
 class AssumptionSetMultiQuestionRule(AssumptionSetBaseRule, BaseMultiQuestionRule):
-    type: Literal["ASSUMPTION_SET_MULTI"] = "ASSUMPTION_SET_MULTI"
+    type: Literal["ASSUMPTION_SET_MULTI"] = Field(
+        default="ASSUMPTION_SET_MULTI", frozen=True, json_schema_extra={"readOnly": True}
+    )
+    name: Literal["Assumption Set"] = Field(
+        default="Assumption Set", frozen=True, json_schema_extra={"readOnly": True}
+    )
     assumptions: list[MultiQuestionAssumption] = Field(
         ..., description="List of assumptions in the assumption set"
     )
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def description(self) -> str:
+        return "\n\n".join(
+            f"Assumption {i + 1} ({assumption.name or 'Unnamed'}):\n"
+            + "\n".join(f"[{rule.question_id}]:\n{rule.description}" for rule in assumption.rules)
+            for i, assumption in enumerate(self.assumptions)
+        )
 
     def validate_compatibility(
         self, question_map: dict[QuestionId, Question]

@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 from ...questions.types import Answer, QuestionType
 from ..aggregations.completeness import output_fn, passed_fn, points_fn
@@ -88,8 +88,15 @@ result = {{'output': output, 'expected': expected, 'passed': passed}}
 
 
 class ProgrammingRule(BaseRule):
-    type: Literal["PROGRAMMING"] = "PROGRAMMING"
-    question_types: frozenset[QuestionType] = frozenset({"TEXT"})
+    type: Literal["PROGRAMMING"] = Field(
+        default="PROGRAMMING", frozen=True, json_schema_extra={"readOnly": True}
+    )
+    name: Literal["Programming"] = Field(
+        default="Programming", frozen=True, json_schema_extra={"readOnly": True}
+    )
+    question_types: frozenset[QuestionType] = Field(
+        default=frozenset({"TEXT"}), frozen=True, json_schema_extra={"readOnly": True}
+    )
     testcases: list[ProgrammingTestCase] = Field(
         ..., min_length=1, description="List of test cases to run against the code"
     )
@@ -114,6 +121,15 @@ class ProgrammingRule(BaseRule):
             "'PARTIAL' gives credit for each test case passed."
         ),
     )
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def description(self) -> str:
+        return "Code must pass:\n" + "\n".join(
+            f"Test Case {i + 1}: Expression `{testcase.expression}` "
+            f"evaluates to `{testcase.expected}`."
+            for i, testcase in enumerate(self.testcases)
+        )
 
     def _process_answer(self, answer: Answer) -> Result:
         code = assemble_code(

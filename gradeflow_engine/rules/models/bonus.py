@@ -1,15 +1,29 @@
 from typing import Literal
 
+from pydantic import Field, computed_field
+
 from ...questions.types import Answer, QuestionType
 from ..result import Result
 from .base import BaseRule, BaseSingleQuestionRule
 
 
 class BonusRule(BaseRule):
-    type: Literal["BONUS"] = "BONUS"
-    question_types: frozenset[QuestionType] = frozenset(
-        {"TEXT", "NUMERIC", "CHOICE", "MULTI_VALUED"}
+    type: Literal["BONUS"] = Field(
+        default="BONUS", frozen=True, json_schema_extra={"readOnly": True}
     )
+    name: Literal["Bonus"] = Field(
+        default="Bonus", frozen=True, json_schema_extra={"readOnly": True}
+    )
+    question_types: frozenset[QuestionType] = Field(
+        default=frozenset({"TEXT", "NUMERIC", "CHOICE", "MULTI_VALUED"}),
+        frozen=True,
+        json_schema_extra={"readOnly": True},
+    )
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def description(self) -> str:
+        return "Bonus (anything is correct)."
 
     def process_answer(self, answer: Answer) -> Result:  # override validated process_answer
         return Result(

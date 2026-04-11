@@ -3,7 +3,7 @@ from functools import lru_cache
 from re import Pattern
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 from ...questions.types import Answer, QuestionType
 from ..result import Result
@@ -33,13 +33,33 @@ class RegexConfig(BaseModel):
 
 
 class RegexRule(BaseRule):
-    type: Literal["REGEX"] = "REGEX"
-    question_types: frozenset[QuestionType] = frozenset({"TEXT"})
+    type: Literal["REGEX"] = Field(
+        default="REGEX", frozen=True, json_schema_extra={"readOnly": True}
+    )
+    name: Literal["Regex"] = Field(
+        default="Regex", frozen=True, json_schema_extra={"readOnly": True}
+    )
+    question_types: frozenset[QuestionType] = Field(
+        default=frozenset({"TEXT"}), frozen=True, json_schema_extra={"readOnly": True}
+    )
     pattern: str = Field(..., description="Regular expression pattern to match against the answer")
     config: RegexConfig = Field(
         default_factory=RegexConfig,
         description="Configuration for regex matching behavior",
     )
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def description(self) -> str:
+        config_desc: list[str] = []
+        if self.config.ignore_case:
+            config_desc.append("ignoring case")
+        if self.config.multi_line:
+            config_desc.append("multi-line mode")
+        if self.config.dotall:
+            config_desc.append("dot matches newlines")
+        config_str = ", ".join(config_desc) if config_desc else "default regex behavior"
+        return f"Match the regex pattern: {self.pattern} ({config_str})."
 
     def _process_answer(self, answer: Answer) -> Result:
         flags = _build_regex_flags(

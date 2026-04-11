@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, computed_field
 
 from ...questions.models import Question
 from ...questions.models.choice import ChoiceQuestion
@@ -68,8 +68,15 @@ def passed_fn(answer_set: set[str], correct_set: set[str], mode: CompletenessAgg
 
 
 class MultipleChoiceRule(BaseRule):
-    type: Literal["MULTIPLE_CHOICE"] = "MULTIPLE_CHOICE"
-    question_types: frozenset[QuestionType] = frozenset({"CHOICE"})
+    type: Literal["MULTIPLE_CHOICE"] = Field(
+        default="MULTIPLE_CHOICE", frozen=True, json_schema_extra={"readOnly": True}
+    )
+    name: Literal["Multiple Choice"] = Field(
+        default="Multiple Choice", frozen=True, json_schema_extra={"readOnly": True}
+    )
+    question_types: frozenset[QuestionType] = Field(
+        default=frozenset({"CHOICE"}), frozen=True, json_schema_extra={"readOnly": True}
+    )
     constraints: list[QuestionConstraint] = [
         QuestionConstraint(type="CHOICE", source="options", target="answer"),
     ]
@@ -84,6 +91,18 @@ class MultipleChoiceRule(BaseRule):
             "each incorrect choice selected."
         ),
     )
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def description(self) -> str:
+        if self.mode == "ALL":
+            return f"Include all of these choices: {', '.join(self.answer)}."
+        elif self.mode == "ANY":
+            return f"Include at least one of these choices: {', '.join(self.answer)}."
+        elif self.mode == "PARTIAL":
+            return f"Partial credit for correct choices: {', '.join(self.answer)}."
+        else:
+            raise ValueError(f"Unknown mode: {self.mode}")
 
     def validate_question_compatibility(self, question: Question) -> list[RuleValidationError]:
         errors: list[RuleValidationError] = []

@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, computed_field
 
 from ...questions.models import Question
 from ...questions.types import Answer, QuestionId, QuestionType
@@ -11,8 +11,21 @@ DEFAULT_MAX_POINTS = 1.0
 
 
 class BaseRule(BaseModel):
-    question_types: frozenset[QuestionType] = frozenset()
-    constraints: list[QuestionConstraint] = []
+    question_types: frozenset[QuestionType] = Field(
+        default=frozenset(),
+        frozen=True,
+        json_schema_extra={"readOnly": True},
+    )
+    constraints: list[QuestionConstraint] = Field(
+        default=[],
+        frozen=True,
+        json_schema_extra={"readOnly": True},
+    )
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def description(self) -> str:
+        raise NotImplementedError("Subclasses must implement this method.")
 
     def validate_question_compatibility(self, question: Question) -> list[RuleValidationError]:
         assert hasattr(self, "type"), "Rule must have a 'type' attribute."

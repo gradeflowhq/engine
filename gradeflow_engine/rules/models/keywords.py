@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, computed_field
 
 from ...questions.types import Answer, QuestionType
 from ..aggregations.completeness import output_fn, passed_fn, points_fn
@@ -10,8 +10,15 @@ from .base import BaseRule, BaseSingleQuestionRule
 
 
 class KeywordsRule(BaseRule):
-    type: Literal["KEYWORDS"] = "KEYWORDS"
-    question_types: frozenset[QuestionType] = frozenset({"TEXT"})
+    type: Literal["KEYWORDS"] = Field(
+        default="KEYWORDS", frozen=True, json_schema_extra={"readOnly": True}
+    )
+    name: Literal["Keywords"] = Field(
+        default="Keywords", frozen=True, json_schema_extra={"readOnly": True}
+    )
+    question_types: frozenset[QuestionType] = Field(
+        default=frozenset({"TEXT"}), frozen=True, json_schema_extra={"readOnly": True}
+    )
     keywords: list[str] = Field(
         ...,
         min_length=1,
@@ -26,6 +33,18 @@ class KeywordsRule(BaseRule):
             "'PARTIAL' gives credit for each keyword present."
         ),
     )
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def description(self) -> str:
+        if self.mode == "ALL":
+            return f"Contain all of the these keywords: {', '.join(self.keywords)}."
+        elif self.mode == "ANY":
+            return f"Contain at least one of these keywords: {', '.join(self.keywords)}."
+        elif self.mode == "PARTIAL":
+            return f"Partial credit for keywords: {', '.join(self.keywords)}."
+        else:
+            raise ValueError(f"Unknown mode: {self.mode}")
 
     def _process_answer(self, answer: Answer) -> Result:
         matches = [keyword in str(answer) for keyword in self.keywords]

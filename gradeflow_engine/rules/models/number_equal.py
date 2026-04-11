@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 from ...questions.types import Answer, QuestionType
 from ..result import Result
@@ -58,8 +58,15 @@ class NumberEqualConfig(BaseModel):
 
 
 class NumberEqualRule(BaseRule):
-    type: Literal["NUMBER_EQUAL"] = "NUMBER_EQUAL"
-    question_types: frozenset[QuestionType] = frozenset({"NUMERIC"})
+    type: Literal["NUMBER_EQUAL"] = Field(
+        default="NUMBER_EQUAL", frozen=True, json_schema_extra={"readOnly": True}
+    )
+    name: Literal["Number Equal"] = Field(
+        default="Number Equal", frozen=True, json_schema_extra={"readOnly": True}
+    )
+    question_types: frozenset[QuestionType] = Field(
+        default=frozenset({"NUMERIC"}), frozen=True, json_schema_extra={"readOnly": True}
+    )
     answers: list[int | float] = Field(
         ..., min_length=1, description="List of acceptable numeric answers"
     )
@@ -67,6 +74,18 @@ class NumberEqualRule(BaseRule):
         default_factory=NumberEqualConfig,
         description="Configuration for numeric equality checks",
     )
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def description(self) -> str:
+        if self.config.approximate:
+            return (
+                f"Approximately equal to: "
+                f"{', '.join(str(ans) for ans in self.answers)} "
+                f"within a tolerance of {self.config.tolerance}."
+            )
+        else:
+            return f"Equal to: {', '.join(str(ans) for ans in self.answers)}."
 
     def _process_answer(self, answer: Answer) -> Result:
         assert isinstance(answer, NonEmptyNumeric), "Answer must be numeric"

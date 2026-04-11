@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Literal
 
-from pydantic import Field
+from pydantic import Field, computed_field
 
 from ...questions.models import Question
 from ...questions.types import Answer, QuestionId, QuestionType
@@ -14,8 +14,15 @@ if TYPE_CHECKING:
 
 
 class CompositeRule(BaseRule):
-    type: Literal["COMPOSITE"] = "COMPOSITE"
-    question_types: frozenset[QuestionType] = frozenset({"TEXT", "NUMERIC"})
+    type: Literal["COMPOSITE"] = Field(
+        default="COMPOSITE", frozen=True, json_schema_extra={"readOnly": True}
+    )
+    name: Literal["Composite"] = Field(
+        default="Composite", frozen=True, json_schema_extra={"readOnly": True}
+    )
+    question_types: frozenset[QuestionType] = Field(
+        default=frozenset({"TEXT", "NUMERIC"}), frozen=True, json_schema_extra={"readOnly": True}
+    )
     rules: list["SingleTargetRule"] = Field(
         ..., min_length=1, description="List of rules to apply to the answer"
     )
@@ -23,6 +30,20 @@ class CompositeRule(BaseRule):
         default="ALL",
         description="Aggregation method to combine rule results: 'ALL', 'ANY', or 'PARTIAL'",
     )
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def description(self) -> str:
+        desc_aggregation = {
+            "ALL": "All must be true",
+            "ANY": "At least one must be true",
+            "PARTIAL": "Partial credit based on how many are true",
+        }
+        return (
+            desc_aggregation.get(self.aggregation, "Unknown aggregation")
+            + ":\n"
+            + "\n".join(rule.description for rule in self.rules)
+        )
 
     def _process_answer(self, answer: Answer) -> Result:
         results = [rule.process_answer(answer) for rule in self.rules]
