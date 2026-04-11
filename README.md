@@ -1,13 +1,13 @@
 # GradeFlow Engine
 
-GradeFlow Engine is a modular grading engine designed to ingest submissions, infer or load question sets, validate and apply rubrics, compute grades, and export results. It emphasizes extensibility through registries, safety via pydantic validation, and composable rule-based grading.
+GradeFlow Engine is a modular grading engine designed to ingest submissions, infer or load question sets, validate and apply rubrics, compute grades, and export results. It emphasizes extensibility through registries, safety via Pydantic validation, and composable rule-based grading.
 
 ## Key Features
 
 - Pluggable adapters and serializers for submissions, question sets, and rubrics via registries
 - Automatic question type inference from raw submissions
 - Comprehensive rule-based grading system with 15+ rule types
-- Safe execution of user code (inside container) with timeouts for programmable/programming rules
+- User code execution in a subprocess with configurable timeouts for programmable/programming rules — use the official Docker image for safe sandboxed execution
 - CLI for common workflows with rich terminal output
 - Python API for scripted pipelines
 - Deterministic serialization of answers and graded results
@@ -26,13 +26,36 @@ pip install -e .
 - `cli.py`: Typer-based CLI with rich terminal output
 - `registry.py`: Generic registry for pluggable components
 - `adapters/`: External data source adapters (Examplify, CSV)
-- `serializations/`: Serializers for YAML, CSV, JSON formats
-- `io/`: DataSource and DataSink abstractions
-- `question_sets/`: models, inference, and question type detection
-- `rubrics/`: rubric models and validation
-- `submissions/`: submission models and processing
-- `rules/`: rule models, aggregations, executors (subprocess-based Python), validators
-- `questions/`: question models, parsing utilities, and answer types
+- `serializations/`: Serializers for YAML, CSV, and JSON formats
+- `io/`: `DataSource` and `DataSink` abstractions
+- `question_sets/`: Models, inference, and question type detection
+- `rubrics/`: Rubric models and validation
+- `submissions/`: Submission models and processing
+- `rules/`: Rule models, aggregations, subprocess-based Python executors, and validators
+- `questions/`: Question models, parsing utilities, and answer types
+
+## Running with Docker
+
+The official Docker image provides a sandboxed environment for safe execution of user code in programmable and programming rules:
+
+```bash
+docker pull ghcr.io/gradeflowhq/gradeflow-engine:latest
+```
+
+Run the CLI via Docker:
+
+```bash
+docker run --rm \
+  -v /path/to/your/files:/data \
+  ghcr.io/gradeflowhq/gradeflow-engine:latest \
+  grade \
+  --submissions /data/submissions.csv \
+  --question-set /data/questions.yaml \
+  --rubric /data/rubric.yaml \
+  --out /data/graded_results.csv
+```
+
+Mount your local directory to `/data` inside the container and reference all file paths relative to `/data`.
 
 ## Quick Start (CLI)
 
@@ -42,7 +65,7 @@ List available components:
 gradeflow-engine list
 ```
 
-Infer a QuestionSet from submissions (CSV) and save it:
+Infer a `QuestionSet` from submissions (CSV) and save it:
 
 ```bash
 gradeflow-engine infer \
@@ -57,7 +80,7 @@ gradeflow-engine infer \
   --question-set-serializer yaml
 ```
 
-Grade with a loaded or inferred QuestionSet and a Rubric, and save results:
+Grade with a loaded or inferred `QuestionSet` and a `Rubric`, and save results:
 
 ```bash
 gradeflow-engine grade \
@@ -108,10 +131,10 @@ gradeflow-engine grade \
 ```
 
 Notes:
-- If you omit `--question-set` and `--question-set-adapter-src`, the engine will infer one from submissions
-- If you omit `--rubric` and `--rubric-adapter-src`, parsing and reporting will occur, but grading is skipped
-- Adapters handle external formats (Examplify); serializers handle YAML/CSV/JSON I/O
-- `--point-column question_id=csv_column` can be repeated; those CSV columns are excluded from answers and imported as pre-graded `result_map` entries
+- If you omit `--question-set` and `--question-set-adapter-src`, the engine infers a question set from the submissions.
+- If you omit `--rubric` and `--rubric-adapter-src`, parsing and reporting occur but grading is skipped.
+- Adapters handle external formats (Examplify); serializers handle YAML/CSV/JSON I/O.
+- `--point-column question_id=csv_column` can be repeated; those CSV columns are excluded from answers and imported as pre-graded `result_map` entries.
 
 ## Quick Start (Python API)
 
@@ -175,10 +198,10 @@ rules:
 """
 rubric = load_rubric_from_blob(
     DataBlob(data=rubric_yaml.encode("utf-8"), media_type="application/yaml", extension="yaml"),
-    serializer_name="yaml"
+    serializer_name="yaml",
 )
 
-# Grade submissions - parse with question set then grade with rubric
+# Grade submissions — parse with question set, then grade with rubric
 submissions = question_set.parse(raw_submissions)
 graded_submissions = rubric.grade(submissions, question_set.question_map)
 
@@ -199,10 +222,10 @@ print("Validation errors:", rubric.validate_rubric(question_set))
 
 ## Data Formats
 
-### Submissions (CSV)
+### Submissions (CSV input)
 
-- A header row is required. Default `student_id_column` is `student_id`.
-- `answer_columns` can be provided; if omitted, all non-ID/non-point columns are treated as answers.
+- A header row is required. The default `student_id_column` is `student_id`.
+- `answer_columns` can be specified explicitly; if omitted, all non-ID and non-point columns are treated as answers.
 - `point_columns`: optional `dict[str, str]` mapping `question_id` → CSV column name. When provided, those columns are excluded from answers and their values are loaded as pre-existing `QuestionResult` entries in the submission's `result_map`. Useful for importing manually graded or pass-through scored columns.
 
 Example:
@@ -214,7 +237,7 @@ S2,red,9,foobar
 S3,blue,,bar
 ```
 
-Example with pre-existing points column:
+Example with a pre-existing points column:
 
 ```csv
 student_id,Q1,Q2,Q3,Q4_pts
@@ -245,138 +268,162 @@ load_raw_submissions_via_adapter(
 
 ### QuestionSet (YAML)
 
-The QuestionSet is a pydantic model:
+The `QuestionSet` is a Pydantic model serialized to/from YAML:
 
 ```yaml
 question_map:
   Q1:
-    type: "CHOICE"
+    type: CHOICE
     description: "Choose a color"
     max_points: 2.0
     config:
       delimiter: ","
       trim_whitespace: true
       normalize_case: false
-    options: ["red", "blue", "green"]
+    options:
+      - red
+      - blue
+      - green
     allow_multiple: false
 
   Q2:
-    type: "NUMERIC"
+    type: NUMERIC
     description: "Enter a number"
     max_points: 1.0
 
   Q3:
-    type: "TEXT"
+    type: TEXT
     description: "Enter a short text"
     max_points: 1.0
 ```
 
 Each question has an optional `max_points` field (default `1.0`). When loading from Examplify, `max_points` is populated from the exam export's point values.
 
-You can generate this via inference and save with the YAML saver.
+You can generate a `QuestionSet` via inference and save it with the YAML serializer.
 
 ### Rubric (YAML)
 
-Rubric is a list of rules targeting questions. The engine supports 15+ rule types:
+A rubric is a list of rules targeting questions. The engine supports 15+ rule types.
 
 **Text-based rules:**
-- `TEXT_MATCH`: Exact text match (accepts list of valid answers)
-- `KEYWORDS`: Contains keywords (ALL/ANY/PARTIAL mode)
-- `REGEX`: Pattern matching with regex flags
-- `LENGTH`: Min/max text length (words or characters)
-- `SIMILARITY`: Fuzzy text matching (Levenshtein, Jaro-Winkler)
 
-**Numeric rules:**
-- `NUMBER_EQUAL`: Exact numeric equality with tolerance
-- `NUMERIC_RANGE`: Numeric min/max bounds
-
-**Choice rules:**
-- `MULTIPLE_CHOICE`: Choice answers with ALL/ANY/PARTIAL modes
-
-**Advanced rules:**
-- `COMPOSITE`: Combine multiple rules on a single answer (ALL/ANY/PARTIAL)
-- `MULTI_VALUED`: Per-value rules over a list answer (ALL/ANY/PARTIAL)
-- `PROGRAMMABLE`: User-provided Python code (subprocess)
-- `PROGRAMMING`: Code execution with test cases
-- `CONDITIONAL`: If-then-else rules across multiple questions
-- `ASSUMPTION_SET`: Evaluate multiple scoring assumptions (MAX/MIN)
-- `BONUS`: Bonus points rule
-- `MANUAL`: Placeholder for manual grading
-
-Examples:
-
-Text Match:
+Text Match — exact equality, accepts a list of valid answers:
 
 ```yaml
 rules:
   - type: TEXT_MATCH
-    question_id: "Q1"
+    question_id: Q1
     max_points: 1
-    answers: ["red", "Red", "RED"]  # accepts list of valid answers
+    answers:
+      - red
+      - Red
+      - RED
 ```
 
-Numeric Range:
+Keywords — answer must contain specified keywords:
+
+```yaml
+rules:
+  - type: KEYWORDS
+    question_id: Q3
+    max_points: 1
+    keywords:
+      - foo
+      - bar
+    mode: ANY  # ALL, ANY, or PARTIAL
+```
+
+Regex — pattern matching with optional flags:
+
+```yaml
+rules:
+  - type: REGEX
+    question_id: Q3
+    max_points: 1
+    pattern: "^foo.*bar$"
+    config:
+      ignore_case: false
+      multi_line: false
+      dotall: false
+```
+
+Length — min/max length in characters or words:
+
+```yaml
+rules:
+  - type: LENGTH
+    question_id: Q3
+    max_points: 1
+    min_length: 3
+    max_length: 10
+    mode: characters  # characters or words
+```
+
+Similarity — fuzzy text matching:
+
+```yaml
+rules:
+  - type: SIMILARITY
+    question_id: Q3
+    max_points: 1
+    references:
+      - example text
+    threshold: 0.8
+    algorithm: levenshtein  # levenshtein, jaro_winkler, or transformer
+```
+
+**Numeric rules:**
+
+Number Equal — exact numeric equality with optional tolerance:
+
+```yaml
+rules:
+  - type: NUMBER_EQUAL
+    question_id: Q2
+    max_points: 1
+    answers:
+      - 42
+    config:
+      approximate: true
+      tolerance: 1.0e-6
+```
+
+Numeric Range — min/max bounds:
 
 ```yaml
 rules:
   - type: NUMERIC_RANGE
-    question_id: "Q2"
+    question_id: Q2
     max_points: 2
     min_value: 0
     max_value: 10
 ```
 
-Keywords:
+**Choice rules:**
 
-```yaml
-rules:
-  - type: KEYWORDS
-    question_id: "Q3"
-    max_points: 1
-    keywords: ["foo", "bar"]
-    mode: "ANY"  # ALL, ANY, or PARTIAL
-```
-
-Similarity (fuzzy matching):
-
-```yaml
-rules:
-  - type: SIMILARITY
-    question_id: "Q3"
-    max_points: 1
-    reference: "example text"
-    threshold: 0.8
-    algorithm: "levenshtein"  # or jaro_winkler or transformers
-```
-
-Multiple Choice with partial credit:
+Multiple Choice — with ALL/ANY/PARTIAL scoring modes:
 
 ```yaml
 rules:
   - type: MULTIPLE_CHOICE
-    question_id: "Q1"
+    question_id: Q1
     max_points: 2
-    answer: ["red", "blue"]
-    mode: "PARTIAL"  # ALL, ANY, PARTIAL
+    answer:
+      - red
+      - blue
+    mode: PARTIAL  # ALL, ANY, or PARTIAL
 ```
 
-Bonus points (always awards full points):
+**Advanced rules:**
 
-```yaml
-rules:
-  - type: BONUS
-    question_id: "Q4"
-    max_points: 2
-```
-
-Composite (combine sub-rules on a single answer):
+Composite — combine multiple rules over a single answer:
 
 ```yaml
 rules:
   - type: COMPOSITE
-    question_id: "Q3"
+    question_id: Q3
     max_points: 2
-    aggregation: "ALL"
+    aggregation: ALL  # ALL, ANY, or PARTIAL
     rules:
       - type: REGEX
         pattern: "foo"
@@ -385,35 +432,37 @@ rules:
         max_length: 10
 ```
 
-Multi-Valued (each value has its own rule, aggregated):
+Multi-Valued — per-value rules over a list answer:
 
 ```yaml
 rules:
   - type: MULTI_VALUED
-    question_id: "Q4"
+    question_id: Q4
     max_points: 3
-    aggregation: "PARTIAL"
+    aggregation: PARTIAL  # ALL, ANY, or PARTIAL
     rules:
       - type: NUMERIC_RANGE
         min_value: 0
         max_value: 10
       - type: TEXT_MATCH
-        answers: ["yes"]
+        answers:
+          - yes
       - type: REGEX
         pattern: "^ok$"
 ```
 
-Programmable:
+Programmable — custom Python scoring code:
 
 ```yaml
 rules:
   - type: PROGRAMMABLE
-    question_id: "Q2"
+    question_id: Q2
     max_points: 3
-    mode: "OUTPUT"  # or PASS_FAIL
+    mode: OUTPUT  # PASS_FAIL or OUTPUT
     code: |
-      # 'answer' variable is provided by the engine
-      # Must set 'output' (float 0.0-1.0), 'passed' (bool)
+      # 'answer' is provided by the engine (str, float, list, or set)
+      # Set 'output' (float 0.0–1.0) for OUTPUT mode
+      # Set 'passed' (bool) for PASS_FAIL mode
       # Optionally set 'feedback' (str)
       if isinstance(answer, (int, float)) and 0 <= float(answer) <= 10:
           output = 1.0
@@ -425,14 +474,14 @@ rules:
           feedback = "Out of range"
 ```
 
-Programming test cases:
+Programming — execute student code against test cases:
 
 ```yaml
 rules:
   - type: PROGRAMMING
-    question_id: "Q5"
+    question_id: Q5
     max_points: 5
-    mode: "ALL"  # ALL or PARTIAL
+    mode: ALL  # ALL, ANY, or PARTIAL
     testcases:
       - expression: "add(1, 2)"
         expected: "3"
@@ -441,131 +490,205 @@ rules:
       - expression: "add(-1, 1)"
         expected: "0"
     config:
-      timeout_seconds: 5
+      prepend_code: ""
+      append_code: ""
+      indent: 0
+      time_limit: 5
 ```
 
-Assumption Set (multiple scoring scenarios):
+Assumption Set — evaluate multiple scoring assumptions and select MAX or MIN:
 
 ```yaml
 rules:
   - type: ASSUMPTION_SET
-    question_id: "Q1"
+    question_id: Q1
     max_points: 3
-    mode: "MAX"  # or MIN
+    mode: MAX  # MAX or MIN
     assumptions:
       - name: "Interpretation A"
         weight: 1.0
         rule:
           type: TEXT_MATCH
-          answers: ["red"]
+          answers:
+            - red
       - name: "Interpretation B"
         weight: 1.0
         rule:
           type: KEYWORDS
-          keywords: ["crimson", "scarlet"]
-          mode: "ANY"
+          keywords:
+            - crimson
+            - scarlet
+          mode: ANY
 ```
 
-Conditional:
+Assumption Set (multi-question) — multiple scoring assumptions across multiple questions:
+
+```yaml
+rules:
+  - type: ASSUMPTION_SET_MULTI
+    mode: MAX
+    assumptions:
+      - name: "Scenario A"
+        weight: 1.0
+        rules:
+          - type: TEXT_MATCH
+            question_id: Q1
+            max_points: 1
+            answers:
+              - red
+          - type: NUMERIC_RANGE
+            question_id: Q2
+            max_points: 2
+            min_value: 9
+            max_value: 10
+      - name: "Scenario B"
+        weight: 0.5
+        rules:
+          - type: TEXT_MATCH
+            question_id: Q1
+            max_points: 1
+            answers:
+              - blue
+          - type: NUMERIC_RANGE
+            question_id: Q2
+            max_points: 2
+            min_value: 5
+            max_value: 8
+```
+
+Conditional — if-then-else rules across multiple questions:
 
 ```yaml
 rules:
   - type: CONDITIONAL
-    if_aggregation: "AND"  # AND or OR
+    if_aggregation: AND  # AND or OR
     if_rules:
       - type: LENGTH
-        question_id: "Q3"
+        question_id: Q3
         max_points: 0
         min_length: 3
-        mode: "characters"
+        mode: characters
     then_rules:
       - type: TEXT_MATCH
-        question_id: "Q1"
+        question_id: Q1
         max_points: 1
-        answers: ["red"]
+        answers:
+          - red
     else_rules:
       - type: KEYWORDS
-        question_id: "Q1"
+        question_id: Q1
         max_points: 1
-        keywords: ["blue"]
-        mode: "ANY"
+        keywords:
+          - blue
+        mode: ANY
 ```
 
-Manual grading placeholder:
+Bonus — always awards full points:
+
+```yaml
+rules:
+  - type: BONUS
+    question_id: Q4
+    max_points: 2
+```
+
+Manual — placeholder for manual grading (returns 0 points, `graded=False`):
 
 ```yaml
 rules:
   - type: MANUAL
-    question_id: "Q6"
+    question_id: Q6
     max_points: 10
 ```
 
 ### Submissions (CSV output)
 
-CSV serializer produces:
+The CSV serializer (`CsvSubmissionsConfig`) produces columns controlled by boolean flags:
 
-- student_id column (configurable)
-- Optional: one column per question ID with serialized answers
-- Optional: per-question results with columns `<qid>__points`, `<qid>__max_points`, `<qid>__passed`, `<qid>__percent`
-- Optional: per-question feedback columns `<qid>__feedback`
-- Optional: remarks column with detailed grading breakdown
-- Optional totals: `total_points`, `total_max_points`, `total_percent`
-- Optional rounded totals: `rounded_total_points`, `rounded_total_max_points`, `rounded_total_percent`
+| Config field | Default | Description |
+|---|---|---|
+| `student_id_column` | `student_id` | Name of the student ID column |
+| `include_answers` | `true` | One column per question ID with serialized answers |
+| `include_per_question_results` | `true` | `<qid>__points`, `<qid>__max_points`, `<qid>__passed`, `<qid>__percent` columns |
+| `include_feedback` | `true` | `<qid>__feedback` columns |
+| `include_remarks` | `true` | A single `remarks` column with a full grading breakdown |
+| `include_total` | `true` | `total_points`, `total_max_points`, `total_percent` columns |
+| `include_rounded_total` | `true` | `rounded_total_points`, `rounded_total_max_points`, `rounded_total_percent` columns |
+| `rounding_base` | `0.5` | Rounding base for rounded total columns (set to `0` to disable) |
 
-Serialization:
-- Choice answers (set[str]): alphabetically sorted and joined by "; "
-- Multi-valued (list): joined by " | ", with individual values stringified
-- Single-valued numeric/text: str()
+Answer serialization:
+- Choice answers (`set[str]`): alphabetically sorted and joined by `"; "`
+- Multi-valued answers (`list`): joined by `" | "`, with individual values stringified
+- Single-valued numeric/text: `str()`
 
 ## Inference Logic
 
-When inferring question types from raw submissions:
+When inferring question types from raw submissions, the engine applies rules in the following order:
 
-1. **MultiValued**: If all non-empty submissions split using the multi-value delimiter to the same cardinality > 1, infer MULTI_VALUED.
-2. **Numeric**: If a strict majority of answers parse as numbers, infer NUMERIC.
-3. **Choice**: If the distinct observed values (tokenized by the choice delimiter) are limited (<= choice_option_limit). If not all are single-token, set allow_multiple=True.
-4. **Text**: Fallback for all other cases.
+1. **MULTI_VALUED**: All non-empty submissions split using the multi-value delimiter to the same cardinality > 1.
+2. **NUMERIC**: A strict majority (> 50%) of non-empty answers parse as numbers.
+3. **CHOICE**: The number of distinct observed values (tokenized by the choice delimiter) is between 1 and `choice_option_limit` (inclusive). If not all submissions are single-token, `allow_multiple` is set to `True`.
+4. **TEXT**: Fallback for all other cases.
 
-Configuration options:
-- `choice_delimiter` (default: ",")
-- `choice_option_limit` (default: 7)
-- `choice_normalize_case` (default: True)
-- `multi_value_delimiter` (default: "~")
-- `empty_marker` (default: "N/A")
+Configuration options (with defaults):
+
+| Option | Default | Description |
+|---|---|---|
+| `choice_delimiter` | `,` | Delimiter used to tokenize choice answers |
+| `choice_option_limit` | `7` | Maximum distinct values to infer CHOICE type |
+| `choice_normalize_case` | `True` | Normalize case when tokenizing choices |
+| `multi_value_delimiter` | `~` | Delimiter used to detect MULTI_VALUED answers |
+| `empty_marker` | `N/A` | String treated as an empty/absent answer |
 
 ## Rule Catalogue
 
-The engine provides 15+ rule types organized by category:
-
 ### Text-based Rules
-- **TEXT_MATCH**: Exact text equality with list of acceptable answers
-- **KEYWORDS**: Text contains keywords (ALL/ANY/PARTIAL mode)
-- **REGEX**: Pattern matching with regex flags (ignore_case, multi_line, dotall)
-- **LENGTH**: Min/max text length validation (words or characters mode)
-- **SIMILARITY**: Fuzzy text matching using RapidFuzz (levenshtein, jaro_winkler algorithms)
+
+| Rule | Supported Question Types | Key Fields |
+|---|---|---|
+| `TEXT_MATCH` | TEXT, NUMERIC | `answers: list[str]` |
+| `KEYWORDS` | TEXT | `keywords: list[str]`, `mode: ALL\|ANY\|PARTIAL` |
+| `REGEX` | TEXT | `pattern: str`, `config: RegexConfig` |
+| `LENGTH` | TEXT | `min_length`, `max_length`, `mode: characters\|words` |
+| `SIMILARITY` | TEXT | `references: list[str]`, `threshold: float`, `algorithm: levenshtein\|jaro_winkler\|transformer` |
 
 ### Numeric Rules
-- **NUMBER_EQUAL**: Exact numeric equality with optional tolerance (approximate mode)
-- **NUMERIC_RANGE**: Numeric min/max bounds
+
+| Rule | Supported Question Types | Key Fields |
+|---|---|---|
+| `NUMBER_EQUAL` | NUMERIC | `answers: list[int\|float]`, `config: NumberEqualConfig` |
+| `NUMERIC_RANGE` | NUMERIC | `min_value: float\|None`, `max_value: float\|None` |
 
 ### Choice Rules
-- **MULTIPLE_CHOICE**: Choice answers with ALL/ANY/PARTIAL scoring modes
+
+| Rule | Supported Question Types | Key Fields |
+|---|---|---|
+| `MULTIPLE_CHOICE` | CHOICE | `answer: set[str]`, `mode: ALL\|ANY\|PARTIAL` |
 
 ### Advanced Rules
-- **COMPOSITE**: Combine multiple single-target rules over one answer (ALL/ANY/PARTIAL aggregation)
-- **MULTI_VALUED**: Per-value rules over a list answer (ALL/ANY/PARTIAL aggregation)
-- **PROGRAMMABLE**: User-provided Python code with `answer` variable; PASS_FAIL or OUTPUT modes
-- **PROGRAMMING**: Code + test cases; executes student code with prepend/append/indent config
-- **CONDITIONAL**: If-then-else rules over multiple questions, with AND/OR aggregation on conditions
-- **ASSUMPTION_SET**: Evaluate multiple scoring assumptions with weights and choose MAX/MIN score
-- **BONUS**: Always awards full points (no conditions)
-- **MANUAL**: Placeholder for manual grading (returns 0 points, graded=False)
+
+| Rule | Supported Question Types | Key Fields |
+|---|---|---|
+| `COMPOSITE` | TEXT, NUMERIC | `rules: list[SingleTargetRule]`, `aggregation: ALL\|ANY\|PARTIAL` |
+| `MULTI_VALUED` | MULTI_VALUED | `rules: list[SingleTargetRule]`, `aggregation: ALL\|ANY\|PARTIAL` |
+| `PROGRAMMABLE` | TEXT, NUMERIC, CHOICE, MULTI_VALUED | `code: str`, `mode: PASS_FAIL\|OUTPUT` |
+| `PROGRAMMING` | TEXT | `testcases`, `config: ProgrammingConfig`, `mode: ALL\|ANY\|PARTIAL` |
+| `CONDITIONAL` | TEXT, CHOICE, NUMERIC, MULTI_VALUED | `if_rules`, `if_aggregation: AND\|OR`, `then_rules`, `else_rules` |
+| `ASSUMPTION_SET` | TEXT, CHOICE, NUMERIC, MULTI_VALUED | `assumptions: list[Assumption]`, `mode: MAX\|MIN` |
+| `ASSUMPTION_SET_MULTI` | TEXT, CHOICE, NUMERIC, MULTI_VALUED | `assumptions: list[MultiQuestionAssumption]`, `mode: MAX\|MIN` |
+
+### Other Rules
+
+| Rule | Supported Question Types | Key Fields |
+|---|---|---|
+| `BONUS` | TEXT, NUMERIC, CHOICE, MULTI_VALUED | — |
+| `MANUAL` | TEXT, NUMERIC, CHOICE, MULTI_VALUED | — |
 
 All rules participate in rubric validation:
-- Validate target question existence
-- Validate type compatibility (question type must match rule's supported types)
-- Validate unique target questions (no duplicate grading rules per question)
-- Validate rule-specific constraints (e.g., valid regex patterns, choice options exist)
+- Validate that target questions exist in the question set
+- Validate type compatibility (question type must match the rule's supported types)
+- Validate that no question is targeted by more than one rule
+- Validate rule-specific constraints (e.g., valid choice options, regex patterns)
 
 ## Extensibility
 
@@ -575,7 +698,7 @@ The engine uses separate registries for adapters and serializers:
 
 **Adapters** (external data sources):
 - `RawSubmissionsAdapter`: Load submissions from external formats
-- `QuestionSetAdapter`: Load question sets from external formats  
+- `QuestionSetAdapter`: Load question sets from external formats
 - `RubricAdapter`: Load rubrics from external formats
 
 **Serializers** (YAML/CSV/JSON I/O):
@@ -584,13 +707,13 @@ The engine uses separate registries for adapters and serializers:
 - `SubmissionsSerializer`: Serialize graded results
 
 Built-in adapters:
-- CSV (submissions)
-- Examplify (submissions, question sets, rubrics)
+- `csv` (raw submissions)
+- `examplify` (raw submissions, question sets, rubrics)
 
 Built-in serializers:
-- YAML (question sets, rubrics)
-- CSV (graded submissions)
-- JSON (graded submissions)
+- `yaml` (question sets, rubrics)
+- `csv` (graded submissions)
+- `json` (graded submissions)
 
 Discover available components:
 
@@ -605,14 +728,14 @@ from gradeflow_engine.core import (
     get_raw_submissions_adapter_class,
 )
 
-print(list_available_raw_submissions_adapters())  # ["csv", "examplify"]
-print(list_available_question_set_serializers())  # ["yaml"]
-print(list_available_submissions_serializers())    # ["csv", "json"]
+print(list_available_raw_submissions_adapters())   # ["csv", "examplify"]
+print(list_available_question_set_serializers())   # ["yaml"]
+print(list_available_submissions_serializers())    # ["csv", "json", "yaml"]
 
 CsvAdapter = get_raw_submissions_adapter_class("csv")
 ```
 
-### Add a new Submissions Adapter
+### Add a New Submissions Adapter
 
 ```python
 from typing import Literal
@@ -624,9 +747,11 @@ from gradeflow_engine.adapters.registries import (
 from gradeflow_engine.submissions.models import RawSubmission
 from gradeflow_engine.io.sources import DataSource
 
+
 class MyAdapterConfig(BaseModel):
     name: Literal["my_adapter"] = "my_adapter"
     my_option: int = Field(default=0, description="Custom option")
+
 
 class MyAdapter(RawSubmissionsAdapter):
     name: Literal["my_adapter"] = "my_adapter"
@@ -637,14 +762,15 @@ class MyAdapter(RawSubmissionsAdapter):
 
     def load(self, source: DataSource) -> list[RawSubmission]:
         blob = source.read()
-        # Parse blob.data and return RawSubmission list
+        # Parse blob.data and return a list of RawSubmission
         return []
+
 
 # Register at module import time
 raw_submissions_adapter_registry.register("my_adapter", MyAdapter)
 ```
 
-### Add a new Serializer
+### Add a New Serializer
 
 ```python
 from typing import Literal
@@ -653,59 +779,75 @@ from gradeflow_engine.serializations.registries import question_set_serializer_r
 from gradeflow_engine.serializations.base import Serializer, DataBlob
 from gradeflow_engine.question_sets.model import QuestionSet
 
+
 class MySerializerConfig(BaseModel):
     format: Literal["my_format"] = "my_format"
+
 
 class MySerializer(Serializer[QuestionSet]):
     format = "my_format"
     media_type = "text/plain"
     config: MySerializerConfig = MySerializerConfig()
-    
+
     def __init__(self, **kwargs: object) -> None:
         self.config = self.config.model_validate(kwargs)
-    
+
     def loads(self, blob: DataBlob) -> QuestionSet:
-        # Deserialize from blob.data (bytes)
         text = blob.data.decode("utf-8")
         return QuestionSet(question_map={})
-    
+
     def dumps(self, obj: QuestionSet) -> DataBlob:
-        # Serialize to bytes
         data = "...".encode("utf-8")
         return DataBlob(data=data, media_type=self.media_type, extension="txt")
+
 
 # Register at module import time
 question_set_serializer_registry.register("my_format", MySerializer)
 ```
 
-### Add a new Rule
+### Add a New Rule
 
-Implement a subclass of `BaseRule` and likely `BaseSingleQuestionRule` or `BaseMultiQuestionRule`:
+Subclass `BaseRule` together with `BaseSingleQuestionRule` or `BaseMultiQuestionRule`:
 
 ```python
 from typing import Literal
-from gradeflow_engine.rules.models.base import BaseSingleQuestionRule
-from gradeflow_engine.rules.result import RuleResult
-from gradeflow_engine.questions.types import Answer
+from pydantic import Field, computed_field
+from gradeflow_engine.rules.models.base import BaseSingleQuestionRule, BaseRule
+from gradeflow_engine.rules.result import Result
+from gradeflow_engine.questions.types import Answer, QuestionType
 
-class MyCustomRule(BaseSingleQuestionRule):
-    type: Literal["MY_CUSTOM"] = "MY_CUSTOM"
+
+class MyCustomRule(BaseRule, BaseSingleQuestionRule):
+    type: Literal["MY_CUSTOM"] = Field(
+        default="MY_CUSTOM", frozen=True, json_schema_extra={"readOnly": True}
+    )
+    name: Literal["My Custom"] = Field(
+        default="My Custom", frozen=True, json_schema_extra={"readOnly": True}
+    )
+    question_types: frozenset[QuestionType] = Field(
+        default=frozenset({"TEXT"}), frozen=True, json_schema_extra={"readOnly": True}
+    )
     my_param: str
-    
-    def _process_answer(self, answer: Answer) -> RuleResult:
-        # Implement grading logic
-        passed = True  # Your logic here
-        points = self.max_points if passed else 0
-        feedback = "Custom feedback"
-        return RuleResult(
+
+    @computed_field
+    @property
+    def description(self) -> str:
+        return f"Custom rule with param: {self.my_param}"
+
+    def _process_answer(self, answer: Answer) -> Result:
+        passed = str(answer) == self.my_param
+        return Result(
+            output=passed,
             passed=passed,
-            points=points,
-            max_points=self.max_points,
-            feedback=feedback,
+            feedback="Correct." if passed else f"Expected {self.my_param!r}.",
+            rule=self.__class__.__name__,
         )
+
+    def compute_points(self, result: Result, max_points: float) -> float:
+        return max_points if result.passed else 0.0
 ```
 
-Update the discriminated union in `rules/models/__init__.py` to enable YAML deserialization.
+Then add `MyCustomRule` and its question-rule variant to the discriminated unions in `rules/models/__init__.py` to enable YAML deserialization.
 
 ## License
 
@@ -713,8 +855,9 @@ MIT License
 
 ## Acknowledgements
 
-- Pydantic for robust model validation and serialization
-- Typer and Rich for elegant CLI with beautiful terminal output
-- RapidFuzz for fast fuzzy string matching and similarity metrics
-- natsort for natural sorting of question IDs in outputs
-- PyYAML for YAML serialization
+- [Pydantic](https://docs.pydantic.dev/) for robust model validation and serialization
+- [Typer](https://typer.tiangolo.com/) and [Rich](https://rich.readthedocs.io/) for an elegant CLI with beautiful terminal output
+- [RapidFuzz](https://github.com/maxbachmann/RapidFuzz) for fast fuzzy string matching and similarity metrics
+- [FastEmbed](https://github.com/qdrant/fastembed) for fast text embedding
+- [natsort](https://github.com/SethMMorris/natsort) for natural sorting of question IDs in outputs
+- [PyYAML](https://pyyaml.org/) for YAML serialization
