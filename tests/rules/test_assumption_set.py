@@ -139,6 +139,25 @@ def test_tie_between_assumptions_is_deterministic() -> None:
     assert chosen.assumption.name == "a1"
 
 
+def test_choose_assumption_result_tie_breaks_by_description_edit_distance() -> None:
+    closer = MultiQuestionAssumption(
+        name="closer",
+        rules=[TextMatchQuestionRule(question_id="q1", answers=["yes"])],
+    )
+    farther = MultiQuestionAssumption(
+        name="farther",
+        rules=[TextMatchQuestionRule(question_id="q1", answers=["yes", "no"])],
+    )
+
+    answers: dict[QuestionId, Answer] = {"q1": "yes"}
+    ar_farther = evaluate_assumption(farther, answers, {})
+    ar_closer = evaluate_assumption(closer, answers, {})
+
+    chosen = choose_assumption_result([ar_farther, ar_closer], mode="MAX")
+    assert ar_farther.question_results[0].points == ar_closer.question_results[0].points
+    assert chosen.assumption.name == "closer"
+
+
 def test_choose_assumption_result_empty_list_raises() -> None:
     with pytest.raises(ValueError):
         choose_assumption_result([], mode="MAX")

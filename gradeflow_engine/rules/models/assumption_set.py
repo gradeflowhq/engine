@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, Field, TypeAdapter, computed_field
+from rapidfuzz.distance import JaroWinkler
 
 from ...questions.models import Question
 from ...questions.types import Answer, QuestionId, QuestionType
@@ -51,6 +52,11 @@ class MultiQuestionAssumption(BaseAssumption):
 class AssumptionResult:
     assumption: MultiQuestionAssumption
     question_results: list[QuestionResult]
+    answer_similarity: float = 0
+
+
+def text_similarity(a: str, b: str) -> float:
+    return JaroWinkler.similarity(a, b)
 
 
 def evaluate_assumption(
@@ -59,6 +65,7 @@ def evaluate_assumption(
     max_points_map: dict[QuestionId, float],
 ) -> AssumptionResult:
     question_results: list[QuestionResult] = []
+    answer_similarity: float = 0.0
     assumption_marker = (
         f"[Assumption: {question_assumption.name}] " if question_assumption.name else ""
     )
@@ -66,21 +73,29 @@ def evaluate_assumption(
         result = rule.process_submission(answer_map, max_points_map)[rule.question_id]
         result.feedback = f"{assumption_marker}{result.feedback}"
         result.points *= question_assumption.weight
+        answer_similarity += text_similarity(rule.description, str(answer_map[rule.question_id]))
         question_results.append(result)
-    return AssumptionResult(assumption=question_assumption, question_results=question_results)
+    return AssumptionResult(
+        assumption=question_assumption,
+        question_results=question_results,
+        answer_similarity=answer_similarity,
+    )
 
 
 def choose_assumption_result(
     assumption_results: list[AssumptionResult],
     mode: AssumptionSetMode,
 ) -> AssumptionResult:
-    aggr_fn = max if mode == "MAX" else min
-    assumption_result = aggr_fn(
-        assumption_results,
-        key=lambda assumption_result: sum(
+    def key(assumption_result: AssumptionResult) -> tuple[float, float]:
+        total_points = sum(
             question_result.points for question_result in assumption_result.question_results
-        ),
-    )
+        )
+        if mode == "MAX":
+            return total_points, assumption_result.answer_similarity
+        return total_points, -assumption_result.answer_similarity
+
+    aggr_fn = max if mode == "MAX" else min
+    assumption_result = aggr_fn(assumption_results, key=key)
     return assumption_result
 
 
