@@ -1,6 +1,10 @@
-from collections.abc import Callable
-from typing import Literal
+from __future__ import annotations
 
+import functools
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Literal
+
+import numpy as np
 from pydantic import Field, computed_field
 from rapidfuzz.distance import JaroWinkler, Levenshtein
 
@@ -8,9 +12,58 @@ from ...questions.types import Answer, QuestionType
 from ..result import Result
 from .base import BaseRule, BaseSingleQuestionRule
 
-ALGORITHM_MAP: dict[str, Callable[..., float]] = {
-    "levenshtein": Levenshtein.normalized_similarity,
-    "jaro_winkler": JaroWinkler.normalized_similarity,
+if TYPE_CHECKING:
+    from fastembed import TextEmbedding
+
+
+TRANSFORMER_MODEL = "BAAI/bge-small-en-v1.5"
+
+
+@functools.cache
+def _get_transformer_model() -> TextEmbedding:
+    try:
+        from fastembed import TextEmbedding
+    except ImportError as e:
+        raise ImportError(
+            "The 'transformer' algorithm requires the 'ml' extra. "
+            "Install it with: pip install '.[ml]'"
+        ) from e
+    return TextEmbedding(TRANSFORMER_MODEL)
+
+
+def _best_score(scores: list[float]) -> tuple[float, int]:
+    best = max(range(len(scores)), key=lambda i: scores[i])
+    return scores[best], best
+
+
+def _rapidfuzz_similarity(
+    fn: Callable[[str, str], float], answer: str, references: list[str]
+) -> tuple[float, int]:
+    return _best_score([fn(answer, ref) for ref in references])
+
+
+def _levenshtein_similarity(answer: str, references: list[str]) -> tuple[float, int]:
+    return _rapidfuzz_similarity(Levenshtein.normalized_similarity, answer, references)
+
+
+def _jaro_winkler_similarity(answer: str, references: list[str]) -> tuple[float, int]:
+    return _rapidfuzz_similarity(JaroWinkler.normalized_similarity, answer, references)
+
+
+def _transformer_similarity(answer: str, references: list[str]) -> tuple[float, int]:
+    model = _get_transformer_model()
+    ref_embeddings: list[np.ndarray] = list(model.passage_embed(references))
+    query_embedding = list(model.query_embed([answer]))[0]
+    scores: list[float] = np.clip(np.dot(ref_embeddings, query_embedding), 0, 1).tolist()
+    return _best_score(scores)
+
+
+AlgorithmFn = Callable[[str, list[str]], tuple[float, int]]
+
+ALGORITHM_MAP: dict[str, AlgorithmFn] = {
+    "levenshtein": _levenshtein_similarity,
+    "jaro_winkler": _jaro_winkler_similarity,
+    "transformer": _transformer_similarity,
 }
 
 
@@ -30,9 +83,13 @@ class SimilarityRule(BaseRule):
     threshold: float = Field(
         default=0.8, description="Similarity threshold for passing the rule (0 to 1)"
     )
-    algorithm: Literal["levenshtein", "jaro_winkler"] = Field(
+    algorithm: Literal["levenshtein", "jaro_winkler", "transformer"] = Field(
         default="levenshtein",
-        description="Similarity algorithm to use (options: 'levenshtein', 'jaro_winkler')",
+        description=(
+            "Similarity algorithm to use "
+            "(options: 'levenshtein', 'jaro_winkler', 'transformer'). "
+            f"'transformer' uses the {TRANSFORMER_MODEL} model and requires the 'ml' extra."
+        ),
     )
 
     @computed_field  # type: ignore[prop-decorator]
@@ -47,8 +104,8 @@ class SimilarityRule(BaseRule):
 
     def _process_answer(self, answer: Answer) -> Result:
         similarity_fn = ALGORITHM_MAP[self.algorithm]
-        results = [(similarity_fn(str(answer), ref), ref) for ref in self.references]
-        closest_similarity, closest_ref = max(results, key=lambda x: x[0])
+        closest_similarity, best_idx = similarity_fn(str(answer), self.references)
+        closest_ref = self.references[best_idx]
         passed = closest_similarity >= self.threshold
         feedback = (
             (

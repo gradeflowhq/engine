@@ -39,6 +39,9 @@ dev = [
     "ruff>=0.14",
     "types-PyYAML~=6.0.12",
 ]
+ml = [
+    "fastembed~=0.8.0",
+]
 
 [project.scripts]
 gradeflow-engine = "gradeflow_engine.cli:app"
@@ -75,3 +78,8 @@ warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+markers = [
+    "ml: tests requiring the ml extra (sentence-transformers, torch)",
+]

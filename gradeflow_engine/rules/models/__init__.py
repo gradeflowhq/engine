@@ -21,6 +21,7 @@ from .numeric_range import NumericRangeQuestionRule, NumericRangeRule
 from .programmable import ProgrammableQuestionRule, ProgrammableRule
 from .programming import ProgrammingQuestionRule, ProgrammingRule
 from .regex import RegexQuestionRule, RegexRule
+from .similarity import SimilarityQuestionRule, SimilarityRule
 from .text_match import TextMatchQuestionRule, TextMatchRule
 
 SingleTargetRule = Annotated[
@@ -28,6 +29,7 @@ SingleTargetRule = Annotated[
     | CompositeRule
     | ProgrammableRule
     | ProgrammingRule
+    | SimilarityRule
     | TextMatchRule
     | KeywordsRule
     | RegexRule
@@ -46,6 +48,7 @@ SingleTargetQuestionRule = Annotated[
     | CompositeQuestionRule
     | ProgrammableQuestionRule
     | ProgrammingQuestionRule
+    | SimilarityQuestionRule
     | TextMatchQuestionRule
     | KeywordsQuestionRule
     | RegexQuestionRule

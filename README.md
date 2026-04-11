@@ -346,7 +346,7 @@ rules:
     max_points: 1
     reference: "example text"
     threshold: 0.8
-    algorithm: "levenshtein"  # or jaro_winkler
+    algorithm: "levenshtein"  # or jaro_winkler or transformers
 ```
 
 Multiple Choice with partial credit:
