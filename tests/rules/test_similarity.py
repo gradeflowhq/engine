@@ -6,18 +6,22 @@ from gradeflow_engine.rules.models.similarity import (
 
 
 def test_similarity_levenshtein_passes_and_feedback() -> None:
-    rule = SimilarityRule(reference="hello world", threshold=0.8, algorithm="levenshtein")
+    rule = SimilarityRule(
+        references=["hello world", "hello code"], threshold=0.8, algorithm="levenshtein"
+    )
     # close typo should still be above threshold
     result = rule.process_answer("hello worlld")
 
     assert isinstance(result.output, float)
     assert result.passed is True
     assert "Match" in result.feedback or "Match" in result.feedback
+    assert "hello world" in result.feedback
+    assert "hello code" not in result.feedback
     assert result.rule == "SimilarityRule"
 
 
 def test_similarity_jaro_winkler_below_threshold() -> None:
-    rule = SimilarityRule(reference="goodbye", threshold=0.95, algorithm="jaro_winkler")
+    rule = SimilarityRule(references=["goodbye"], threshold=0.95, algorithm="jaro_winkler")
     result = rule.process_answer("badbye")
 
     assert result.passed is False
@@ -27,7 +31,7 @@ def test_similarity_jaro_winkler_below_threshold() -> None:
 def test_similarity_question_rule_points() -> None:
     qrule = SimilarityQuestionRule(
         question_id="q1",
-        reference="yes",
+        references=["yes"],
         threshold=0.5,
         algorithm="levenshtein",
     )

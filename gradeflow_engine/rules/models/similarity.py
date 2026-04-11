@@ -26,7 +26,7 @@ class SimilarityRule(BaseRule):
     question_types: frozenset[QuestionType] = Field(
         default=frozenset({"TEXT"}), frozen=True, json_schema_extra={"readOnly": True}
     )
-    reference: str = Field(..., description="Reference text for similarity comparison")
+    references: list[str] = Field(..., description="Reference answers for similarity comparison")
     threshold: float = Field(
         default=0.8, description="Similarity threshold for passing the rule (0 to 1)"
     )
@@ -39,22 +39,30 @@ class SimilarityRule(BaseRule):
     @property
     def description(self) -> str:
         return (
-            f"Similarity to reference answer \"'{self.reference}'\" "
+            f"Similarity to one of the reference answers "
+            f"{', '.join([f'`{ref}`' for ref in self.references])} "
             f"is at least {self.threshold:.0%} "
             f"using {self.algorithm.replace('_', ' ').title()} similarity."
         )
 
     def _process_answer(self, answer: Answer) -> Result:
         similarity_fn = ALGORITHM_MAP[self.algorithm]
-        similarity = similarity_fn(str(answer), self.reference)
-        passed = similarity >= self.threshold
+        results = [(similarity_fn(str(answer), ref), ref) for ref in self.references]
+        closest_similarity, closest_ref = max(results, key=lambda x: x[0])
+        passed = closest_similarity >= self.threshold
         feedback = (
-            f"✓ Match: {similarity:.0%} (threshold: {self.threshold:.0%})"
+            (
+                f'✓ Match: {closest_similarity:.0%} to reference "{closest_ref}" '
+                f"(threshold: {self.threshold:.0%})"
+            )
             if passed
-            else f"✗ Insufficient similarity: {similarity:.0%} < {self.threshold:.0%}"
+            else (
+                f"✗ Insufficient similarity: {closest_similarity:.0%} "
+                f'to reference "{closest_ref}" < threshold {self.threshold:.0%}'
+            )
         )
         return Result(
-            output=similarity,
+            output=closest_similarity,
             passed=passed,
             feedback=feedback,
             rule=self.__class__.__name__,
