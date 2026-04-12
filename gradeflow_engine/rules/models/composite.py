@@ -17,7 +17,7 @@ class CompositeRule(BaseRule):
     type: Literal["COMPOSITE"] = Field(
         default="COMPOSITE", frozen=True, json_schema_extra={"readOnly": True}
     )
-    name: Literal["Composite"] = Field(
+    display_name: Literal["Composite"] = Field(
         default="Composite", frozen=True, json_schema_extra={"readOnly": True}
     )
     question_types: frozenset[QuestionType] = Field(

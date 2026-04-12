@@ -61,7 +61,7 @@ class NumberEqualRule(BaseRule):
     type: Literal["NUMBER_EQUAL"] = Field(
         default="NUMBER_EQUAL", frozen=True, json_schema_extra={"readOnly": True}
     )
-    name: Literal["Number Equal"] = Field(
+    display_name: Literal["Number Equal"] = Field(
         default="Number Equal", frozen=True, json_schema_extra={"readOnly": True}
     )
     question_types: frozenset[QuestionType] = Field(

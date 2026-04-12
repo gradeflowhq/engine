@@ -11,7 +11,7 @@ class NumericRangeRule(BaseRule):
     type: Literal["NUMERIC_RANGE"] = Field(
         default="NUMERIC_RANGE", frozen=True, json_schema_extra={"readOnly": True}
     )
-    name: Literal["Numeric Range"] = Field(
+    display_name: Literal["Numeric Range"] = Field(
         default="Numeric Range", frozen=True, json_schema_extra={"readOnly": True}
     )
     question_types: frozenset[QuestionType] = Field(

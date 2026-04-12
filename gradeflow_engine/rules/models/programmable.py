@@ -141,7 +141,7 @@ class ProgrammableRule(BaseRule):
     type: Literal["PROGRAMMABLE"] = Field(
         default="PROGRAMMABLE", frozen=True, json_schema_extra={"readOnly": True}
     )
-    name: Literal["Programmable"] = Field(
+    display_name: Literal["Programmable"] = Field(
         default="Programmable", frozen=True, json_schema_extra={"readOnly": True}
     )
     question_types: frozenset[QuestionType] = Field(

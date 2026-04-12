@@ -71,7 +71,7 @@ class MultipleChoiceRule(BaseRule):
     type: Literal["MULTIPLE_CHOICE"] = Field(
         default="MULTIPLE_CHOICE", frozen=True, json_schema_extra={"readOnly": True}
     )
-    name: Literal["Multiple Choice"] = Field(
+    display_name: Literal["Multiple Choice"] = Field(
         default="Multiple Choice", frozen=True, json_schema_extra={"readOnly": True}
     )
     question_types: frozenset[QuestionType] = Field(

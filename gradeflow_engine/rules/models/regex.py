@@ -36,7 +36,7 @@ class RegexRule(BaseRule):
     type: Literal["REGEX"] = Field(
         default="REGEX", frozen=True, json_schema_extra={"readOnly": True}
     )
-    name: Literal["Regex"] = Field(
+    display_name: Literal["Regex"] = Field(
         default="Regex", frozen=True, json_schema_extra={"readOnly": True}
     )
     question_types: frozenset[QuestionType] = Field(

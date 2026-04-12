@@ -11,7 +11,7 @@ class TextMatchRule(BaseRule):
     type: Literal["TEXT_MATCH"] = Field(
         default="TEXT_MATCH", frozen=True, json_schema_extra={"readOnly": True}
     )
-    name: Literal["Text Match"] = Field(
+    display_name: Literal["Text Match"] = Field(
         default="Text Match", frozen=True, json_schema_extra={"readOnly": True}
     )
     question_types: frozenset[QuestionType] = Field(

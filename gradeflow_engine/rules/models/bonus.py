@@ -11,7 +11,7 @@ class BonusRule(BaseRule):
     type: Literal["BONUS"] = Field(
         default="BONUS", frozen=True, json_schema_extra={"readOnly": True}
     )
-    name: Literal["Bonus"] = Field(
+    display_name: Literal["Bonus"] = Field(
         default="Bonus", frozen=True, json_schema_extra={"readOnly": True}
     )
     question_types: frozenset[QuestionType] = Field(

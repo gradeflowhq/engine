@@ -13,7 +13,7 @@ class KeywordsRule(BaseRule):
     type: Literal["KEYWORDS"] = Field(
         default="KEYWORDS", frozen=True, json_schema_extra={"readOnly": True}
     )
-    name: Literal["Keywords"] = Field(
+    display_name: Literal["Keywords"] = Field(
         default="Keywords", frozen=True, json_schema_extra={"readOnly": True}
     )
     question_types: frozenset[QuestionType] = Field(

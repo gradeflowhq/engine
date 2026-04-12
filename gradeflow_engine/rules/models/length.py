@@ -11,7 +11,7 @@ class LengthRule(BaseRule):
     type: Literal["LENGTH"] = Field(
         default="LENGTH", frozen=True, json_schema_extra={"readOnly": True}
     )
-    name: Literal["Length"] = Field(
+    display_name: Literal["Length"] = Field(
         default="Length", frozen=True, json_schema_extra={"readOnly": True}
     )
     question_types: frozenset[QuestionType] = Field(

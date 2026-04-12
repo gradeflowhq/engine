@@ -91,7 +91,7 @@ class ProgrammingRule(BaseRule):
     type: Literal["PROGRAMMING"] = Field(
         default="PROGRAMMING", frozen=True, json_schema_extra={"readOnly": True}
     )
-    name: Literal["Programming"] = Field(
+    display_name: Literal["Programming"] = Field(
         default="Programming", frozen=True, json_schema_extra={"readOnly": True}
     )
     question_types: frozenset[QuestionType] = Field(

@@ -79,7 +79,7 @@ class SimilarityRule(BaseRule):
     type: Literal["SIMILARITY"] = Field(
         default="SIMILARITY", frozen=True, json_schema_extra={"readOnly": True}
     )
-    name: Literal["Similarity"] = Field(
+    display_name: Literal["Similarity"] = Field(
         default="Similarity", frozen=True, json_schema_extra={"readOnly": True}
     )
     question_types: frozenset[QuestionType] = Field(

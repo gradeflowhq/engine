@@ -112,7 +112,7 @@ class AssumptionSetQuestionRule(AssumptionSetBaseRule, BaseSingleQuestionRule):
     type: Literal["ASSUMPTION_SET"] = Field(
         default="ASSUMPTION_SET", frozen=True, json_schema_extra={"readOnly": True}
     )
-    name: Literal["Assumption Set"] = Field(
+    display_name: Literal["Assumption Set"] = Field(
         default="Assumption Set", frozen=True, json_schema_extra={"readOnly": True}
     )
     assumptions: list[Assumption] = Field(
@@ -155,7 +155,7 @@ class AssumptionSetMultiQuestionRule(AssumptionSetBaseRule, BaseMultiQuestionRul
     type: Literal["ASSUMPTION_SET_MULTI"] = Field(
         default="ASSUMPTION_SET_MULTI", frozen=True, json_schema_extra={"readOnly": True}
     )
-    name: Literal["Assumption Set"] = Field(
+    display_name: Literal["Assumption Set"] = Field(
         default="Assumption Set", frozen=True, json_schema_extra={"readOnly": True}
     )
     assumptions: list[MultiQuestionAssumption] = Field(

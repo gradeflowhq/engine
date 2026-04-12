@@ -11,7 +11,7 @@ class ManualRule(BaseRule):
     type: Literal["MANUAL"] = Field(
         default="MANUAL", frozen=True, json_schema_extra={"readOnly": True}
     )
-    name: Literal["Manual"] = Field(
+    display_name: Literal["Manual"] = Field(
         default="Manual", frozen=True, json_schema_extra={"readOnly": True}
     )
     question_types: frozenset[QuestionType] = Field(

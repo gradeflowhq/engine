@@ -24,7 +24,7 @@ class MultiValuedRule(BaseRule):
     type: Literal["MULTI_VALUED"] = Field(
         default="MULTI_VALUED", frozen=True, json_schema_extra={"readOnly": True}
     )
-    name: Literal["Multi Valued"] = Field(
+    display_name: Literal["Multi Valued"] = Field(
         default="Multi Valued", frozen=True, json_schema_extra={"readOnly": True}
     )
     question_types: frozenset[QuestionType] = Field(

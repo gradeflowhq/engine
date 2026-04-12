@@ -27,7 +27,7 @@ class ConditionalMultiQuestionRule(BaseMultiQuestionRule):
     type: Literal["CONDITIONAL"] = Field(
         default="CONDITIONAL", frozen=True, json_schema_extra={"readOnly": True}
     )
-    name: Literal["Conditional"] = Field(
+    display_name: Literal["Conditional"] = Field(
         default="Conditional", frozen=True, json_schema_extra={"readOnly": True}
     )
     question_types: frozenset[QuestionType] = Field(
