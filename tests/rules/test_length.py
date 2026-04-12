@@ -64,3 +64,35 @@ def test_length_question_rule_min_only_points() -> None:
     submission: dict[QuestionId, Answer] = {"q2": "ok"}
     qresult = qrule.process_submission(submission, {"q2": 1.5})["q2"]
     assert qresult.points == 1.5
+
+
+def test_length_words_mode() -> None:
+    rule = LengthRule(min_length=3, mode="words")
+    assert rule.process_answer("one two three").passed is True
+    assert rule.process_answer("one two").passed is False
+
+
+def test_length_words_mode_max() -> None:
+    rule = LengthRule(max_length=2, mode="words")
+    assert rule.process_answer("one two").passed is True
+    assert rule.process_answer("one two three").passed is False
+
+
+def test_length_no_constraints() -> None:
+    rule = LengthRule()
+    assert rule.process_answer("anything").passed is True
+    assert rule.process_answer("").passed is True
+
+
+def test_length_empty_answer_none() -> None:
+    rule = LengthRule(min_length=1)
+    result = rule.process_answer(None)
+    assert result.passed is False
+    assert "No answer provided" in result.feedback
+
+
+def test_length_description_branches() -> None:
+    assert "Between" in LengthRule(min_length=1, max_length=5).description
+    assert "At least" in LengthRule(min_length=3).description
+    assert "At most" in LengthRule(max_length=10).description
+    assert "No length" in LengthRule().description

@@ -46,3 +46,37 @@ def test_keywords_partial_mode_fractional_points() -> None:
 
     # points should be 9 * (2/3) = 6.0
     assert abs(qresult.points - 6.0) < 1e-9
+
+
+def test_keywords_empty_answer_returns_no_answer() -> None:
+    rule = KeywordsRule(keywords=["foo"])
+    result = rule.process_answer(None)
+    assert result.passed is False
+    assert "No answer provided" in result.feedback
+
+
+def test_keywords_substring_matching() -> None:
+    rule = KeywordsRule(keywords=["bar"], mode="ALL")
+    # "bar" is a substring of "embarrass"
+    result = rule.process_answer("embarrass")
+    assert result.passed is True
+
+
+def test_keywords_case_sensitive() -> None:
+    rule = KeywordsRule(keywords=["Foo"], mode="ALL")
+    result = rule.process_answer("foo")
+    assert result.passed is False
+
+    result2 = rule.process_answer("Foo")
+    assert result2.passed is True
+
+
+def test_keywords_description_modes() -> None:
+    all_rule = KeywordsRule(keywords=["a", "b"], mode="ALL")
+    assert "all" in all_rule.description.lower()
+
+    any_rule = KeywordsRule(keywords=["a", "b"], mode="ANY")
+    assert "at least one" in any_rule.description.lower()
+
+    partial_rule = KeywordsRule(keywords=["a", "b"], mode="PARTIAL")
+    assert "partial" in partial_rule.description.lower()

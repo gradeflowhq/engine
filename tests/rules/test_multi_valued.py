@@ -1,7 +1,12 @@
 from gradeflow_engine.questions.types import Answer, QuestionId
 from gradeflow_engine.rules.models import SingleTargetRule
-from gradeflow_engine.rules.models.multi_valued import MultiValuedQuestionRule
+from gradeflow_engine.rules.models.multi_valued import (
+    MultiValuedQuestionRule,
+    MultiValuedRule,
+    feedback_fn,
+)
 from gradeflow_engine.rules.models.text_match import TextMatchRule
+from gradeflow_engine.rules.result import Result
 
 
 def test_multi_valued_all_pass() -> None:
@@ -48,3 +53,54 @@ def test_multi_valued_partial_points() -> None:
 
     # Two of three matched -> 2/3 of max_points
     assert abs(qresult.points - (6.0 * 2 / 3)) < 1e-6
+
+
+def test_multi_valued_all_fail() -> None:
+    rules: list[SingleTargetRule] = [
+        TextMatchRule(answers=["A"]),
+        TextMatchRule(answers=["B"]),
+    ]
+    rule = MultiValuedRule(rules=rules, aggregation="ALL")
+    result = rule.process_answer(["X", "Y"])
+    assert result.passed is False
+    assert result.output == 0.0
+
+
+def test_multi_valued_length_mismatch_asserts() -> None:
+    rules: list[SingleTargetRule] = [TextMatchRule(answers=["A"])]
+    rule = MultiValuedRule(rules=rules)
+    import pytest
+
+    with pytest.raises(AssertionError, match="must match"):
+        rule.process_answer(["A", "B"])
+
+
+def test_multi_valued_non_list_raises_type_error() -> None:
+    rules: list[SingleTargetRule] = [TextMatchRule(answers=["A"])]
+    rule = MultiValuedRule(rules=rules)
+    import pytest
+
+    with pytest.raises(TypeError, match="not compatible"):
+        rule.process_answer("not-a-list")
+
+
+def test_feedback_fn_format() -> None:
+    results = [
+        Result(output=True, passed=True, feedback="Good", rule="r1"),
+        Result(output=False, passed=False, feedback="Bad", rule="r2"),
+    ]
+    fb = feedback_fn(results)
+    assert "[1] Correct" in fb
+    assert "[2] Incorrect" in fb
+    assert "Good" in fb
+    assert "Bad" in fb
+
+
+def test_multi_valued_description() -> None:
+    rules: list[SingleTargetRule] = [
+        TextMatchRule(answers=["A"]),
+        TextMatchRule(answers=["B"]),
+    ]
+    rule = MultiValuedRule(rules=rules)
+    assert "Value 1" in rule.description
+    assert "Value 2" in rule.description
