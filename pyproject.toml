@@ -23,12 +23,12 @@ classifiers = [
 keywords = ["grading", "assessment", "education", "examplify", "lms", "canvas"]
 
 dependencies = [
-    "pydantic~=2.12.0",
-    "typer~=0.20.0",
-    "rich~=14.2.0",
-    "PyYAML~=6.0.3",
-    "rapidfuzz~=3.14.2",
-    "natsort~=8.4.0",
+    "pydantic~=2.12",
+    "typer~=0.20",
+    "rich~=14.2",
+    "PyYAML~=6.0",
+    "rapidfuzz~=3.14",
+    "natsort~=8.4",
 ]
 
 [project.optional-dependencies]
@@ -37,10 +37,11 @@ dev = [
     "pytest-cov>=7.0",
     "mypy>=1.18",
     "ruff>=0.14",
-    "types-PyYAML~=6.0.12",
+    "types-PyYAML~=6.0",
 ]
 ml = [
-    "fastembed~=0.8.0",
+    "fastembed~=0.8",
+    "numpy~=2.4",
 ]
 
 [project.scripts]
@@ -81,5 +82,5 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 markers = [
-    "ml: tests requiring the ml extra (sentence-transformers, torch)",
+    "ml: tests requiring the ml extra (fastembed, numpy)",
 ]

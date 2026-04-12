@@ -4,7 +4,6 @@ import functools
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Literal
 
-import numpy as np
 from pydantic import Field, computed_field
 from rapidfuzz.distance import JaroWinkler, Levenshtein
 
@@ -19,15 +18,18 @@ if TYPE_CHECKING:
 TRANSFORMER_MODEL = "BAAI/bge-small-en-v1.5"
 
 
+def _raise_algorithm_import_error(algorithm: str) -> ImportError:
+    return ImportError(
+        f"The '{algorithm}' algorithm requires the 'ml' extra. Install it with: pip install '.[ml]'"
+    )
+
+
 @functools.cache
 def _get_transformer_model() -> TextEmbedding:
     try:
         from fastembed import TextEmbedding
     except ImportError as e:
-        raise ImportError(
-            "The 'transformer' algorithm requires the 'ml' extra. "
-            "Install it with: pip install '.[ml]'"
-        ) from e
+        raise _raise_algorithm_import_error("transformer") from e
     return TextEmbedding(TRANSFORMER_MODEL)
 
 
@@ -51,6 +53,10 @@ def _jaro_winkler_similarity(answer: str, references: list[str]) -> tuple[float,
 
 
 def _transformer_similarity(answer: str, references: list[str]) -> tuple[float, int]:
+    try:
+        import numpy as np
+    except ImportError as e:
+        raise _raise_algorithm_import_error("transformer") from e
     model = _get_transformer_model()
     ref_embeddings: list[np.ndarray] = list(model.passage_embed(references))
     query_embedding = list(model.query_embed([answer]))[0]
