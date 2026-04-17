@@ -12,6 +12,10 @@ from ...submissions.models import Submission
 from ..base import DataBlob, Serializer
 from ..registries import submissions_serializer_registry
 
+# ---------------------------------------------------------------------------
+# Config
+# ---------------------------------------------------------------------------
+
 
 class CsvSubmissionsConfig(BaseModel):
     format: Literal["csv"] = "csv"
@@ -25,12 +29,29 @@ class CsvSubmissionsConfig(BaseModel):
     rounding_base: float = Field(default=0.5)
 
 
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+_RESULT_SUFFIXES: tuple[str, ...] = ("__points", "__max_points", "__passed", "__percent")
+
+
+# ---------------------------------------------------------------------------
+# Answer serialization
+# ---------------------------------------------------------------------------
+
+
 def _serialize_answer(answer: Answer) -> str:
     if isinstance(answer, set):
-        return "; ".join(sorted(map(str, answer)))
+        return "; ".join(natsorted(map(str, answer)))
     if isinstance(answer, list):
         return " | ".join(map(str, answer))
     return str(answer)
+
+
+# ---------------------------------------------------------------------------
+# Rounding helpers
+# ---------------------------------------------------------------------------
 
 
 def _round_nearest(value: float, base: float) -> float:
@@ -43,58 +64,85 @@ def _maybe_round(value: float, rounding_base: float) -> float:
     return value
 
 
-def _get_total_points(results: list[QuestionResult], rounding_base: float) -> float:
-    return sum(result.points for result in results)
+# ---------------------------------------------------------------------------
+# Aggregation helpers
+# ---------------------------------------------------------------------------
 
 
-def _get_total_max_points(results: list[QuestionResult], rounding_base: float) -> float:
-    return sum(result.max_points for result in results)
+def _percent(points: float, max_points: float) -> float:
+    return 0.0 if max_points == 0 else points / max_points * 100
 
 
-def _get_total_percent(results: list[QuestionResult], rounding_base: float) -> float:
-    total_max = _get_total_max_points(results, rounding_base=rounding_base)
-    if total_max == 0:
-        return 0.0
-    return _get_total_points(results, rounding_base=rounding_base) / total_max * 100
+# ---------------------------------------------------------------------------
+# Totals computation
+# ---------------------------------------------------------------------------
 
 
-def _question_remarks(question_id: str, result: QuestionResult) -> str:
-    percent = int(result.points / result.max_points * 100) if result.max_points > 0 else 0.0
-    return f"""[[{question_id}]] {result.points}/{result.max_points} points | {percent}%
-
-{result.feedback}
-"""
-
-
-def _remarks(
+def _compute_totals(
     result_map: dict[str, QuestionResult],
     ordered_qids: list[str],
-    total_points: float,
-    total_max_points: float,
-    total_percent: float,
-) -> str:
-    return (
-        "\n\n".join(
-            _question_remarks(qid, result_map[qid]) for qid in ordered_qids if qid in result_map
-        )
-        + f"""
----
+    rounding_base: float,
+) -> dict[str, float]:
+    """
+    Compute earned points, maximum points, and derived values for one submission.
+    """
+    earned = sum(result_map[qid].points for qid in ordered_qids if qid in result_map)
+    maximum = sum(result_map[qid].max_points for qid in ordered_qids if qid in result_map)
+    pct = _percent(earned, maximum)
+    return {
+        "total_points": earned,
+        "total_max_points": maximum,
+        "total_percent": pct,
+        "rounded_total_points": _maybe_round(earned, rounding_base),
+        "rounded_total_max_points": _maybe_round(maximum, rounding_base),
+        "rounded_total_percent": _maybe_round(pct, rounding_base),
+    }
 
-Total: {total_points}/{total_max_points} points | {total_percent}%
-"""
+
+# ---------------------------------------------------------------------------
+# Remarks
+# ---------------------------------------------------------------------------
+
+
+def _question_remarks(qid: str, result: QuestionResult) -> str:
+    percent = int(result.points / result.max_points * 100) if result.max_points > 0 else 0
+    remarks = f"[[{qid}]] {result.points}/{result.max_points} points | {percent}%"
+    if result.feedback.strip() != "":
+        remarks += f"\n\n{result.feedback}\n"
+    return remarks
+
+
+def _build_remarks(
+    result_map: dict[str, QuestionResult],
+    ordered_qids: list[str],
+    totals: dict[str, float],
+    *,
+    include_rounded_total: bool,
+) -> str:
+    per_question = "\n\n".join(
+        _question_remarks(qid, result_map[qid]) for qid in ordered_qids if qid in result_map
     )
 
+    summary = f"\n\n---\n\nTotal: {totals['total_points']}/{totals['total_max_points']} points"
+    if include_rounded_total:
+        summary += (
+            f"\nRounded Total: {totals['rounded_total_points']}/"
+            f"{totals['rounded_total_max_points']} points"
+        )
+    summary += f"\n\nPercentage: {totals['total_percent']}%"
+    if include_rounded_total:
+        summary += f"\nRounded Percentage: {totals['rounded_total_percent']}%"
 
-def _collect_question_ids(submissions: list[Submission]) -> list[str]:
-    qids: set[str] = set()
-    for s in submissions:
-        qids.update(s.answer_map.keys())
-        qids.update(s.result_map.keys())
-    return natsorted(qids)
+    return per_question + summary
 
 
-def _generate_question_result_columns(qid: str) -> list[str]:
-    return [f"{qid}__points", f"{qid}__max_points", f"{qid}__passed", f"{qid}__percent"]
+# ---------------------------------------------------------------------------
+# Field-name generation
+# ---------------------------------------------------------------------------
+
+
+def _question_result_columns(qid: str) -> list[str]:
+    return [f"{qid}{s}" for s in _RESULT_SUFFIXES]
 
 
 def _generate_fieldnames(
@@ -113,7 +161,7 @@ def _generate_fieldnames(
         fields.extend(ordered_qids)
     if include_per_question_results:
         for qid in ordered_qids:
-            fields.extend(_generate_question_result_columns(qid))
+            fields.extend(_question_result_columns(qid))
     if include_feedback:
         fields.extend(f"{qid}__feedback" for qid in ordered_qids)
     if include_remarks:
@@ -125,6 +173,45 @@ def _generate_fieldnames(
     return fields
 
 
+# ---------------------------------------------------------------------------
+# Per-question result columns
+# ---------------------------------------------------------------------------
+
+
+def _result_columns_for_qid(qid: str, res: QuestionResult | None) -> dict[str, str]:
+    """
+    Return the four per-question result columns for a single question ID.
+    All values are empty strings when there is no result for that question.
+    """
+    if res is None:
+        return dict.fromkeys(_question_result_columns(qid), "")
+    pct = _percent(res.points, res.max_points)
+    return {
+        f"{qid}__points": str(res.points),
+        f"{qid}__max_points": str(res.max_points),
+        f"{qid}__passed": "TRUE" if res.passed else "FALSE",
+        f"{qid}__percent": str(pct) if res.max_points > 0 else "N/A",
+    }
+
+
+# ---------------------------------------------------------------------------
+# Question IDs discovery
+# ---------------------------------------------------------------------------
+
+
+def _collect_question_ids(submissions: list[Submission]) -> list[str]:
+    qids: set[str] = set()
+    for s in submissions:
+        qids.update(s.answer_map.keys())
+        qids.update(s.result_map.keys())
+    return natsorted(qids)
+
+
+# ---------------------------------------------------------------------------
+# Row builder
+# ---------------------------------------------------------------------------
+
+
 def _create_row(
     gs: Submission,
     ordered_qids: list[str],
@@ -132,50 +219,46 @@ def _create_row(
     config: CsvSubmissionsConfig,
 ) -> dict[str, str]:
     row: dict[str, str] = {config.student_id_column: gs.student_id}
-    result_by_qid = gs.result_map
-    ordered_results = [result_by_qid[qid] for qid in ordered_qids if qid in result_by_qid]
-    total_points = _get_total_points(ordered_results, rounding_base=config.rounding_base)
-    total_max_points = _get_total_max_points(ordered_results, rounding_base=config.rounding_base)
-    total_percent = _get_total_percent(ordered_results, rounding_base=config.rounding_base)
-    rounded_total_points = _maybe_round(total_points, config.rounding_base)
-    rounded_total_max_points = _maybe_round(total_max_points, config.rounding_base)
-    rounded_total_percent = _maybe_round(total_percent, config.rounding_base)
+    result_map = gs.result_map
+    totals = _compute_totals(result_map, ordered_qids, config.rounding_base)
+
     if config.include_answers:
         for qid in ordered_qids:
             row[qid] = _serialize_answer(gs.answer_map.get(qid, ""))
+
     if config.include_per_question_results:
         for qid in ordered_qids:
-            res = result_by_qid.get(qid)
-            if res is None:
-                for col in _generate_question_result_columns(qid):
-                    row[col] = ""
-            else:
-                row[f"{qid}__points"] = str(res.points)
-                row[f"{qid}__max_points"] = str(res.max_points)
-                row[f"{qid}__passed"] = "TRUE" if res.passed else "FALSE"
-                percent = _get_total_percent([res], rounding_base=config.rounding_base)
-                row[f"{qid}__percent"] = f"{percent}" if res.max_points > 0 else "N/A"
+            row.update(_result_columns_for_qid(qid, result_map.get(qid)))
+
     if config.include_feedback:
         for qid in ordered_qids:
-            res = result_by_qid.get(qid)
+            res = result_map.get(qid)
             row[f"{qid}__feedback"] = (res.feedback or "") if res else ""
+
     if config.include_remarks:
-        row["remarks"] = _remarks(
-            result_by_qid, ordered_qids, total_points, total_max_points, total_percent
+        row["remarks"] = _build_remarks(
+            result_map,
+            ordered_qids,
+            totals,
+            include_rounded_total=config.include_rounded_total,
         )
-        if config.include_rounded_total:
-            row["remarks"] += f"""
-Rounded Total: {rounded_total_points}/{rounded_total_max_points} points | {rounded_total_percent}%
-"""
+
     if config.include_total:
-        row["total_points"] = str(total_points)
-        row["total_max_points"] = str(total_max_points)
-        row["total_percent"] = str(total_percent)
+        row["total_points"] = str(totals["total_points"])
+        row["total_max_points"] = str(totals["total_max_points"])
+        row["total_percent"] = str(totals["total_percent"])
+
     if config.include_rounded_total:
-        row["rounded_total_points"] = str(rounded_total_points)
-        row["rounded_total_max_points"] = str(rounded_total_max_points)
-        row["rounded_total_percent"] = str(rounded_total_percent)
+        row["rounded_total_points"] = str(totals["rounded_total_points"])
+        row["rounded_total_max_points"] = str(totals["rounded_total_max_points"])
+        row["rounded_total_percent"] = str(totals["rounded_total_percent"])
+
     return row
+
+
+# ---------------------------------------------------------------------------
+# Serializer
+# ---------------------------------------------------------------------------
 
 
 class CsvSubmissionsSerializer(Serializer[Iterable[Submission]]):
@@ -202,14 +285,22 @@ class CsvSubmissionsSerializer(Serializer[Iterable[Submission]]):
         out = StringIO()
         writer = csv.DictWriter(out, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
-        for gs in subs:
-            row = _create_row(gs, ordered_qids, config=self.config)
+        rows = [
+            _create_row(
+                gs,
+                ordered_qids,
+                config=self.config,
+            )
+            for gs in subs
+        ]
+        rows = natsorted(rows, key=lambda r: r[self.config.student_id_column])
+        for row in rows:
             writer.writerow(row)
         return DataBlob(
             data=out.getvalue().encode("utf-8"), media_type=self.media_type, extension="csv"
         )
 
-    def loads(self, blob) -> Iterable[Submission]:
+    def loads(self, blob: DataBlob) -> Iterable[Submission]:
         raise NotImplementedError("Deserializing graded submissions from CSV is not supported.")
 
 

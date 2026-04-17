@@ -1,5 +1,6 @@
 import pytest
 
+from gradeflow_engine.exceptions import MissingAnswerError
 from gradeflow_engine.question_sets.model import QuestionSet
 from gradeflow_engine.questions.models.choice import ChoiceQuestion
 from gradeflow_engine.questions.types import Answer, QuestionId
@@ -111,14 +112,15 @@ def test_mixed_rule_types_inside_assumption() -> None:
     assert all("[Assumption: a1]" in r.feedback for r in qresults.values())
 
 
-def test_missing_answer_raises_value_error() -> None:
+def test_missing_answer_raises_missing_answer_error() -> None:
     a = MultiQuestionAssumption(
         name="a",
         rules=[NumericRangeQuestionRule(question_id="q_missing", min_value=0, max_value=1)],
     )
     rule = AssumptionSetMultiQuestionRule(assumptions=[a], mode="MAX")
-    with pytest.raises(ValueError):
+    with pytest.raises(MissingAnswerError) as exc_info:
         rule.process_submission({}, {})
+    assert exc_info.value.question_id == "q_missing"
 
 
 def test_tie_between_assumptions_is_deterministic() -> None:
@@ -230,11 +232,12 @@ def test_assumption_set_question_rule_validate_compatibility_propagates_errors()
     assert any("not compatible" in e for e in errors)
 
 
-def test_assumption_set_question_rule_missing_answer_raises_value_error() -> None:
+def test_assumption_set_question_rule_missing_answer_raises_missing_answer_error() -> None:
     a = Assumption(rule=NumericRangeRule(min_value=0, max_value=1))
     rule = AssumptionSetQuestionRule(question_id="q_missing", assumptions=[a], mode="MAX")
-    with pytest.raises(ValueError):
+    with pytest.raises(MissingAnswerError) as exc_info:
         rule.process_submission({}, {})
+    assert exc_info.value.question_id == "q_missing"
 
 
 def test_assumption_set_question_rule_validate_questions_exist() -> None:

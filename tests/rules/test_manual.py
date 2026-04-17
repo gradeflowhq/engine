@@ -1,3 +1,6 @@
+import pytest
+
+from gradeflow_engine.exceptions import MissingAnswerError
 from gradeflow_engine.questions.models import ChoiceQuestion, NumericQuestion, TextQuestion
 from gradeflow_engine.questions.models.multi_valued import MultiValuedQuestion
 from gradeflow_engine.questions.types import Answer, QuestionId
@@ -29,12 +32,9 @@ def test_manual_question_rule_points_zero() -> None:
 
 def test_manual_question_rule_missing_answer_raises() -> None:
     qrule = ManualQuestionRule(question_id="Q_missing")
-    # BaseSingleQuestionRule should raise when answer missing
-    try:
+    with pytest.raises(MissingAnswerError) as exc_info:
         _ = qrule.process_submission({}, {})
-        raise AssertionError("Expected ValueError for missing answer")
-    except ValueError:
-        pass
+    assert exc_info.value.question_id == "Q_missing"
 
 
 def test_manual_rule_compatibility_all_question_types() -> None:

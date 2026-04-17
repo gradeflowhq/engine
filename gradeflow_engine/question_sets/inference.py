@@ -1,5 +1,8 @@
 from typing import Literal
 
+from pydantic import ValidationError
+
+from ..exceptions import GradeFlowError, QuestionInferenceError, QuestionSetValidationError
 from ..questions.models import Question
 from ..questions.models.choice import ChoiceQuestion
 from ..questions.models.multi_valued import MultiValuedQuestion
@@ -185,12 +188,19 @@ def infer_question_map(
     question_map: dict[QuestionId, Question] = {}
     for qid in _get_question_ids(raw_submissions):
         raw_answers = _get_raw_answers_for_qid(raw_submissions, qid)
-        question_map[qid] = _infer_question_for_qid(
-            raw_answers,
-            choice_delimiter=choice_delimiter,
-            choice_option_limit=choice_option_limit,
-            choice_normalize_case=choice_normalize_case,
-            multi_value_delimiter=multi_value_delimiter,
-            empty_marker=empty_marker,
-        )
+        try:
+            question_map[qid] = _infer_question_for_qid(
+                raw_answers,
+                choice_delimiter=choice_delimiter,
+                choice_option_limit=choice_option_limit,
+                choice_normalize_case=choice_normalize_case,
+                multi_value_delimiter=multi_value_delimiter,
+                empty_marker=empty_marker,
+            )
+        except ValidationError as e:
+            raise QuestionSetValidationError(e) from e
+        except GradeFlowError:
+            raise
+        except Exception as e:
+            raise QuestionInferenceError(qid, str(e)) from e
     return question_map

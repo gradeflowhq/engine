@@ -1,6 +1,9 @@
 import pytest
 
+from gradeflow_engine.adapters.registries import AdapterRegistry
+from gradeflow_engine.exceptions import AdapterNotFoundError, SerializerNotFoundError
 from gradeflow_engine.registry import Registry
+from gradeflow_engine.serializations.registries import SerializerRegistry
 
 
 class TestRegistry:
@@ -68,3 +71,54 @@ class TestRegistry:
             pass
 
         assert r.get("myclass") is MyClass
+
+
+class TestAdapterRegistry:
+    def test_get_missing_raises_adapter_not_found_error(self) -> None:
+        r: AdapterRegistry = AdapterRegistry("csv_adapter")
+        with pytest.raises(AdapterNotFoundError) as exc_info:
+            r.get("nonexistent")
+        assert exc_info.value.name == "nonexistent"
+        assert exc_info.value.kind == "csv_adapter"
+
+    def test_adapter_not_found_error_lists_available(self) -> None:
+        r: AdapterRegistry = AdapterRegistry("my_adapter")
+        r.register("alpha", object)
+        r.register("beta", object)
+        with pytest.raises(AdapterNotFoundError) as exc_info:
+            r.get("gamma")
+        assert "alpha" in exc_info.value.available
+        assert "beta" in exc_info.value.available
+
+    def test_adapter_not_found_is_subclass_of_gradeflow_error(self) -> None:
+        from gradeflow_engine.exceptions import AdapterError, GradeFlowError
+
+        r: AdapterRegistry = AdapterRegistry("some_adapter")
+        with pytest.raises(GradeFlowError):
+            r.get("missing")
+        with pytest.raises(AdapterError):
+            r.get("missing")
+
+
+class TestSerializerRegistry:
+    def test_get_missing_raises_serializer_not_found_error(self) -> None:
+        r: SerializerRegistry = SerializerRegistry("rubric_serializer")
+        with pytest.raises(SerializerNotFoundError) as exc_info:
+            r.get("nonexistent")
+        assert exc_info.value.name == "nonexistent"
+
+    def test_serializer_not_found_error_lists_available(self) -> None:
+        r: SerializerRegistry = SerializerRegistry("question_set_serializer")
+        r.register("yaml", object)  # type: ignore[arg-type]
+        with pytest.raises(SerializerNotFoundError) as exc_info:
+            r.get("json")
+        assert "yaml" in exc_info.value.available
+
+    def test_serializer_not_found_is_subclass_of_gradeflow_error(self) -> None:
+        from gradeflow_engine.exceptions import GradeFlowError, SerializationError
+
+        r: SerializerRegistry = SerializerRegistry("submissions_serializer")
+        with pytest.raises(GradeFlowError):
+            r.get("missing")
+        with pytest.raises(SerializationError):
+            r.get("missing")

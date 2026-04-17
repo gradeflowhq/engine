@@ -1,5 +1,6 @@
 import pytest
 
+from gradeflow_engine.exceptions import ExecutorRuntimeError, ExecutorTimeoutError
 from gradeflow_engine.rules.executors.python import (
     _decode_variables,
     _encode_variables,
@@ -40,7 +41,7 @@ class TestEncodeDecodeVariables:
             _encode_variables({"obj": object()})
 
     def test_decode_malformed_json_raises(self) -> None:
-        with pytest.raises(RuntimeError, match="Failed to parse"):
+        with pytest.raises(ExecutorRuntimeError, match="Failed to parse"):
             _decode_variables("{bad json")
 
 
@@ -56,9 +57,9 @@ class TestRun:
         assert variables["s"] == {1, 2, 3, 4}
 
     def test_runtime_error_raises(self) -> None:
-        with pytest.raises(RuntimeError):
+        with pytest.raises(ExecutorRuntimeError):
             run("1 / 0", {"x": 1}, time_limit_s=5)
 
     def test_timeout_raises(self) -> None:
-        with pytest.raises(TimeoutError, match="timed out"):
+        with pytest.raises(ExecutorTimeoutError, match="timed out"):
             run("while True: pass", {}, time_limit_s=1)

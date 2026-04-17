@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field, computed_field
 
+from ...exceptions import MissingAnswerError
 from ...questions.models import Question
 from ...questions.types import Answer, QuestionId, QuestionType
 from ..constraints import QuestionConstraint
@@ -91,7 +92,7 @@ class BaseSingleQuestionRule(BaseRule, BaseQuestionRule):
         self, answer_map: dict[QuestionId, Answer], max_points_map: dict[QuestionId, float]
     ) -> dict[QuestionId, QuestionResult]:
         if self.question_id not in answer_map:
-            raise ValueError(f"Answer for question ID {self.question_id} not found in submission.")
+            raise MissingAnswerError(self.question_id)
         answer = answer_map[self.question_id]
         result = self.process_answer(answer)
         max_points = max_points_map.get(self.question_id, DEFAULT_MAX_POINTS)

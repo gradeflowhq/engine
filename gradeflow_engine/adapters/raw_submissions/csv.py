@@ -2,8 +2,14 @@ import csv
 from io import StringIO
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
+from ...exceptions import (
+    AdapterLoadError,
+    GradeFlowError,
+    GradeFlowValidationError,
+    MissingStudentIdError,
+)
 from ...io.sources import DataSource
 from ...rules.result import QuestionResult
 from ...submissions.models import RawSubmission
@@ -34,6 +40,16 @@ class CsvRawSubmissionsAdapter(RawSubmissionsAdapter):
         self.config = self.config.model_validate(kwargs)
 
     def load(self, source: DataSource) -> list[RawSubmission]:
+        try:
+            return self._load(source)
+        except ValidationError as e:
+            raise GradeFlowValidationError(e) from e
+        except GradeFlowError:
+            raise
+        except Exception as e:
+            raise AdapterLoadError(self.name, str(e)) from e
+
+    def _load(self, source: DataSource) -> list[RawSubmission]:
         blob = source.read()
         text = blob.data.decode("utf-8")
         csv_file = StringIO(text)
@@ -43,10 +59,7 @@ class CsvRawSubmissionsAdapter(RawSubmissionsAdapter):
         for row in reader:
             sid = row.get(self.config.student_id_column)
             if not sid:
-                raise ValueError(
-                    f"Student ID column '{self.config.student_id_column}' "
-                    "not found in CSV row: {row}"
-                )
+                raise MissingStudentIdError(self.config.student_id_column, dict(row))
             if self.config.answer_columns is None:
                 non_answer_cols = {self.config.student_id_column}
                 if self.config.point_columns:

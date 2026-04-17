@@ -1,6 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
+from gradeflow_engine.exceptions import MissingAnswerError
 from gradeflow_engine.questions.types import Answer, QuestionId
 from gradeflow_engine.rules.models.conditional import (
     ConditionalMultiQuestionRule,
@@ -96,8 +97,9 @@ def test_conditional_missing_question_raises() -> None:
     then_rule = TextMatchQuestionRule(question_id="q2", answers=["yes"])
     rule = ConditionalMultiQuestionRule(if_rules=[if_rule], then_rules=[then_rule], else_rules=[])
 
-    with pytest.raises(ValueError):
+    with pytest.raises(MissingAnswerError) as exc_info:
         rule.process_submission({}, {})
+    assert exc_info.value.question_id == "q_missing"
 
 
 def test_or_aggregation_with_multiple_if_rules() -> None:

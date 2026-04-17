@@ -1,5 +1,6 @@
 import pytest
 
+from gradeflow_engine.exceptions import MissingAnswerError
 from gradeflow_engine.questions.models.numeric import NumericQuestion
 from gradeflow_engine.questions.models.text import TextQuestion
 from gradeflow_engine.rules.models.number_equal import (
@@ -63,8 +64,9 @@ def test_number_equal_question_rule_missing_answer_raises() -> None:
     qrule = NumberEqualQuestionRule(
         question_id="QX", answers=[1], config=NumberEqualConfig(approximate=False)
     )
-    with pytest.raises(ValueError):
+    with pytest.raises(MissingAnswerError) as exc_info:
         qrule.process_submission({}, {})
+    assert exc_info.value.question_id == "QX"
 
 
 def test_number_equal_non_numeric_asserts() -> None:

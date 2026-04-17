@@ -14,6 +14,7 @@ from gradeflow_engine.core import (
     load_raw_submissions_via_adapter,
     run_pipeline,
 )
+from gradeflow_engine.exceptions import ConfigurationError
 from gradeflow_engine.io.sources import StringSource
 from gradeflow_engine.question_sets.model import QuestionSet
 from gradeflow_engine.serializations.base import DataBlob
@@ -162,12 +163,11 @@ def test_run_pipeline_with_explicit_qset_and_rubric_and_output() -> None:
 
 
 def test_run_pipeline_errors_when_no_submissions_source() -> None:
-    # Neither raw_submissions nor submissions_source provided -> ValueError
-    try:
-        _ = run_pipeline()
-        raise AssertionError("Expected ValueError when no submissions source is provided")
-    except ValueError:
-        pass
+    # Neither raw_submissions nor submissions_source provided -> ConfigurationError
+    import pytest
+
+    with pytest.raises(ConfigurationError):
+        run_pipeline()
 
 
 def test_run_pipeline_includes_coverage_when_rubric_supplied() -> None:
@@ -323,3 +323,40 @@ def test_run_pipeline_with_kwargs_for_adapters_and_serializers() -> None:
     header = out_csv.splitlines()[0]
     assert "sid" in header
     assert "student_id" not in header
+
+
+def test_load_question_set_invalid_yaml_raises_load_error() -> None:
+    import pytest
+
+    from gradeflow_engine.exceptions import LoadError
+
+    bad_blob = DataBlob(
+        data=b"question_map: [unbalanced",
+        media_type="application/yaml",
+        extension="yaml",
+    )
+    with pytest.raises(LoadError) as exc_info:
+        load_question_set_from_blob(bad_blob, serializer_name="yaml")
+    assert exc_info.value.serializer == "yaml"
+
+
+def test_get_unknown_question_set_serializer_raises_serializer_not_found_error() -> None:
+    import pytest
+
+    from gradeflow_engine.core import get_question_set_serializer_class
+    from gradeflow_engine.exceptions import SerializerNotFoundError
+
+    with pytest.raises(SerializerNotFoundError) as exc_info:
+        get_question_set_serializer_class("nonexistent_format")
+    assert "nonexistent_format" in exc_info.value.name
+
+
+def test_get_unknown_raw_submissions_adapter_raises_adapter_not_found_error() -> None:
+    import pytest
+
+    from gradeflow_engine.core import get_raw_submissions_adapter_class
+    from gradeflow_engine.exceptions import AdapterNotFoundError
+
+    with pytest.raises(AdapterNotFoundError) as exc_info:
+        get_raw_submissions_adapter_class("nonexistent_adapter")
+    assert "nonexistent_adapter" in exc_info.value.name

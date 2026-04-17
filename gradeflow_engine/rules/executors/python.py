@@ -3,6 +3,8 @@ import subprocess
 import sys
 from typing import Any
 
+from ...exceptions import ExecutorRuntimeError, ExecutorTimeoutError
+
 # Tagged dict representation used for JSON round-tripping of non-serializable types.
 _SET_TAG = "__type__"
 _SET_TYPE = "set"
@@ -41,12 +43,12 @@ def _decode_variables(raw_json: str) -> dict[str, Any]:
     Deserialize variables from a JSON string, restoring tagged types.
 
     Raises:
-        RuntimeError: If the JSON cannot be parsed.
+        ExecutorRuntimeError: If the JSON cannot be parsed.
     """
     try:
         decoded = json.loads(raw_json)
     except json.JSONDecodeError as e:
-        raise RuntimeError(f"Failed to parse output: {e}\nRaw: {raw_json!r}") from e
+        raise ExecutorRuntimeError(f"Failed to parse output: {e}\nRaw: {raw_json!r}") from e
     return {k: _from_json_safe(v) for k, v in decoded.items()}
 
 
@@ -107,8 +109,8 @@ def _run_subprocess(child_program: str, time_limit_s: int) -> subprocess.Complet
     Run the child program in a subprocess with a wall-clock timeout.
 
     Raises:
-        TimeoutError: If execution exceeds time_limit_s.
-        RuntimeError: If the child process exits with a non-zero return code.
+        ExecutorTimeoutError: If execution exceeds time_limit_s.
+        ExecutorRuntimeError: If the child process exits with a non-zero return code.
     """
     try:
         result = subprocess.run(
@@ -119,10 +121,10 @@ def _run_subprocess(child_program: str, time_limit_s: int) -> subprocess.Complet
             text=True,
         )
     except subprocess.TimeoutExpired as e:
-        raise TimeoutError(f"Code execution timed out after {time_limit_s}s") from e
+        raise ExecutorTimeoutError(time_limit_s) from e
 
     if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip())
+        raise ExecutorRuntimeError(result.stderr.strip())
 
     return result
 
@@ -147,9 +149,9 @@ def run(code: str, variables: dict[str, Any], time_limit_s: int) -> None:
         time_limit_s: Wall-clock timeout in seconds.
 
     Raises:
-        TypeError: If any variable value cannot be encoded for IPC.
-        TimeoutError: If the child process exceeds time_limit_s.
-        RuntimeError: If the child process fails or its output cannot be parsed.
+        TypeError: If any variable value cannot be encoded for IPC.Raises:
+        ExecutorTimeoutError: If the child process exceeds time_limit_s.
+        ExecutorRuntimeError: If the child process fails or its output cannot be parsed.
     """
     initial_json = _encode_variables(variables)
     child_program = _build_child_program(initial_json, code)

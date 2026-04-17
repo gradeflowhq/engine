@@ -2,6 +2,7 @@ import pytest
 
 from gradeflow_engine.adapters.raw_submissions.csv import ORIGINAL_POINTS_RULE_NAME
 from gradeflow_engine.core import load_raw_submissions_via_adapter
+from gradeflow_engine.exceptions import MissingStudentIdError
 from gradeflow_engine.io.sources import StringSource
 from gradeflow_engine.submissions.models import RawSubmission
 
@@ -35,13 +36,14 @@ def test_csv_adapter_custom_student_id_and_answer_filter_direct() -> None:
     assert subs[1].raw_answer_map == {"a": "m", "b": "n"}
 
 
-def test_csv_adapter_missing_student_id_row_skipped() -> None:
+def test_csv_adapter_missing_student_id_raises() -> None:
     csv_text: str = "student_id,ans\n,empty\ns1,ok\n"
-    with pytest.raises(ValueError):
+    with pytest.raises(MissingStudentIdError) as exc_info:
         load_raw_submissions_via_adapter(
             StringSource(csv_text, media_type="text/csv", extension="csv"),
             adapter_name="csv",
         )
+    assert exc_info.value.column == "student_id"
 
 
 def test_csv_adapter_preserves_empty_strings_and_none_as_empty() -> None:

@@ -1,5 +1,8 @@
 from typing import Literal
 
+from pydantic import ValidationError
+
+from ...exceptions import AdapterLoadError, GradeFlowError, RubricValidationError
 from ...io.sources import DataSource
 from ...questions.models.choice import ChoiceQuestion
 from ...questions.parser import MultiValuedParserConfig
@@ -55,6 +58,16 @@ class ExamplifyRubricAdapter(RubricAdapter):
         self.config = self.config.model_validate(kwargs)
 
     def load(self, source: DataSource) -> Rubric:
+        try:
+            return self._load(source)
+        except ValidationError as e:
+            raise RubricValidationError(e) from e
+        except GradeFlowError:
+            raise
+        except Exception as e:
+            raise AdapterLoadError(self.name, str(e)) from e
+
+    def _load(self, source: DataSource) -> Rubric:
         cfg = self.config
         rules: list[QuestionRule] = []
 

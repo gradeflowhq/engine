@@ -26,6 +26,7 @@ from .core import (
     load_rubric_from_blob,
     load_rubric_via_adapter,
 )
+from .exceptions import GradeFlowError
 from .io.sinks import FileSink
 from .io.sources import FileSource
 from .question_sets.inference import (
@@ -271,8 +272,11 @@ def infer_questions(
             )
             console.print(f"[green]Saved inferred question set:[/green] {final_path}")
 
-    except Exception as e:
+    except GradeFlowError as e:
         console.print(Panel.fit(str(e), title="Error", border_style="red"))
+        raise typer.Exit(code=1) from e
+    except Exception as e:
+        console.print(Panel.fit(str(e), title="Unexpected Error", border_style="red"))
         raise typer.Exit(code=1) from e
 
 
@@ -496,10 +500,9 @@ def grade(
                         )
                     )
 
-    except Exception as e:
+    except GradeFlowError as e:
         console.print(Panel.fit(str(e), title="Error", border_style="red"))
         raise typer.Exit(code=1) from e
-
-
-if __name__ == "__main__":
-    app()
+    except Exception as e:
+        console.print(Panel.fit(str(e), title="Unexpected Error", border_style="red"))
+        raise typer.Exit(code=1) from e

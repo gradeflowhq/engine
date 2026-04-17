@@ -25,13 +25,12 @@ class Registry(Generic[T]):
 
     def get(self, name: str) -> T:
         key = self._normalize(name)
-        try:
-            return self._items[key]
-        except KeyError as e:
-            available = ", ".join(sorted(self._items.keys())) or "<none>"
+        if key not in self._items:
+            available = sorted(self._items.keys())
             raise KeyError(
-                f"{self._kind} '{key}' not found. Available {self._kind}s: {available}"
-            ) from e
+                f"{self._kind} '{key}' not found. Available: {', '.join(available) or '<none>'}"
+            )
+        return self._items[key]
 
     def try_get(self, name: str) -> T | None:
         return self._items.get(self._normalize(name))

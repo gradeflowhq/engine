@@ -1,6 +1,7 @@
 from collections.abc import Iterable
 from typing import Generic, TypeVar
 
+from ..exceptions import SerializerNotFoundError
 from ..question_sets.model import QuestionSet
 from ..registry import Registry
 from ..rubrics.model import Rubric
@@ -11,7 +12,12 @@ T = TypeVar("T")
 
 
 class SerializerRegistry(Registry[type[Serializer[T]]], Generic[T]):
-    pass
+    def get(self, name: str) -> type[Serializer[T]]:
+        key = self._normalize(name)
+        try:
+            return super().get(name)
+        except KeyError as e:
+            raise SerializerNotFoundError(key, self.available()) from e
 
 
 question_set_serializer_registry: SerializerRegistry[QuestionSet] = SerializerRegistry(

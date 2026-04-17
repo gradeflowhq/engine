@@ -1,5 +1,8 @@
 from typing import Literal
 
+from pydantic import ValidationError
+
+from ...exceptions import AdapterLoadError, GradeFlowError, QuestionSetValidationError
 from ...io.sources import DataSource
 from ...question_sets.model import QuestionSet
 from ...questions.models import ChoiceQuestion, NumericQuestion, Question, TextQuestion
@@ -32,6 +35,16 @@ class ExamplifyQuestionSetAdapter(QuestionSetAdapter):
         self.config = self.config.model_validate(kwargs)
 
     def load(self, source: DataSource) -> QuestionSet:
+        try:
+            return self._load(source)
+        except ValidationError as e:
+            raise QuestionSetValidationError(e) from e
+        except GradeFlowError:
+            raise
+        except Exception as e:
+            raise AdapterLoadError(self.name, str(e)) from e
+
+    def _load(self, source: DataSource) -> QuestionSet:
         cfg = self.config
         qmap: dict[str, Question] = {}
 

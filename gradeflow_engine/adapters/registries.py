@@ -1,5 +1,6 @@
 from typing import Generic, Protocol, TypeVar
 
+from ..exceptions import AdapterNotFoundError
 from ..io.sources import DataSource
 from ..question_sets.model import QuestionSet
 from ..registry import Registry
@@ -10,7 +11,12 @@ T = TypeVar("T")
 
 
 class AdapterRegistry(Registry[type[T]], Generic[T]):
-    pass
+    def get(self, name: str) -> type[T]:
+        key = self._normalize(name)
+        try:
+            return super().get(name)
+        except KeyError as e:
+            raise AdapterNotFoundError(key, self._kind, self.available()) from e
 
 
 class QuestionSetAdapter(Protocol):

@@ -1,7 +1,7 @@
 import pytest
-import yaml
 
 from gradeflow_engine.core import dump_question_set_to_blob, load_question_set_from_blob
+from gradeflow_engine.exceptions import LoadError
 from gradeflow_engine.question_sets.model import QuestionSet
 from gradeflow_engine.questions.models.text import TextQuestion
 from gradeflow_engine.serializations.base import DataBlob
@@ -26,15 +26,16 @@ def test_valid_minimal_parses() -> None:
     assert getattr(qset.question_map["q1"], "type", None) == "TEXT"
 
 
-def test_malformed_yaml_raises() -> None:
+def test_malformed_yaml_raises_load_error() -> None:
     bad_yaml = "question_map: [unbalanced"
     blob = DataBlob(
         data=bad_yaml.encode("utf-8"),
         media_type="application/yaml",
         extension="yaml",
     )
-    with pytest.raises(yaml.YAMLError):
+    with pytest.raises(LoadError) as exc_info:
         load_question_set_from_blob(blob, serializer_name="yaml")
+    assert exc_info.value.serializer == "yaml"
 
 
 def test_roundtrip_equal() -> None:

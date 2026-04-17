@@ -2,6 +2,7 @@ from collections.abc import Mapping
 
 from pydantic import BaseModel
 
+from ..exceptions import AnswerParseError, UnknownQuestionError
 from ..questions.constants import UNPARSABLE_MARKER
 from ..questions.models import Question
 from ..questions.types import Answer, QuestionId
@@ -26,7 +27,7 @@ def parse_raw_answer_map(
         question = question_map.get(qid)
         if question is None:
             if strict:
-                raise ValueError(f"Unknown question ID in raw answer map: {qid}")
+                raise UnknownQuestionError(qid)
             answer_map[qid] = f"{UNPARSABLE_MARKER}{raw_answer}"
             continue
         answer: Answer
@@ -34,9 +35,7 @@ def parse_raw_answer_map(
             answer = question.parse(raw_answer)
         except ValueError as e:
             if strict:
-                raise ValueError(
-                    f"Failed to parse answer for question {qid} ({raw_answer}): {e}"
-                ) from e
+                raise AnswerParseError(qid, raw_answer, str(e)) from e
             answer = f"{UNPARSABLE_MARKER}{raw_answer}"
         answer_map[qid] = answer
     return answer_map

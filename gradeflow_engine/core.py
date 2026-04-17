@@ -12,6 +12,7 @@ from .adapters.registries import (
     raw_submissions_adapter_registry,
     rubric_adapter_registry,
 )
+from .exceptions import ConfigurationError
 from .io.sinks import DataSink
 
 # IO abstractions
@@ -260,7 +261,7 @@ def run_pipeline(
             adapter_kwargs=submissions_adapter_kwargs,
         )
     else:
-        raise ValueError(
+        raise ConfigurationError(
             "Submissions source is required: provide raw_submissions or submissions_source."
         )
 

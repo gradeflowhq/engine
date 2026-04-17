@@ -71,13 +71,20 @@ def test_multiple_choice_modes_and_combined_rules() -> None:
     assert len(graded.result_map) == 2
 
 
-def test_missing_answer_raises_value_error() -> None:
+def test_missing_answer_strict_raises_grading_error() -> None:
+    from gradeflow_engine.exceptions import GradingError
+
     mc = MultipleChoiceQuestionRule(question_id="q2", answer={"a"}, mode="ALL")
     rubric = Rubric(rules=[mc])
-    # submission missing q2
+    # submission missing q2 — non-strict grades silently with 0 points
     sub = Submission(student_id="s1", answer_map={})
-    with pytest.raises(ValueError):
-        rubric.grade([sub], {})
+    graded = rubric.grade([sub], {})
+    assert graded[0].result_map["q2"].points == 0.0
+    # strict=True should propagate as GradingError
+    with pytest.raises(GradingError) as exc_info:
+        rubric.grade([sub], {}, strict=True)
+    assert exc_info.value.student_id == "s1"
+    assert exc_info.value.question_id == "q2"
 
 
 def test_validate_questions_exist_and_compatibility_and_unique() -> None:
@@ -139,3 +146,27 @@ def test_rubric_get_coverage_empty_qset() -> None:
     assert cov.percentage == 0.0
     assert cov.question_ids == set()
     assert cov.covered_question_ids == set()
+
+
+def test_rubric_no_rules_no_answer() -> None:
+    qset = QuestionSet(
+        question_map={"Q1": TextQuestion(max_points=10.0), "Q2": ChoiceQuestion(max_points=5.0)}
+    )
+    rubric = Rubric(rules=[TextMatchQuestionRule(question_id="Q1", answers=["foo"])])
+    cov = rubric.get_coverage(qset)
+    assert cov.total == 2
+    assert cov.covered == 1
+    assert cov.percentage == 0.5
+
+    # Grading should be processed for Q1 but not Q2 (which has no rules)
+    sub = Submission(student_id="s1", answer_map={"Q1": "foo"})
+    graded = rubric.grade([sub], qset.question_map)[0]
+    assert graded.student_id == "s1"
+    assert "Q1" in graded.result_map
+    assert graded.result_map["Q1"].points == 10.0
+    assert graded.result_map["Q1"].max_points == 10.0
+    assert graded.result_map["Q1"].passed is True
+    assert graded.result_map["Q1"].rule == "TextMatchQuestionRule"
+
+    # Q2 should not be graded since it's not covered by any rule
+    assert "Q2" not in graded.result_map
