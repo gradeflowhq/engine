@@ -158,9 +158,18 @@ def test_rubric_no_rules_no_answer() -> None:
     assert cov.covered == 1
     assert cov.percentage == 0.5
 
-    # Grading should be processed for Q1 but not Q2 (which has no rules)
     sub = Submission(student_id="s1", answer_map={"Q1": "foo"})
-    graded = rubric.grade([sub], qset.question_map)[0]
+
+    # Grade with grade_questions_without_rule=False
+    graded = rubric.grade(
+        [sub],
+        qset.question_map,
+        strict=False,
+        override_results=True,
+        grade_questions_without_rule=False,
+    )[0]
+
+    # Grading should be processed for Q1 but not Q2 (which has no rules)
     assert graded.student_id == "s1"
     assert "Q1" in graded.result_map
     assert graded.result_map["Q1"].points == 10.0
@@ -170,3 +179,27 @@ def test_rubric_no_rules_no_answer() -> None:
 
     # Q2 should not be graded since it's not covered by any rule
     assert "Q2" not in graded.result_map
+
+    # Grade with grade_questions_without_rule=True
+    graded = rubric.grade(
+        [sub],
+        qset.question_map,
+        strict=False,
+        override_results=True,
+        grade_questions_without_rule=True,
+    )[0]
+
+    # Grading should be processed for Q1
+    assert graded.student_id == "s1"
+    assert "Q1" in graded.result_map
+    assert graded.result_map["Q1"].points == 10.0
+    assert graded.result_map["Q1"].max_points == 10.0
+    assert graded.result_map["Q1"].passed is True
+    assert graded.result_map["Q1"].rule == "TextMatchQuestionRule"
+
+    # Grading should be processed for Q1
+    assert "Q2" in graded.result_map
+    assert graded.result_map["Q2"].points == 0.0
+    assert graded.result_map["Q2"].max_points == 5.0
+    assert graded.result_map["Q2"].passed is False
+    assert graded.result_map["Q2"].rule == "None"

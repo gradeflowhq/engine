@@ -26,6 +26,18 @@ def _missing_answer_result(max_points: float) -> QuestionResult:
     )
 
 
+def _zero_point_result(max_points: float) -> QuestionResult:
+    """Result assigned to questions that have no rule and no existing result."""
+    return QuestionResult(
+        points=0.0,
+        max_points=max_points,
+        feedback="",
+        rule="None",
+        passed=False,
+        output=0.0,
+    )
+
+
 def _handle_missing_answer(
     e: MissingAnswerError,
     submission: Submission,
@@ -83,17 +95,66 @@ def grade_submission(
     submission: Submission,
     question_map: Mapping[QuestionId, Question],
     strict: bool = False,
+    override_results: bool = True,
+    grade_questions_without_rule: bool = True,
 ) -> Submission:
+    """
+    Grade a single submission against a list of rules.
+
+    Parameters
+    ----------
+    strict:
+        When True, any error during grading (e.g. missing answer, exception in rule processing)
+        raises a GradingError that propagates out of this function.
+        When False (default), grading errors are caught and logged, and the affected question(s)
+        receive a zero-point result
+    override_results:
+        When True (default), a rule result **overwrites** any pre-existing
+        result for the targeted question(s).  When False, a rule is **skipped**
+        for any question that already has a result in the submission's
+        ``result_map`` (e.g. pre-populated pass-through points from the CSV
+        adapter).
+    grade_questions_without_rule:
+        When True (default), every question in ``question_map`` that is **not**
+        targeted by any rule and has **no** existing result receives a
+        zero-point ``QuestionResult`` with ``rule="NoRule"``.  When False,
+        uncovered questions are left out of ``result_map`` entirely.
+    """
     max_points_map: dict[QuestionId, float] = {qid: q.max_points for qid, q in question_map.items()}
     result_map: dict[QuestionId, QuestionResult] = dict(submission.result_map)
+
+    # Track every question ID that at least one rule targets.
+    covered_qids: set[QuestionId] = set()
+
     for rule in rules:
+        target_qids = rule.get_target_question_ids()
+        covered_qids.update(target_qids)
+
+        # override_results=False: skip rule if ALL targets already have results.
+        if not override_results and all(qid in result_map for qid in target_qids):
+            continue
+
         try:
-            result = rule.process_submission(submission.answer_map, max_points_map)
+            new_results = rule.process_submission(submission.answer_map, max_points_map)
         except MissingAnswerError as e:
-            result = _handle_missing_answer(e, submission, rule, max_points_map, strict)
+            new_results = _handle_missing_answer(e, submission, rule, max_points_map, strict)
         except Exception as e:
-            result = _handle_grading_exception(e, submission, rule, max_points_map, strict)
-        result_map.update(result)
+            new_results = _handle_grading_exception(e, submission, rule, max_points_map, strict)
+
+        if override_results:
+            result_map.update(new_results)
+        else:
+            # Only write results for questions that do NOT yet have a result.
+            for qid, qresult in new_results.items():
+                if qid not in result_map:
+                    result_map[qid] = qresult
+
+    # grade_questions_without_rule: zero-fill uncovered questions.
+    if grade_questions_without_rule:
+        for qid, question in question_map.items():
+            if qid not in covered_qids and qid not in result_map:
+                result_map[qid] = _zero_point_result(max_points=question.max_points)
+
     return submission.model_copy(update={"result_map": result_map})
 
 
@@ -113,9 +174,18 @@ class Rubric(BaseModel):
         submissions: list[Submission],
         question_map: Mapping[QuestionId, Question],
         strict: bool = False,
+        override_results: bool = True,
+        grade_questions_without_rule: bool = True,
     ) -> list[Submission]:
         return [
-            grade_submission(self.rules, submission, question_map, strict=strict)
+            grade_submission(
+                self.rules,
+                submission,
+                question_map,
+                strict=strict,
+                override_results=override_results,
+                grade_questions_without_rule=grade_questions_without_rule,
+            )
             for submission in submissions
         ]
 

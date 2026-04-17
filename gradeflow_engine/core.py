@@ -243,6 +243,8 @@ def run_pipeline(
     rubric_adapter_name: str = "examplify",
     rubric_adapter_kwargs: dict[str, object] | None = None,
     rubric_grading_strict: bool = False,
+    rubric_override_results: bool = True,
+    rubric_grade_questions_without_rule: bool = True,
     # Optional graded output:
     graded_output_serializer_name: str | None = "csv",
     graded_output_serializer_kwargs: dict[str, object] | None = None,
@@ -313,7 +315,11 @@ def run_pipeline(
     if used_rubric is not None:
         validation_errors = used_rubric.validate_rubric(qset)
         submissions = used_rubric.grade(
-            submissions, qset.question_map, strict=rubric_grading_strict
+            submissions,
+            qset.question_map,
+            strict=rubric_grading_strict,
+            override_results=rubric_override_results,
+            grade_questions_without_rule=rubric_grade_questions_without_rule,
         )
         coverage = used_rubric.get_coverage(qset)
 

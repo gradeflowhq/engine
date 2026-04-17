@@ -369,6 +369,24 @@ def grade(
         "--rubric-grading-strict/--no-rubric-grading-strict",
         help="Whether to fail on errors during rubric grading.",
     ),
+    rubric_override_results: bool = typer.Option(
+        True,
+        "--rubric-override-results/--no-rubric-override-results",
+        help=(
+            "When enabled (default), rule results overwrite pre-existing results "
+            "for covered questions. When disabled, questions that already have a "
+            "result (e.g. pass-through points from --point-column) are left untouched."
+        ),
+    ),
+    rubric_grade_questions_without_rule: bool = typer.Option(
+        True,
+        "--rubric-grade-questions-without-rule/--no-rubric-grade-questions-without-rule",
+        help=(
+            "When enabled (default), questions in the question map that are not "
+            "covered by any rule and have no existing result receive a zero-point "
+            "result. When disabled, such questions are omitted from result_map entirely."
+        ),
+    ),
     # Output
     graded_serializer: str = typer.Option(
         "csv",
@@ -457,7 +475,11 @@ def grade(
             coverage = used_rubric.get_coverage(qset)
             if not validation_errors:
                 graded = used_rubric.grade(
-                    submissions, qset.question_map, strict=rubric_grading_strict
+                    submissions,
+                    qset.question_map,
+                    strict=rubric_grading_strict,
+                    override_results=rubric_override_results,
+                    grade_questions_without_rule=rubric_grade_questions_without_rule,
                 )
 
         # Output summaries
