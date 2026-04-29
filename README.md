@@ -25,6 +25,7 @@ pip install -e .
 - `core.py`: High-level API and pipeline orchestration
 - `cli.py`: Typer-based CLI with rich terminal output
 - `registry.py`: Generic registry for pluggable components
+- `exceptions.py`: Custom exception hierarchy for all engine errors
 - `adapters/`: External data source adapters (Examplify, CSV)
 - `serializations/`: Serializers for YAML, CSV, and JSON formats
 - `io/`: `DataSource` and `DataSink` abstractions
@@ -33,6 +34,7 @@ pip install -e .
 - `submissions/`: Submission models and processing
 - `rules/`: Rule models, aggregations, subprocess-based Python executors, and validators
 - `questions/`: Question models, parsing utilities, and answer types
+- `py.typed`: PEP 561 marker for type-checking support
 
 ## Running with Docker
 
@@ -145,19 +147,22 @@ from gradeflow_engine.core import (
     load_raw_submissions_via_adapter,
     load_rubric_from_blob,
     dump_submissions_to_blob,
-    run_pipeline,
 )
 from gradeflow_engine.io.sources import StringSource
-from gradeflow_engine.question_sets.inference import infer_question_map
 from gradeflow_engine.question_sets.model import QuestionSet
 from gradeflow_engine.serializations.base import DataBlob
 
 # Load submissions (CSV) with adapter
 csv_data = """
 student_id,Q1,Q2,Q3
-S1,red,10,foo
-S2,red,9,foobar
-S3,blue,,bar
+S1,red,10,hello world foo
+S2,blue,9,goodbye world bar
+S3,red,8,another example sentence here
+S4,blue,7,yet more text for testing
+S5,red,11,some words
+S6,green,6,extra long answer with many words in it
+S7,red,5,short
+S8,blue,12,medium length answer here
 """.strip()
 
 raw_submissions = load_raw_submissions_via_adapter(
@@ -169,32 +174,34 @@ raw_submissions = load_raw_submissions_via_adapter(
     },
 )
 
-# Infer question set
-question_map = infer_question_map(
-    raw_submissions,
-    choice_delimiter=",",
-    choice_option_limit=7,
-    multi_value_delimiter="~",
-)
-question_set = QuestionSet(question_map=question_map)
+from gradeflow_engine.questions.models import ChoiceQuestion, NumericQuestion, TextQuestion
+
+question_set = QuestionSet(question_map={
+    "Q1": ChoiceQuestion(
+        options={"red", "blue", "green"},
+        max_points=1.0,
+    ),
+    "Q2": NumericQuestion(max_points=2.0),
+    "Q3": TextQuestion(max_points=1.0),
+})
 
 # Load rubric from YAML
 rubric_yaml = """
 rules:
-  - type: TEXT_MATCH
+  - type: MULTIPLE_CHOICE
     question_id: "Q1"
-    max_points: 1
-    answers: ["red"]
+    answer:
+      - red
+    mode: ALL
   - type: NUMERIC_RANGE
     question_id: "Q2"
-    max_points: 2
     min_value: 9
     max_value: 10
   - type: LENGTH
     question_id: "Q3"
-    max_points: 1
     min_length: 3
-    max_length: 6
+    max_length: 50
+    mode: characters
 """
 rubric = load_rubric_from_blob(
     DataBlob(data=rubric_yaml.encode("utf-8"), media_type="application/yaml", extension="yaml"),
@@ -297,13 +304,13 @@ question_map:
     max_points: 1.0
 ```
 
-Each question has an optional `max_points` field (default `1.0`). When loading from Examplify, `max_points` is populated from the exam export's point values.
+Each question has an optional `max_points` field (default `1.0`). When loading from Examplify, `max_points` is populated from the exam export's point values. Note that `max_points` is a property of questions, not rules — during grading, the engine uses each question's `max_points` to compute points for the corresponding rule result.
 
 You can generate a `QuestionSet` via inference and save it with the YAML serializer.
 
 ### Rubric (YAML)
 
-A rubric is a list of rules targeting questions. The engine supports 15+ rule types.
+A rubric is a list of rules targeting questions. The engine supports 15+ rule types. Each rule specifies a `question_id` to target and a `type` discriminator. The `max_points` for scoring is determined by the corresponding question in the `QuestionSet`, not by the rule itself.
 
 **Text-based rules:**
 
@@ -313,7 +320,6 @@ Text Match — exact equality, accepts a list of valid answers:
 rules:
   - type: TEXT_MATCH
     question_id: Q1
-    max_points: 1
     answers:
       - red
       - Red
@@ -326,7 +332,6 @@ Keywords — answer must contain specified keywords:
 rules:
   - type: KEYWORDS
     question_id: Q3
-    max_points: 1
     keywords:
       - foo
       - bar
@@ -339,7 +344,6 @@ Regex — pattern matching with optional flags:
 rules:
   - type: REGEX
     question_id: Q3
-    max_points: 1
     pattern: "^foo.*bar$"
     config:
       ignore_case: false
@@ -353,7 +357,6 @@ Length — min/max length in characters or words:
 rules:
   - type: LENGTH
     question_id: Q3
-    max_points: 1
     min_length: 3
     max_length: 10
     mode: characters  # characters or words
@@ -365,7 +368,6 @@ Similarity — fuzzy text matching:
 rules:
   - type: SIMILARITY
     question_id: Q3
-    max_points: 1
     references:
       - example text
     threshold: 0.8
@@ -380,7 +382,6 @@ Number Equal — exact numeric equality with optional tolerance:
 rules:
   - type: NUMBER_EQUAL
     question_id: Q2
-    max_points: 1
     answers:
       - 42
     config:
@@ -394,7 +395,6 @@ Numeric Range — min/max bounds:
 rules:
   - type: NUMERIC_RANGE
     question_id: Q2
-    max_points: 2
     min_value: 0
     max_value: 10
 ```
@@ -407,7 +407,6 @@ Multiple Choice — with ALL/ANY/PARTIAL scoring modes:
 rules:
   - type: MULTIPLE_CHOICE
     question_id: Q1
-    max_points: 2
     answer:
       - red
       - blue
@@ -422,7 +421,6 @@ Composite — combine multiple rules over a single answer:
 rules:
   - type: COMPOSITE
     question_id: Q3
-    max_points: 2
     aggregation: ALL  # ALL, ANY, or PARTIAL
     rules:
       - type: REGEX
@@ -438,7 +436,6 @@ Multi-Valued — per-value rules over a list answer:
 rules:
   - type: MULTI_VALUED
     question_id: Q4
-    max_points: 3
     aggregation: PARTIAL  # ALL, ANY, or PARTIAL
     rules:
       - type: NUMERIC_RANGE
@@ -457,7 +454,6 @@ Programmable — custom Python scoring code:
 rules:
   - type: PROGRAMMABLE
     question_id: Q2
-    max_points: 3
     mode: OUTPUT  # PASS_FAIL or OUTPUT
     code: |
       # 'answer' is provided by the engine (str, float, list, or set)
@@ -480,7 +476,6 @@ Programming — execute student code against test cases:
 rules:
   - type: PROGRAMMING
     question_id: Q5
-    max_points: 5
     mode: ALL  # ALL, ANY, or PARTIAL
     testcases:
       - expression: "add(1, 2)"
@@ -502,7 +497,6 @@ Assumption Set — evaluate multiple scoring assumptions and select MAX or MIN:
 rules:
   - type: ASSUMPTION_SET
     question_id: Q1
-    max_points: 3
     mode: MAX  # MAX or MIN
     assumptions:
       - name: "Interpretation A"
@@ -533,12 +527,10 @@ rules:
         rules:
           - type: TEXT_MATCH
             question_id: Q1
-            max_points: 1
             answers:
               - red
           - type: NUMERIC_RANGE
             question_id: Q2
-            max_points: 2
             min_value: 9
             max_value: 10
       - name: "Scenario B"
@@ -546,12 +538,10 @@ rules:
         rules:
           - type: TEXT_MATCH
             question_id: Q1
-            max_points: 1
             answers:
               - blue
           - type: NUMERIC_RANGE
             question_id: Q2
-            max_points: 2
             min_value: 5
             max_value: 8
 ```
@@ -565,19 +555,16 @@ rules:
     if_rules:
       - type: LENGTH
         question_id: Q3
-        max_points: 0
         min_length: 3
         mode: characters
     then_rules:
       - type: TEXT_MATCH
         question_id: Q1
-        max_points: 1
         answers:
           - red
     else_rules:
       - type: KEYWORDS
         question_id: Q1
-        max_points: 1
         keywords:
           - blue
         mode: ANY
@@ -589,7 +576,6 @@ Bonus — always awards full points:
 rules:
   - type: BONUS
     question_id: Q4
-    max_points: 2
 ```
 
 Manual — placeholder for manual grading (returns 0 points, `graded=False`):
@@ -598,7 +584,6 @@ Manual — placeholder for manual grading (returns 0 points, `graded=False`):
 rules:
   - type: MANUAL
     question_id: Q6
-    max_points: 10
 ```
 
 ### Submissions (CSV output)
@@ -708,7 +693,7 @@ The engine uses separate registries for adapters and serializers:
 
 Built-in adapters:
 - `csv` (raw submissions)
-- `examplify` (raw submissions, question sets, rubrics)
+- `examplify` (question sets, rubrics)
 
 Built-in serializers:
 - `yaml` (question sets, rubrics)
@@ -728,7 +713,9 @@ from gradeflow_engine.core import (
     get_raw_submissions_adapter_class,
 )
 
-print(list_available_raw_submissions_adapters())   # ["csv", "examplify"]
+print(list_available_raw_submissions_adapters())   # ["csv"]
+print(list_available_question_set_adapters())      # ["examplify"]
+print(list_available_rubric_adapters())            # ["examplify"]
 print(list_available_question_set_serializers())   # ["yaml"]
 print(list_available_submissions_serializers())    # ["csv", "json", "yaml"]
 
@@ -807,21 +794,21 @@ question_set_serializer_registry.register("my_format", MySerializer)
 
 ### Add a New Rule
 
-Subclass `BaseRule` together with `BaseSingleQuestionRule` or `BaseMultiQuestionRule`:
+Subclass `BaseRule` and `BaseSingleQuestionRule` (or `BaseMultiQuestionRule` for multi-question rules). The codebase convention is to define a base rule class first, then a question-rule variant:
 
 ```python
 from typing import Literal
 from pydantic import Field, computed_field
-from gradeflow_engine.rules.models.base import BaseSingleQuestionRule, BaseRule
+from gradeflow_engine.rules.models.base import BaseRule, BaseSingleQuestionRule
 from gradeflow_engine.rules.result import Result
 from gradeflow_engine.questions.types import Answer, QuestionType
 
 
-class MyCustomRule(BaseRule, BaseSingleQuestionRule):
+class MyCustomRule(BaseRule):
     type: Literal["MY_CUSTOM"] = Field(
         default="MY_CUSTOM", frozen=True, json_schema_extra={"readOnly": True}
     )
-    name: Literal["My Custom"] = Field(
+    display_name: Literal["My Custom"] = Field(
         default="My Custom", frozen=True, json_schema_extra={"readOnly": True}
     )
     question_types: frozenset[QuestionType] = Field(
@@ -843,11 +830,13 @@ class MyCustomRule(BaseRule, BaseSingleQuestionRule):
             rule=self.__class__.__name__,
         )
 
+
+class MyCustomQuestionRule(MyCustomRule, BaseSingleQuestionRule):
     def compute_points(self, result: Result, max_points: float) -> float:
         return max_points if result.passed else 0.0
 ```
 
-Then add `MyCustomRule` and its question-rule variant to the discriminated unions in `rules/models/__init__.py` to enable YAML deserialization.
+Then add `MyCustomQuestionRule` to the `SingleTargetQuestionRule` discriminated union in `rules/models/__init__.py` to enable YAML deserialization.
 
 ## License
 
@@ -859,5 +848,5 @@ MIT License
 - [Typer](https://typer.tiangolo.com/) and [Rich](https://rich.readthedocs.io/) for an elegant CLI with beautiful terminal output
 - [RapidFuzz](https://github.com/maxbachmann/RapidFuzz) for fast fuzzy string matching and similarity metrics
 - [FastEmbed](https://github.com/qdrant/fastembed) for fast text embedding
-- [natsort](https://github.com/SethMMorris/natsort) for natural sorting of question IDs in outputs
+- [natsort](https://github.com/SethMMorton/natsort) for natural sorting of question IDs in outputs
 - [PyYAML](https://pyyaml.org/) for YAML serialization
