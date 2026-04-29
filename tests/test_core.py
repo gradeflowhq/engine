@@ -3,6 +3,7 @@ import textwrap
 from gradeflow_engine.core import (
     PipelineResult,
     dump_question_set_to_blob,
+    dump_rubric_to_blob,
     dump_submissions_to_blob,
     list_available_question_set_adapters,
     list_available_question_set_serializers,
@@ -17,6 +18,8 @@ from gradeflow_engine.core import (
 from gradeflow_engine.exceptions import ConfigurationError
 from gradeflow_engine.io.sources import StringSource
 from gradeflow_engine.question_sets.model import QuestionSet
+from gradeflow_engine.rubrics.model import Rubric
+from gradeflow_engine.rules.models.length import LengthQuestionRule
 from gradeflow_engine.serializations.base import DataBlob
 from gradeflow_engine.submissions.models import RawSubmission, Submission
 
@@ -107,6 +110,17 @@ def test_load_and_save_question_set_yaml_roundtrip() -> None:
     assert out_blob.extension == "yaml"
     qset2 = load_question_set_from_blob(out_blob, serializer_name="yaml")
     assert qset2 == qset
+
+
+def test_dump_rubric_yaml_roundtrip() -> None:
+    rubric = Rubric(rules=[LengthQuestionRule(question_id="Q1", min_length=1)])
+
+    blob = dump_rubric_to_blob(rubric, serializer_name="yaml")
+
+    assert blob.extension == "yaml"
+    assert blob.media_type == "application/yaml"
+    assert b"question_types" not in blob.data
+    assert b"constraints" not in blob.data
 
 
 def test_run_pipeline_with_explicit_qset_and_rubric_and_output() -> None:

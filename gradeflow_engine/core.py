@@ -135,6 +135,17 @@ def dump_question_set_to_blob(
     return serializer.dumps(qset)
 
 
+def dump_rubric_to_blob(
+    rubric: Rubric,
+    *,
+    serializer_name: str = "yaml",
+    serializer_kwargs: dict[str, object] | None = None,
+) -> DataBlob:
+    cls = get_rubric_serializer_class(serializer_name)
+    serializer = _instantiate(cls, serializer_kwargs)
+    return serializer.dumps(rubric)
+
+
 def load_rubric_from_blob(
     blob: DataBlob,
     *,
@@ -363,6 +374,7 @@ __all__ = [
     # Serializer I/O
     "load_question_set_from_blob",
     "dump_question_set_to_blob",
+    "dump_rubric_to_blob",
     "load_rubric_from_blob",
     "dump_submissions_to_blob",
     # Pipeline

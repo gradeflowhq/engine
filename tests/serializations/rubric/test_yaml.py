@@ -1,6 +1,6 @@
 import pytest
 
-from gradeflow_engine.core import load_rubric_from_blob
+from gradeflow_engine.core import dump_rubric_to_blob, load_rubric_from_blob
 from gradeflow_engine.exceptions import LoadError, RubricValidationError
 from gradeflow_engine.rubrics.model import Rubric
 from gradeflow_engine.rules.models.length import LengthQuestionRule
@@ -57,3 +57,16 @@ def test_missing_required_fields_raises_rubric_validation_error() -> None:
     assert any(
         error.get("loc") == ("rules",) and error.get("type") == "missing" for error in errors
     )
+
+
+def test_dump_roundtrip_strips_engine_fields() -> None:
+    rubric = Rubric(rules=[LengthQuestionRule(question_id="q1", min_length=1)])
+
+    blob = dump_rubric_to_blob(rubric, serializer_name="yaml")
+    text = blob.data.decode("utf-8")
+
+    assert "question_types" not in text
+    assert "constraints" not in text
+
+    restored = load_rubric_from_blob(blob, serializer_name="yaml")
+    assert restored.model_dump() == rubric.model_dump()
