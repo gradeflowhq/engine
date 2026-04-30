@@ -1,4 +1,3 @@
-import mimetypes
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
@@ -43,7 +42,12 @@ class FileSource:
 
 
 def _guess_media_type(ext: str) -> str:
-    if ext in {"yaml", "yml"}:
-        return "application/yaml"
-    media_type, _ = mimetypes.guess_type(f"file.{ext}")
-    return media_type or "application/octet-stream"
+    _MEDIA_TYPES: dict[str, str] = {
+        "yaml": "application/yaml",
+        "yml": "application/yaml",
+        "json": "application/json",
+        "csv": "text/csv",
+        "txt": "text/plain",
+        "xml": "application/xml",
+    }
+    return _MEDIA_TYPES.get(ext, "application/octet-stream")
