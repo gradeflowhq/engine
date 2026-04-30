@@ -1,14 +1,13 @@
-from typing import Literal
+from typing import ClassVar, Literal
 
-from pydantic import ValidationError
-
-from ...exceptions import AdapterLoadError, GradeFlowError, QuestionSetValidationError
+from ...exceptions import QuestionSetValidationError
 from ...io.sources import DataSource
 from ...question_sets.model import QuestionSet
 from ...questions.models import ChoiceQuestion, NumericQuestion, Question, TextQuestion
 from ...questions.models.multi_valued import MultiValuedQuestion, MultiValueTypes
 from ...questions.parser import BaseParserConfig, MultiValuedParserConfig, TextParserConfig
 from ...questions.utils import parse_multi_value
+from ..base import BaseAdapter
 from ..common.examplify import (
     CHOICE_DELIMITER,
     CHOICE_NORMALIZE_CASE,
@@ -16,40 +15,30 @@ from ..common.examplify import (
     MULTI_VALUE_DELIMITER,
     TRIM_WHITESPACE,
     ExamplifyParseConfig,
-    build_qid,
     extract_blank_segments,
     get_str,
     is_all_numeric_str,
     make_dict_reader,
+    maybe_build_qid,
     points_from_row,
     split_alternatives,
 )
-from ..registries import QuestionSetAdapter, question_set_adapter_registry
+from ..registries import QuestionSetAdapter
 
 
-class ExamplifyQuestionSetAdapter(QuestionSetAdapter):
-    name: Literal["examplify"] = "examplify"
+class ExamplifyQuestionSetAdapter(
+    BaseAdapter[ExamplifyParseConfig, QuestionSet], QuestionSetAdapter
+):
+    name: ClassVar[Literal["examplify"]] = "examplify"
     config: ExamplifyParseConfig = ExamplifyParseConfig()
-
-    def __init__(self, **kwargs: object) -> None:
-        self.config = self.config.model_validate(kwargs)
-
-    def load(self, source: DataSource) -> QuestionSet:
-        try:
-            return self._load(source)
-        except ValidationError as e:
-            raise QuestionSetValidationError(e) from e
-        except GradeFlowError:
-            raise
-        except Exception as e:
-            raise AdapterLoadError(self.name, str(e)) from e
+    _validation_error_cls = QuestionSetValidationError
 
     def _load(self, source: DataSource) -> QuestionSet:
         cfg = self.config
         qmap: dict[str, Question] = {}
 
         for row in make_dict_reader(source.read().data.decode("utf-8")):
-            qid = self._maybe_build_qid(row, cfg)
+            qid = maybe_build_qid(row, cfg)
             if not qid:
                 continue
 
@@ -65,14 +54,6 @@ class ExamplifyQuestionSetAdapter(QuestionSetAdapter):
         return QuestionSet(question_map=qmap)
 
     # --------- helpers ---------
-    def _maybe_build_qid(self, row: dict[str, str | None], cfg: ExamplifyParseConfig) -> str | None:
-        seq = get_str(row, "Seq")
-        if not seq:
-            return None
-        if not cfg.include_thrown_out and get_str(row, "ThrowOut").lower() == "true":
-            return None
-        return build_qid(cfg, seq)
-
     def _desc(self, row: dict[str, str | None]) -> str | None:
         s = get_str(row, "Item Text")
         return s or None
@@ -199,6 +180,3 @@ class ExamplifyQuestionSetAdapter(QuestionSetAdapter):
             value_types=value_types,
             max_points=max_points,
         )
-
-
-question_set_adapter_registry.register("examplify", ExamplifyQuestionSetAdapter)  # type: ignore[arg-type]

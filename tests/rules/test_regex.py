@@ -82,3 +82,11 @@ def test_regex_dotall_fails_when_disabled() -> None:
     result = rule.process_answer("start\nend")
 
     assert result.output is False
+
+
+def test_regex_description_lists_enabled_flags() -> None:
+    regex = RegexRule(
+        pattern="x",
+        config=RegexConfig(ignore_case=True, multi_line=True, dotall=True),
+    )
+    assert "ignoring case, multi-line mode, dot matches newlines" in regex.description

@@ -23,13 +23,15 @@ class Registry(Generic[T]):
             raise KeyError(f"{self._kind} '{key}' is not registered")
         del self._items[key]
 
+    def _make_not_found_error(self, key: str, available: list[str]) -> Exception:
+        return KeyError(
+            f"{self._kind} '{key}' not found. Available: {', '.join(available) or '<none>'}"
+        )
+
     def get(self, name: str) -> T:
         key = self._normalize(name)
         if key not in self._items:
-            available = sorted(self._items.keys())
-            raise KeyError(
-                f"{self._kind} '{key}' not found. Available: {', '.join(available) or '<none>'}"
-            )
+            raise self._make_not_found_error(key, self.available())
         return self._items[key]
 
     def try_get(self, name: str) -> T | None:
@@ -37,10 +39,3 @@ class Registry(Generic[T]):
 
     def available(self) -> list[str]:
         return sorted(self._items.keys())
-
-    def register_decorator(self, name: str, *, overwrite: bool = False):
-        def _wrap(item: T) -> T:
-            self.register(name, item, overwrite=overwrite)
-            return item
-
-        return _wrap

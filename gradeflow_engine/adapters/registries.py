@@ -11,12 +11,8 @@ T = TypeVar("T")
 
 
 class AdapterRegistry(Registry[type[T]], Generic[T]):
-    def get(self, name: str) -> type[T]:
-        key = self._normalize(name)
-        try:
-            return super().get(name)
-        except KeyError as e:
-            raise AdapterNotFoundError(key, self._kind, self.available()) from e
+    def _make_not_found_error(self, key: str, available: list[str]) -> Exception:
+        return AdapterNotFoundError(key, self._kind, available)
 
 
 class QuestionSetAdapter(Protocol):

@@ -6,11 +6,11 @@ from typing import Literal
 from natsort import natsorted
 from pydantic import BaseModel, Field
 
+from ...mixins import ConfigurableMixin
 from ...questions.types import Answer
 from ...rules.result import QuestionResult
 from ...submissions.models import Submission
-from ..base import DataBlob, Serializer
-from ..registries import submissions_serializer_registry
+from ..base import DataBlob, Dumper
 
 # ---------------------------------------------------------------------------
 # Config
@@ -213,18 +213,18 @@ def _collect_question_ids(submissions: list[Submission]) -> list[str]:
 
 
 def _create_row(
-    gs: Submission,
+    submission: Submission,
     ordered_qids: list[str],
     *,
     config: CsvSubmissionsConfig,
 ) -> dict[str, str]:
-    row: dict[str, str] = {config.student_id_column: gs.student_id}
-    result_map = gs.result_map
+    row: dict[str, str] = {config.student_id_column: submission.student_id}
+    result_map = submission.result_map
     totals = _compute_totals(result_map, ordered_qids, config.rounding_base)
 
     if config.include_answers:
         for qid in ordered_qids:
-            row[qid] = _serialize_answer(gs.answer_map.get(qid, ""))
+            row[qid] = _serialize_answer(submission.answer_map.get(qid, ""))
 
     if config.include_per_question_results:
         for qid in ordered_qids:
@@ -261,13 +261,12 @@ def _create_row(
 # ---------------------------------------------------------------------------
 
 
-class CsvSubmissionsSerializer(Serializer[Iterable[Submission]]):
+class CsvSubmissionsSerializer(
+    ConfigurableMixin[CsvSubmissionsConfig], Dumper[Iterable[Submission]]
+):
     format = "csv"
     media_type = "text/csv"
     config: CsvSubmissionsConfig = CsvSubmissionsConfig()
-
-    def __init__(self, **kwargs: object) -> None:
-        self.config = self.config.model_validate(kwargs)
 
     def dumps(self, submissions: Iterable[Submission]) -> DataBlob:
         subs = list(submissions)
@@ -287,11 +286,11 @@ class CsvSubmissionsSerializer(Serializer[Iterable[Submission]]):
         writer.writeheader()
         rows = [
             _create_row(
-                gs,
+                submission,
                 ordered_qids,
                 config=self.config,
             )
-            for gs in subs
+            for submission in subs
         ]
         rows = natsorted(rows, key=lambda r: r[self.config.student_id_column])
         for row in rows:
@@ -299,9 +298,3 @@ class CsvSubmissionsSerializer(Serializer[Iterable[Submission]]):
         return DataBlob(
             data=out.getvalue().encode("utf-8"), media_type=self.media_type, extension="csv"
         )
-
-    def loads(self, blob: DataBlob) -> Iterable[Submission]:
-        raise NotImplementedError("Deserializing graded submissions from CSV is not supported.")
-
-
-submissions_serializer_registry.register("csv", CsvSubmissionsSerializer)

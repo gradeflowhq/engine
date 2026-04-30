@@ -3,6 +3,7 @@ import pytest
 from gradeflow_engine.exceptions import MissingAnswerError
 from gradeflow_engine.question_sets.model import QuestionSet
 from gradeflow_engine.questions.models.choice import ChoiceQuestion
+from gradeflow_engine.questions.models.text import TextQuestion
 from gradeflow_engine.questions.types import Answer, QuestionId
 from gradeflow_engine.rules.models.assumption_set import (
     Assumption,
@@ -15,6 +16,7 @@ from gradeflow_engine.rules.models.assumption_set import (
 from gradeflow_engine.rules.models.length import LengthRule
 from gradeflow_engine.rules.models.numeric_range import NumericRangeQuestionRule, NumericRangeRule
 from gradeflow_engine.rules.models.text_match import TextMatchQuestionRule, TextMatchRule
+from gradeflow_engine.rules.result import Result
 
 
 def test_choose_assumption_result_max_mode() -> None:
@@ -395,3 +397,30 @@ def test_multi_question_assumption_weight_applies_per_result() -> None:
     assert pts_by_qid["Q2"] == pytest.approx(2.0)
     # Feedback should include the assumption name
     assert all("[Assumption: W]" in r.feedback for r in results.values())
+
+
+def test_assumption_set_validation_and_unimplemented_question_rule_hooks() -> None:
+    assumption = Assumption(rule=TextMatchRule(answers=["yes"]))
+    question_rule = AssumptionSetQuestionRule(
+        question_id="Q1", assumptions=[assumption], mode="MAX"
+    )
+    assert "Assumption 1" in question_rule.description
+    assert question_rule.validate_compatibility({"Q1": TextQuestion()}) == []
+    with pytest.raises(NotImplementedError):
+        question_rule._process_answer("yes")
+    with pytest.raises(NotImplementedError):
+        question_rule.compute_points(Result(output=0, passed=False, feedback="", rule="x"), 1)
+
+    multi = AssumptionSetMultiQuestionRule(
+        assumptions=[
+            MultiQuestionAssumption(
+                rules=[TextMatchQuestionRule(question_id="Q1", answers=["yes"])]
+            )
+        ],
+        mode="MAX",
+    )
+    assert "Assumption 1" in multi.description
+    assert multi.validate_compatibility({"Q1": TextQuestion()}) == []
+    assert multi.validate_questions_exist({"Q1"}) == []
+    assert multi.validate_unique_target_questions() == []
+    assert multi.get_target_question_ids() == {"Q1"}

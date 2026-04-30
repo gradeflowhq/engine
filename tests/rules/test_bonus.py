@@ -50,3 +50,7 @@ def test_bonus_rule_compatibility_all_question_types() -> None:
     assert r.validate_compatibility({"Q": num}) == []
     assert r.validate_compatibility({"Q": ch}) == []
     assert r.validate_compatibility({"Q": mv}) == []
+
+
+def test_bonus_rule_description() -> None:
+    assert "Bonus" in BonusRule().description

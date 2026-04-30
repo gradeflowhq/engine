@@ -79,3 +79,15 @@ def test_numeric_range_non_numeric_raises() -> None:
     rule = NumericRangeRule(min_value=0, max_value=10)
     with pytest.raises(TypeError):
         rule.process_answer("not-a-number")
+
+
+def test_numeric_range_bool_is_not_numeric() -> None:
+    rule = NumericRangeRule(min_value=0, max_value=10)
+    with pytest.raises(TypeError):
+        rule.process_answer(True)
+
+
+def test_numeric_range_description_variants() -> None:
+    assert NumericRangeRule().description == "No numeric range specified."
+    assert NumericRangeRule(min_value=1).description.startswith("Greater than")
+    assert NumericRangeRule(max_value=2).description.startswith("Less than")

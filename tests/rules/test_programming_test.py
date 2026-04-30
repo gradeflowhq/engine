@@ -1,7 +1,9 @@
 from gradeflow_engine.rules.models.programming import (
+    ProgrammingConfig,
     ProgrammingQuestionRule,
     ProgrammingRule,
     ProgrammingTestCase,
+    evaluate_expected,
 )
 
 
@@ -72,3 +74,19 @@ def g():
     q_partial = ProgrammingQuestionRule(question_id="q", testcases=testcases, mode="PARTIAL")
     qresult = q_partial.process_submission({"q": student_code}, {"q": 6.0})["q"]
     assert qresult.points == 6.0
+
+
+def test_programming_expected_evaluation_and_description_edges() -> None:
+    assert (
+        evaluate_expected(
+            ProgrammingTestCase(expression="x", expected="undefined_name"),
+            ProgrammingConfig(),
+        )
+        == "undefined_name"
+    )
+    assert (
+        "Code must pass"
+        in ProgrammingRule(
+            testcases=[ProgrammingTestCase(expression="x", expected="1")]
+        ).description
+    )

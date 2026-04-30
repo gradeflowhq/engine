@@ -1,6 +1,8 @@
+import inspect
 import json
 import subprocess
 import sys
+import textwrap
 from typing import Any
 
 from ...exceptions import ExecutorRuntimeError, ExecutorTimeoutError
@@ -23,6 +25,14 @@ def _from_json_safe(value: Any) -> Any:
     if isinstance(value, dict) and value.get(_SET_TAG) == _SET_TYPE and _SET_VALUE in value:
         return set(value[_SET_VALUE])
     return value
+
+
+def _is_json_safe(value: Any) -> bool:
+    try:
+        json.dumps(value)
+        return True
+    except (TypeError, ValueError):
+        return False
 
 
 def _encode_variables(variables: dict[str, Any]) -> str:
@@ -52,6 +62,11 @@ def _decode_variables(raw_json: str) -> dict[str, Any]:
     return {k: _from_json_safe(v) for k, v in decoded.items()}
 
 
+def _json_helper_source() -> str:
+    helpers = (_to_json_safe, _from_json_safe, _is_json_safe)
+    return "\n\n".join(textwrap.dedent(inspect.getsource(helper)) for helper in helpers)
+
+
 def _build_child_program(initial_json: str, code: str) -> str:
     """
     Build the source of the child Python process.
@@ -63,34 +78,13 @@ def _build_child_program(initial_json: str, code: str) -> str:
     """
     return f"""\
 import json
+from typing import Any
 
 _SET_TAG = {_SET_TAG!r}
 _SET_TYPE = {_SET_TYPE!r}
 _SET_VALUE = {_SET_VALUE!r}
 
-
-def _to_json_safe(value):
-    if isinstance(value, set):
-        return {{_SET_TAG: _SET_TYPE, _SET_VALUE: sorted(value)}}
-    return value
-
-
-def _from_json_safe(value):
-    if (
-        isinstance(value, dict)
-        and value.get(_SET_TAG) == _SET_TYPE
-        and _SET_VALUE in value
-    ):
-        return set(value[_SET_VALUE])
-    return value
-
-
-def _is_json_safe(value) -> bool:
-    try:
-        json.dumps(value)
-        return True
-    except (TypeError, ValueError):
-        return False
+{_json_helper_source()}
 
 
 raw = json.loads({initial_json!r})

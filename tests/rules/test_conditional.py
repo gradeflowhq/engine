@@ -2,6 +2,7 @@ import pytest
 from pydantic import ValidationError
 
 from gradeflow_engine.exceptions import MissingAnswerError
+from gradeflow_engine.questions.models.text import TextQuestion
 from gradeflow_engine.questions.types import Answer, QuestionId
 from gradeflow_engine.rules.models.conditional import (
     ConditionalMultiQuestionRule,
@@ -152,3 +153,22 @@ def test_if_rules_min_length_validation() -> None:
     # constructing with empty list raises ValidationError
     with pytest.raises(ValidationError):
         ConditionalMultiQuestionRule(if_rules=[], then_rules=[], else_rules=[])
+
+
+def test_conditional_validation_edges() -> None:
+    conditional = ConditionalMultiQuestionRule(
+        if_rules=[TextMatchQuestionRule(question_id="Q1", answers=["yes"])],
+        then_rules=[TextMatchQuestionRule(question_id="Q2", answers=["ok"])],
+        else_rules=[TextMatchQuestionRule(question_id="Q3", answers=["no"])],
+    )
+
+    assert "IF [Q1]" in conditional.description
+    assert (
+        conditional.validate_compatibility(
+            {"Q1": TextQuestion(), "Q2": TextQuestion(), "Q3": TextQuestion()}
+        )
+        == []
+    )
+    assert conditional.validate_questions_exist({"Q1", "Q2", "Q3"}) == []
+    assert conditional.validate_unique_target_questions() == []
+    assert conditional.get_target_question_ids() == {"Q2", "Q3"}

@@ -69,11 +69,16 @@ def test_number_equal_question_rule_missing_answer_raises() -> None:
     assert exc_info.value.question_id == "QX"
 
 
-def test_number_equal_non_numeric_asserts() -> None:
+def test_number_equal_non_numeric_raises_type_error() -> None:
     rule = NumberEqualRule(answers=[1.0], config=NumberEqualConfig(approximate=False))
-    # Non-numeric should trigger the assertion in _process_answer
     with pytest.raises(TypeError):
         _ = rule.process_answer("not-a-number")  # type: ignore
+
+
+def test_number_equal_bool_is_not_numeric() -> None:
+    rule = NumberEqualRule(answers=[1.0], config=NumberEqualConfig(approximate=False))
+    with pytest.raises(TypeError):
+        rule.process_answer(True)
 
 
 def test_number_equal_validate_question_compatibility() -> None:
@@ -101,3 +106,10 @@ def test_number_equal_feedback_lists_all_correct_answers() -> None:
     res = rule.process_answer(4)
     assert res.passed is False
     assert "The correct answers are: 1, 2, 3." in res.feedback
+
+
+def test_number_equal_description_variants() -> None:
+    assert NumberEqualRule(
+        answers=[1], config=NumberEqualConfig(approximate=False)
+    ).description.startswith("Equal")
+    assert NumberEqualRule(answers=[1]).description.startswith("Approximately")

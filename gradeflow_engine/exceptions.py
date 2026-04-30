@@ -17,16 +17,16 @@ GradeFlowError                          # base for all engine errors
 │   ├── AnswerParseError                # raw answer could not be parsed
 │   ├── UnknownQuestionError           # question ID not in question map
 │   └── MissingAnswerError             # rule targets question ID not in submission's answer map
-├── RubricError                         # base for rubric-related failures
-│   ├── RubricValidationError           # one or more rule validation failures
+├── RubricError                         # base for rubric-related runtime failures
 │   └── GradingError                   # failure during grading a submission
+├── GradeFlowValidationError            # base for Pydantic model validation failures
+│   ├── RubricValidationError           # rubric model validation failure
+│   └── QuestionSetValidationError      # question set model validation failure
 ├── QuestionInferenceError              # failure during question-type inference
 └── ExecutorError                       # base for code-execution failures
     ├── ExecutorTimeoutError            # child process exceeded time limit
     └── ExecutorRuntimeError           # child process exited non-zero / bad output
 """
-
-from __future__ import annotations
 
 from typing import Any
 
@@ -213,7 +213,7 @@ class RubricError(GradeFlowError):
     """Base class for rubric-related errors."""
 
 
-class RubricValidationError(RubricError, GradeFlowValidationError):
+class RubricValidationError(GradeFlowValidationError):
     """Raised when a rubric fails validation."""
 
 

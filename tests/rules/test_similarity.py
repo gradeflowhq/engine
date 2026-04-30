@@ -1,6 +1,12 @@
+import builtins
+import sys
+import types
+from typing import Any, cast
+
 import pytest
 
 from gradeflow_engine.questions.types import Answer, QuestionId
+from gradeflow_engine.rules.models import similarity
 from gradeflow_engine.rules.models.similarity import (
     SimilarityQuestionRule,
     SimilarityRule,
@@ -219,3 +225,71 @@ def test_similarity_transformer_question_rule_points() -> None:
     submission_fail: dict[QuestionId, Answer] = {"q1": "the moon orbits the earth"}
     result_fail = qrule.process_submission(submission_fail, {"q1": 5.0})["q1"]
     assert result_fail.points == 0.0
+
+
+def test_similarity_import_and_algorithm_edge_cases(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert "ml" in str(similarity._raise_algorithm_import_error("transformer"))
+
+    real_import = builtins.__import__
+
+    def block_fastembed(name: str, *args: Any, **kwargs: Any) -> object:
+        if name == "fastembed":
+            raise ImportError("no fastembed")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", block_fastembed)
+    similarity._get_transformer_model.cache_clear()
+    with pytest.raises(ImportError):
+        similarity._get_transformer_model()
+    monkeypatch.setattr(builtins, "__import__", real_import)
+
+    fake_fastembed = types.ModuleType("fastembed")
+
+    class FakeTextEmbedding:
+        def __init__(self, model: str) -> None:
+            self.model = model
+
+    cast(Any, fake_fastembed).TextEmbedding = FakeTextEmbedding
+    monkeypatch.setitem(sys.modules, "fastembed", fake_fastembed)
+    similarity._get_transformer_model.cache_clear()
+    assert similarity._get_transformer_model().model == similarity.TRANSFORMER_MODEL
+    similarity._get_transformer_model.cache_clear()
+
+    def block_numpy(name: str, *args: Any, **kwargs: Any) -> object:
+        if name == "numpy":
+            raise ImportError("no numpy")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", block_numpy)
+    with pytest.raises(ImportError):
+        similarity._transformer_similarity("answer", ["reference"])
+
+    class FakeArray(list[float]):
+        def tolist(self) -> list[float]:
+            return list(self)
+
+    class FakeNumpy:
+        def dot(self, refs: list[str], query: str) -> list[float]:
+            return [0.25, 0.75]
+
+        def clip(self, values: list[float], low: int, high: int) -> FakeArray:
+            return FakeArray(values)
+
+    class FakeModel:
+        def passage_embed(self, references: list[str]) -> list[str]:
+            return ["r1", "r2"]
+
+        def query_embed(self, answers: list[str]) -> list[str]:
+            return ["q"]
+
+    def fake_import(name: str, *args: Any, **kwargs: Any) -> object:
+        if name == "numpy":
+            return FakeNumpy()
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    monkeypatch.setattr(similarity, "_get_transformer_model", lambda: FakeModel())
+    assert similarity._transformer_similarity("answer", ["r1", "r2"]) == (0.75, 1)
+
+    monkeypatch.setitem(similarity.ALGORITHM_MAP, "transformer", lambda answer, refs: (0.9, 0))
+    assert SimilarityRule(references=["r"], algorithm="transformer").process_answer("answer").passed

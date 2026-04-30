@@ -1,3 +1,4 @@
+from gradeflow_engine.questions.models.text import TextQuestion
 from gradeflow_engine.questions.types import Answer, QuestionId
 from gradeflow_engine.rules.models.text_match import (
     TextMatchQuestionRule,
@@ -85,3 +86,21 @@ def test_text_match_multiple_acceptables_exact_string_only() -> None:
     assert rule.process_answer("NO").passed is True
     # exact string mismatch (case) should fail
     assert rule.process_answer("Yes").passed is False
+
+
+def test_text_match_question_rule_validation_and_default_max_points() -> None:
+    assert (
+        TextMatchQuestionRule(question_id="missing", answers=["x"]).validate_compatibility({}) == []
+    )
+    assert (
+        TextMatchQuestionRule(question_id="Q1", answers=["x"])
+        .process_submission({"Q1": "x"}, {})["Q1"]
+        .max_points
+        == 1.0
+    )
+    assert (
+        TextMatchQuestionRule(question_id="Q1", answers=["x"]).validate_compatibility(
+            {"Q1": TextQuestion()}
+        )
+        == []
+    )

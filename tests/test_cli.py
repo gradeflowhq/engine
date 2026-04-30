@@ -1,15 +1,27 @@
 import textwrap
 from pathlib import Path
+from typing import Any
 
+import pytest
+import typer
 from typer.testing import CliRunner
 
-from gradeflow_engine import cli as cli_module
+import gradeflow_engine.cli.display as display
+import gradeflow_engine.cli.grade as grade
+import gradeflow_engine.cli.infer as infer
+import gradeflow_engine.cli.list as cli_list
+import gradeflow_engine.cli.utils as utils
+from gradeflow_engine import cli
+from gradeflow_engine.core import PipelineResult
+from gradeflow_engine.exceptions import ConfigurationError
+from gradeflow_engine.question_sets.model import QuestionSet
+from gradeflow_engine.serializations.base import DataBlob
 
 runner = CliRunner()
 
 
 def test_list_components_shows_registered_entries() -> None:
-    result = runner.invoke(cli_module.app, ["list"])
+    result = runner.invoke(cli.app, ["list"])
     assert result.exit_code == 0, result.output
     # Look for registry section titles
     assert "Question Set Serializers" in result.output
@@ -41,7 +53,7 @@ def test_infer_command_prints_and_saves(tmp_path: Path) -> None:
     save_path = tmp_path / "inferred"
 
     result = runner.invoke(
-        cli_module.app,
+        cli.app,
         [
             "infer",
             str(sub_path),
@@ -106,7 +118,7 @@ def test_grade_command_with_rubric_and_save(tmp_path: Path) -> None:
     out_path = tmp_path / "graded"
 
     result = runner.invoke(
-        cli_module.app,
+        cli.app,
         [
             "grade",
             "--submissions",
@@ -146,7 +158,7 @@ def test_grade_command_with_rubric_and_save(tmp_path: Path) -> None:
     assert "s2" in out_csv
 
 
-def test_cli_grade_prints_rubric_coverage(tmp_path: Path):
+def test_cli_grade_prints_rubric_coverage(tmp_path: Path) -> None:
     # Prepare submissions CSV (two rows, one question Q1)
     submissions_csv = textwrap.dedent(
         """\
@@ -173,7 +185,7 @@ def test_cli_grade_prints_rubric_coverage(tmp_path: Path):
 
     # Let the CLI infer the question set; run grade command
     result = runner.invoke(
-        cli_module.app,
+        cli.app,
         [
             "grade",
             "--submissions",
@@ -237,7 +249,7 @@ def test_grade_command_with_adapter_and_serializer_kv(tmp_path: Path) -> None:
     out_path = tmp_path / "graded"
 
     result = runner.invoke(
-        cli_module.app,
+        cli.app,
         [
             "grade",
             "--submissions",
@@ -297,7 +309,7 @@ def test_grade_command_qset_adapter_kv_include_thrown_out(tmp_path: Path) -> Non
 
     # No rubric; just ensure the adapter includes the thrown-out question when configured
     result = runner.invoke(
-        cli_module.app,
+        cli.app,
         [
             "grade",
             "--submissions",
@@ -355,7 +367,7 @@ def test_grade_command_point_column_pass_through(tmp_path: Path) -> None:
     out_path = tmp_path / "graded"
 
     result = runner.invoke(
-        cli_module.app,
+        cli.app,
         [
             "grade",
             "--submissions",
@@ -407,7 +419,7 @@ def test_infer_command_point_column_excluded_from_answers(tmp_path: Path) -> Non
     sub_path.write_text(csv_text, encoding="utf-8")
 
     result = runner.invoke(
-        cli_module.app,
+        cli.app,
         [
             "infer",
             str(sub_path),
@@ -418,3 +430,92 @@ def test_infer_command_point_column_excluded_from_answers(tmp_path: Path) -> Non
     assert result.exit_code == 0, result.output
     assert "Q1" in result.output
     assert "q1_score" not in result.output
+
+
+def test_cli_helpers_and_error_paths(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    submissions_path = tmp_path / "subs.csv"
+    submissions_path.write_text("student_id,Q1\ns1,yes\n", encoding="utf-8")
+
+    def raise_value_error(_: str) -> object:
+        raise ValueError()
+
+    def empty_list() -> list[str]:
+        return []
+
+    monkeypatch.setattr(
+        utils.yaml,
+        "safe_load",
+        raise_value_error,
+    )
+    assert utils.parse_yaml_value("x") == "x"
+    with pytest.raises(typer.BadParameter):
+        utils.parse_kv_pairs(["missing_equals"])
+
+    display.print_grades([])
+
+    for name in (
+        "list_available_question_set_serializers",
+        "list_available_rubric_serializers",
+        "list_available_submissions_serializers",
+        "list_available_raw_submissions_adapters",
+        "list_available_question_set_adapters",
+        "list_available_rubric_adapters",
+    ):
+        monkeypatch.setattr(cli_list, name, empty_list)
+    result = runner.invoke(cli.app, ["list"])
+    assert result.exit_code == 0
+    assert "<none>" in result.output
+
+    result = runner.invoke(
+        cli.app,
+        ["infer", str(submissions_path), "--raw-submissions-adapter", "missing"],
+    )
+    assert result.exit_code == 1
+    assert "Error" in result.output
+
+    def raise_runtime(*args: Any, **kwargs: Any) -> object:
+        raise RuntimeError("unexpected")
+
+    monkeypatch.setattr(infer, "load_raw_submissions_via_adapter", raise_runtime)
+    result = runner.invoke(cli.app, ["infer", str(submissions_path)])
+    assert result.exit_code == 1
+    assert "Unexpected Error" in result.output
+
+
+def test_cli_grade_binary_output_and_error_paths(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    submissions_path = tmp_path / "subs.csv"
+    submissions_path.write_text("student_id,Q1\ns1,yes\n", encoding="utf-8")
+
+    def binary_pipeline(**kwargs: object) -> PipelineResult:
+        return PipelineResult(
+            raw_submissions=[],
+            question_set=QuestionSet(question_map={}),
+            submissions=[],
+            output=DataBlob(data=b"\x00", media_type="application/octet-stream", extension="bin"),
+        )
+
+    monkeypatch.setattr(grade, "run_pipeline", binary_pipeline)
+    result = runner.invoke(
+        cli.app,
+        ["grade", "--submissions", str(submissions_path), "--rubric", str(tmp_path / "r.yaml")],
+    )
+    assert result.exit_code == 0
+    assert "Binary output generated" in result.output
+
+    def raise_gradeflow(**kwargs: object) -> PipelineResult:
+        raise ConfigurationError("bad grade")
+
+    monkeypatch.setattr(grade, "run_pipeline", raise_gradeflow)
+    result = runner.invoke(cli.app, ["grade", "--submissions", str(submissions_path)])
+    assert result.exit_code == 1
+    assert "bad grade" in result.output
+
+    def raise_unexpected(**kwargs: object) -> PipelineResult:
+        raise RuntimeError("bad runtime")
+
+    monkeypatch.setattr(grade, "run_pipeline", raise_unexpected)
+    result = runner.invoke(cli.app, ["grade", "--submissions", str(submissions_path)])
+    assert result.exit_code == 1
+    assert "Unexpected Error" in result.output

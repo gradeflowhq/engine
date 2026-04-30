@@ -1,5 +1,6 @@
 import pytest
 
+from gradeflow_engine.questions.models.text import TextQuestion
 from gradeflow_engine.rules.models.composite import CompositeQuestionRule, CompositeRule
 from gradeflow_engine.rules.models.keywords import KeywordsRule
 from gradeflow_engine.rules.models.length import LengthRule
@@ -95,3 +96,14 @@ def test_length_boundaries_and_mixed_types() -> None:
 
     res_toolong = comp.process_answer("ok!!!!!")  # length > 5
     assert res_toolong.passed is False
+
+
+def test_composite_validation_edges() -> None:
+    composite = CompositeQuestionRule(
+        question_id="Q1",
+        rules=[LengthRule(min_length=1), NumericRangeRule(min_value=1)],
+    )
+    assert composite.validate_compatibility({}) == []
+
+    errors = composite.validate_compatibility({"Q1": TextQuestion()})
+    assert any("not compatible" in error for error in errors)

@@ -7,7 +7,12 @@ from ...questions.types import Answer, QuestionId, QuestionType
 from ..result import QuestionResult
 from ..types import BooleanAggregation, RuleValidationError
 from ..validators import validate_unique_target_questions_in_rules
-from .base import BaseMultiQuestionRule
+from .base import (
+    BaseMultiQuestionRule,
+    rule_display_name_field,
+    rule_question_types_field,
+    rule_type_field,
+)
 
 if TYPE_CHECKING:
     from . import SingleTargetQuestionRule
@@ -24,16 +29,10 @@ def check_condition(results: list[QuestionResult], aggregation: BooleanAggregati
 
 
 class ConditionalMultiQuestionRule(BaseMultiQuestionRule):
-    type: Literal["CONDITIONAL"] = Field(
-        default="CONDITIONAL", frozen=True, json_schema_extra={"readOnly": True}
-    )
-    display_name: Literal["Conditional"] = Field(
-        default="Conditional", frozen=True, json_schema_extra={"readOnly": True}
-    )
-    question_types: frozenset[QuestionType] = Field(
-        default=frozenset({"TEXT", "CHOICE", "NUMERIC", "MULTI_VALUED"}),
-        frozen=True,
-        json_schema_extra={"readOnly": True},
+    type: Literal["CONDITIONAL"] = rule_type_field("CONDITIONAL")
+    display_name: Literal["Conditional"] = rule_display_name_field("Conditional")
+    question_types: frozenset[QuestionType] = rule_question_types_field(
+        {"TEXT", "CHOICE", "NUMERIC", "MULTI_VALUED"}
     )
     if_rules: list["SingleTargetQuestionRule"] = Field(
         ..., min_length=1, description="List of rules to evaluate the 'if' condition"

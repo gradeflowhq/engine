@@ -4,19 +4,19 @@ from pydantic import Field, computed_field
 
 from ...questions.types import Answer, QuestionType
 from ..result import Result
-from .base import BaseRule, BaseSingleQuestionRule
+from .base import (
+    BaseRule,
+    BaseSingleQuestionRule,
+    rule_display_name_field,
+    rule_question_types_field,
+    rule_type_field,
+)
 
 
 class LengthRule(BaseRule):
-    type: Literal["LENGTH"] = Field(
-        default="LENGTH", frozen=True, json_schema_extra={"readOnly": True}
-    )
-    display_name: Literal["Length"] = Field(
-        default="Length", frozen=True, json_schema_extra={"readOnly": True}
-    )
-    question_types: frozenset[QuestionType] = Field(
-        default=frozenset({"TEXT"}), frozen=True, json_schema_extra={"readOnly": True}
-    )
+    type: Literal["LENGTH"] = rule_type_field("LENGTH")
+    display_name: Literal["Length"] = rule_display_name_field("Length")
+    question_types: frozenset[QuestionType] = rule_question_types_field({"TEXT"})
     min_length: int | None = Field(default=None, description="Minimum length of the answer")
     max_length: int | None = Field(default=None, description="Maximum length of the answer")
     mode: Literal["words", "characters"] = Field(
@@ -56,5 +56,4 @@ class LengthRule(BaseRule):
 
 
 class LengthQuestionRule(LengthRule, BaseSingleQuestionRule):
-    def compute_points(self, result: Result, max_points: float) -> float:
-        return max_points if result.passed else 0.0
+    pass

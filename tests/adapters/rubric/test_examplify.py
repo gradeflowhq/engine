@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from gradeflow_engine.adapters.rubric.examplify import ExamplifyRubricAdapter
 from gradeflow_engine.core import load_rubric_via_adapter
 from gradeflow_engine.io.sources import FileSource, StringSource
 from gradeflow_engine.rubrics.model import Rubric
@@ -301,3 +302,17 @@ def test_rubric_include_thrown_out_and_skip_full_credit() -> None:
         adapter_name="examplify",
     )
     assert len(rubric_fc.rules) == 0
+
+
+def test_examplify_rubric_builder_edges() -> None:
+    adapter = ExamplifyRubricAdapter()
+    cfg = adapter.config
+
+    csv = "Seq,ThrowOut,Type,Original Answer,Adjusted Answer\n1,false,Essay,abc,\n"
+    rubric = adapter.load(StringSource(csv, media_type="text/csv", extension="csv"))
+    assert isinstance(rubric.rules[0], TextMatchQuestionRule)
+
+    assert adapter._build_choice_rule("Q1", "", cfg) is None
+    assert adapter._build_fitb_rule("Q2", "{1} |", cfg) is None
+    assert adapter._build_fitb_rule("Q3", "{1} A, {2} |", cfg) is None
+    assert adapter._build_text_match_rule("Q4", []) is None

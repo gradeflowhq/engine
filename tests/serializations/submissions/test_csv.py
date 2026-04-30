@@ -2,6 +2,7 @@ import csv
 from io import StringIO
 
 from gradeflow_engine.core import dump_submissions_to_blob
+from gradeflow_engine.serializations.submissions.csv import _maybe_round
 from gradeflow_engine.submissions.models import Submission
 
 
@@ -82,3 +83,7 @@ def test_csv_serializer_headers_and_values(
     assert r4["Q6"] == "None"
     # Zero max_points should produce N/A percent for that question
     assert r4["Q6__percent"] == "N/A"
+
+
+def test_csv_rounding_helper_keeps_zero_precision_noop() -> None:
+    assert _maybe_round(1.25, 0) == 1.25

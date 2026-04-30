@@ -57,3 +57,11 @@ def test_multi_values_trims_whitespace_and_uses_delimiter() -> None:
     )
     parsed = q.parse(" alpha ; 42 ;  beta  ")
     assert parsed == ["alpha", 42, "beta"]
+
+
+def test_multi_values_reject_unsupported_value_types() -> None:
+    q = MultiValuedQuestion(value_types=["TEXT"])
+    q.value_types = ["BOOLEAN"]  # type: ignore[list-item]
+
+    with pytest.raises(ValueError, match="Unsupported"):
+        q.parse("yes")

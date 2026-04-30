@@ -161,11 +161,11 @@ def _infer_question_for_qid(
         )
 
     # 2) Numeric majority
-    elif len(_get_numeric_answers(raw_answers)) > len(raw_answers) / 2:
+    if len(_get_numeric_answers(raw_answers)) > len(raw_answers) / 2:
         return NumericQuestion(config=BaseParserConfig(empty_marker=empty_marker))
 
     # 3) Choice: limited distinct values
-    elif 0 < len(observed_values) <= choice_option_limit:
+    if 0 < len(observed_values) <= choice_option_limit:
         return ChoiceQuestion(
             options=observed_values,
             allow_multiple=choice_counts != {1},  # allow multiple if not all single-token
@@ -173,8 +173,7 @@ def _infer_question_for_qid(
         )
 
     # 4) Fallback
-    else:
-        return TextQuestion(config=TextParserConfig(empty_marker=empty_marker))
+    return TextQuestion(config=TextParserConfig(empty_marker=empty_marker))
 
 
 def infer_question_map(

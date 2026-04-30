@@ -1,7 +1,9 @@
 import pytest
 
 from gradeflow_engine.adapters.raw_submissions.csv import ORIGINAL_POINTS_RULE_NAME
-from gradeflow_engine.question_sets.model import QuestionSet, parse_raw_submission
+from gradeflow_engine.exceptions import AnswerParseError, UnknownQuestionError
+from gradeflow_engine.question_sets.model import QuestionSet
+from gradeflow_engine.questions.constants import UNPARSABLE_MARKER
 from gradeflow_engine.questions.models import ChoiceQuestion, TextQuestion
 from gradeflow_engine.questions.models.multi_valued import MultiValuedQuestion
 from gradeflow_engine.questions.models.numeric import NumericQuestion
@@ -67,9 +69,9 @@ def test_multi_valued_question_parse() -> None:
     assert parsed.answer_map["m"] == [1, "two", 3.0, "three"]
 
 
-def test_parse_raw_submission_corrects_passthrough_max_points_from_question_map() -> None:
+def test_questionset_parse_corrects_passthrough_max_points_from_question_map() -> None:
     # A passthrough result_map entry from CSV import has max_points set to the raw score (3.5).
-    # parse_raw_submission should correct it to the authoritative value from the question map (5.0).
+    # QuestionSet.parse should correct it to the authoritative value from the question map (5.0).
     passthrough_result = QuestionResult(
         output=3.5,
         passed=True,
@@ -83,10 +85,24 @@ def test_parse_raw_submission_corrects_passthrough_max_points_from_question_map(
         raw_answer_map={"q2": "yes"},
         result_map={"q1": passthrough_result},
     )
-    question_map = {"q1": TextQuestion(max_points=5.0), "q2": TextQuestion(max_points=2.0)}
+    qs = QuestionSet(
+        question_map={"q1": TextQuestion(max_points=5.0), "q2": TextQuestion(max_points=2.0)}
+    )
 
-    parsed = parse_raw_submission(question_map, raw)
+    parsed = qs.parse([raw])[0]
 
     q1 = parsed.result_map["q1"]
     assert q1.points == pytest.approx(3.5)  # unchanged
     assert q1.max_points == pytest.approx(5.0)  # corrected from question_map
+
+
+def test_question_set_parse_strict_and_lenient_errors() -> None:
+    qs = QuestionSet(question_map={"Q1": NumericQuestion()})
+
+    lenient = qs.parse([RawSubmission(student_id="s1", raw_answer_map={"Q1": "abc"})])[0]
+    assert lenient.answer_map["Q1"] == f"{UNPARSABLE_MARKER}abc"
+
+    with pytest.raises(AnswerParseError):
+        qs.parse([RawSubmission(student_id="s1", raw_answer_map={"Q1": "abc"})], strict=True)
+    with pytest.raises(UnknownQuestionError):
+        qs.parse([RawSubmission(student_id="s1", raw_answer_map={"QX": "abc"})], strict=True)

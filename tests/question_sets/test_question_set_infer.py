@@ -1,3 +1,12 @@
+import pytest
+from pydantic import ValidationError
+
+from gradeflow_engine.exceptions import (
+    ConfigurationError,
+    QuestionInferenceError,
+    QuestionSetValidationError,
+)
+from gradeflow_engine.question_sets import inference
 from gradeflow_engine.question_sets.model import QuestionSet
 from gradeflow_engine.questions.models.choice import ChoiceQuestion
 from gradeflow_engine.questions.models.multi_valued import MultiValuedQuestion
@@ -8,6 +17,12 @@ from gradeflow_engine.submissions.models import RawSubmission
 
 def make_rs(student_id: str, answers: dict[str, str]) -> RawSubmission:
     return RawSubmission(student_id=student_id, raw_answer_map=answers)
+
+
+def _validation_error() -> ValidationError:
+    with pytest.raises(ValidationError) as exc_info:
+        TextQuestion.model_validate({"max_points": "not-a-number"})
+    return exc_info.value
 
 
 def test_infer_empty_submissions_returns_empty_question_set() -> None:
@@ -161,3 +176,51 @@ def test_infer_choice_allows_multiple_when_counts_not_all_single_token() -> None
     assert isinstance(q, ChoiceQuestion)
     assert q.allow_multiple is True
     assert q.parse("red, blue") == {"red", "blue"}
+
+
+def test_question_inference_helper_edges(monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg = inference.MultiValuedParserConfig(delimiter="|")
+
+    assert inference._get_numeric_answers(["", "no", "3"]) == [3]
+    assert inference._is_numeric_token("") is False
+    assert inference._is_numeric_token("no") is False
+    assert inference._infer_value_types_for_positions(["1|", "too-short"], cfg, 2) == [
+        "NUMERIC",
+        "TEXT",
+    ]
+    assert inference._get_observed_values(["", "|A|"], cfg) == {"A"}
+
+    inferred = inference._infer_question_for_qid(
+        [],
+        choice_delimiter=",",
+        choice_option_limit=5,
+        choice_normalize_case=True,
+        multi_value_delimiter="|",
+        empty_marker="N/A",
+    )
+    assert isinstance(inferred, TextQuestion)
+
+    validation_error = _validation_error()
+    monkeypatch.setattr(
+        inference,
+        "_infer_question_for_qid",
+        lambda *args, **kwargs: (_ for _ in ()).throw(validation_error),
+    )
+    with pytest.raises(QuestionSetValidationError):
+        inference.infer_question_map([RawSubmission(student_id="s1", raw_answer_map={"Q1": "x"})])
+
+    monkeypatch.setattr(
+        inference,
+        "_infer_question_for_qid",
+        lambda *args, **kwargs: (_ for _ in ()).throw(ConfigurationError("bad")),
+    )
+    with pytest.raises(ConfigurationError):
+        inference.infer_question_map([RawSubmission(student_id="s1", raw_answer_map={"Q1": "x"})])
+
+    monkeypatch.setattr(
+        inference,
+        "_infer_question_for_qid",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("bad")),
+    )
+    with pytest.raises(QuestionInferenceError):
+        inference.infer_question_map([RawSubmission(student_id="s1", raw_answer_map={"Q1": "x"})])

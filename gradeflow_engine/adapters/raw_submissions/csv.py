@@ -1,25 +1,23 @@
 import csv
 from io import StringIO
-from typing import Literal
+from typing import ClassVar, Literal
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field
 
 from ...exceptions import (
-    AdapterLoadError,
-    GradeFlowError,
     GradeFlowValidationError,
     MissingStudentIdError,
 )
 from ...io.sources import DataSource
 from ...rules.result import QuestionResult
 from ...submissions.models import RawSubmission
-from ..registries import RawSubmissionsAdapter, raw_submissions_adapter_registry
+from ..base import BaseAdapter
+from ..registries import RawSubmissionsAdapter
 
 ORIGINAL_POINTS_RULE_NAME = "Original"
 
 
 class CsvRawSubmissionsConfig(BaseModel):
-    name: Literal["csv"] = "csv"
     format: Literal["csv"] = "csv"
     student_id_column: str = Field(default="student_id")
     answer_columns: list[str] | None = Field(default=None)
@@ -32,22 +30,12 @@ class CsvRawSubmissionsConfig(BaseModel):
     )
 
 
-class CsvRawSubmissionsAdapter(RawSubmissionsAdapter):
-    name: Literal["csv"] = "csv"
+class CsvRawSubmissionsAdapter(
+    BaseAdapter[CsvRawSubmissionsConfig, list[RawSubmission]], RawSubmissionsAdapter
+):
+    name: ClassVar[Literal["csv"]] = "csv"
     config: CsvRawSubmissionsConfig = CsvRawSubmissionsConfig()
-
-    def __init__(self, **kwargs: object) -> None:
-        self.config = self.config.model_validate(kwargs)
-
-    def load(self, source: DataSource) -> list[RawSubmission]:
-        try:
-            return self._load(source)
-        except ValidationError as e:
-            raise GradeFlowValidationError(e) from e
-        except GradeFlowError:
-            raise
-        except Exception as e:
-            raise AdapterLoadError(self.name, str(e)) from e
+    _validation_error_cls = GradeFlowValidationError
 
     def _load(self, source: DataSource) -> list[RawSubmission]:
         blob = source.read()
@@ -96,6 +84,3 @@ class CsvRawSubmissionsAdapter(RawSubmissionsAdapter):
                 RawSubmission(student_id=sid, raw_answer_map=answers, result_map=pre_points)
             )
         return submissions
-
-
-raw_submissions_adapter_registry.register("csv", CsvRawSubmissionsAdapter)

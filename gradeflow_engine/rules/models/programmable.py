@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
 from typing import Annotated, Any, Literal
 
@@ -8,7 +6,13 @@ from pydantic import BaseModel, Discriminator, Field, computed_field
 from ...questions.types import Answer, QuestionType
 from ..executors import python
 from ..result import Result
-from .base import BaseRule, BaseSingleQuestionRule
+from .base import (
+    BaseRule,
+    BaseSingleQuestionRule,
+    rule_display_name_field,
+    rule_question_types_field,
+    rule_type_field,
+)
 
 ProgrammableMode = Literal["PASS_FAIL", "OUTPUT"]
 
@@ -60,14 +64,14 @@ class ListParameter(BaseModel):
     dtype: Literal["List"] = Field(
         default="List", frozen=True, json_schema_extra={"readOnly": True}
     )
-    value: list[Parameter]
+    value: list["Parameter"]
 
 
 class DictParameter(BaseModel):
     dtype: Literal["Dict"] = Field(
         default="Dict", frozen=True, json_schema_extra={"readOnly": True}
     )
-    value: dict[str, Parameter]
+    value: dict[str, "Parameter"]
 
 
 Parameter = Annotated[
@@ -138,16 +142,10 @@ def evaluate(code: str, parameters: dict[str, Parameter], answer: Answer) -> Pro
 
 
 class ProgrammableRule(BaseRule):
-    type: Literal["PROGRAMMABLE"] = Field(
-        default="PROGRAMMABLE", frozen=True, json_schema_extra={"readOnly": True}
-    )
-    display_name: Literal["Programmable"] = Field(
-        default="Programmable", frozen=True, json_schema_extra={"readOnly": True}
-    )
-    question_types: frozenset[QuestionType] = Field(
-        default=frozenset({"TEXT", "NUMERIC", "CHOICE", "MULTI_VALUED"}),
-        frozen=True,
-        json_schema_extra={"readOnly": True},
+    type: Literal["PROGRAMMABLE"] = rule_type_field("PROGRAMMABLE")
+    display_name: Literal["Programmable"] = rule_display_name_field("Programmable")
+    question_types: frozenset[QuestionType] = rule_question_types_field(
+        {"TEXT", "NUMERIC", "CHOICE", "MULTI_VALUED"}
     )
     code: str = Field(
         default=DEFAULT_PROGRAMMABLE_CODE,

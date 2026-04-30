@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from typing import Any, TypeVar
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -31,22 +31,13 @@ from .rubrics.model import Rubric, RubricCoverage
 from .rules.types import RuleValidationError
 
 # Serializers (registries and types)
-from .serializations.base import DataBlob, Serializer
+from .serializations.base import DataBlob, Dumper, Serializer
 from .serializations.registries import (
     question_set_serializer_registry,
     rubric_serializer_registry,
     submissions_serializer_registry,
 )
 from .submissions.models import RawSubmission, Submission
-
-C = TypeVar("C")
-
-
-def _instantiate(cls: type[C], kwargs: dict[str, Any] | None = None) -> C:
-    if kwargs is not None:
-        return cls(**kwargs)
-    return cls()
-
 
 # ---------------------------
 # Discovery helpers
@@ -92,7 +83,7 @@ def get_rubric_serializer_class(name: str) -> type[Serializer[Rubric]]:
 
 def get_submissions_serializer_class(
     name: str,
-) -> type[Serializer[Iterable[Submission]]]:
+) -> type[Dumper[Iterable[Submission]]]:
     return submissions_serializer_registry.get(name)
 
 
@@ -117,10 +108,10 @@ def load_question_set_from_blob(
     blob: DataBlob,
     *,
     serializer_name: str = "yaml",
-    serializer_kwargs: dict[str, object] | None = None,
+    serializer_kwargs: dict[str, Any] | None = None,
 ) -> QuestionSet:
     cls = get_question_set_serializer_class(serializer_name)
-    serializer = _instantiate(cls, serializer_kwargs)
+    serializer = cls(**(serializer_kwargs or {}))
     return serializer.loads(blob)
 
 
@@ -128,10 +119,10 @@ def dump_question_set_to_blob(
     qset: QuestionSet,
     *,
     serializer_name: str = "yaml",
-    serializer_kwargs: dict[str, object] | None = None,
+    serializer_kwargs: dict[str, Any] | None = None,
 ) -> DataBlob:
     cls = get_question_set_serializer_class(serializer_name)
-    serializer = _instantiate(cls, serializer_kwargs)
+    serializer = cls(**(serializer_kwargs or {}))
     return serializer.dumps(qset)
 
 
@@ -139,10 +130,10 @@ def dump_rubric_to_blob(
     rubric: Rubric,
     *,
     serializer_name: str = "yaml",
-    serializer_kwargs: dict[str, object] | None = None,
+    serializer_kwargs: dict[str, Any] | None = None,
 ) -> DataBlob:
     cls = get_rubric_serializer_class(serializer_name)
-    serializer = _instantiate(cls, serializer_kwargs)
+    serializer = cls(**(serializer_kwargs or {}))
     return serializer.dumps(rubric)
 
 
@@ -150,10 +141,10 @@ def load_rubric_from_blob(
     blob: DataBlob,
     *,
     serializer_name: str = "yaml",
-    serializer_kwargs: dict[str, object] | None = None,
+    serializer_kwargs: dict[str, Any] | None = None,
 ) -> Rubric:
     cls = get_rubric_serializer_class(serializer_name)
-    serializer = _instantiate(cls, serializer_kwargs)
+    serializer = cls(**(serializer_kwargs or {}))
     return serializer.loads(blob)
 
 
@@ -161,10 +152,10 @@ def dump_submissions_to_blob(
     submissions: Iterable[Submission],
     *,
     serializer_name: str = "csv",
-    serializer_kwargs: dict[str, object] | None = None,
+    serializer_kwargs: dict[str, Any] | None = None,
 ) -> DataBlob:
     cls = get_submissions_serializer_class(serializer_name)
-    serializer = _instantiate(cls, serializer_kwargs)
+    serializer = cls(**(serializer_kwargs or {}))
     return serializer.dumps(submissions)
 
 
@@ -177,10 +168,10 @@ def load_raw_submissions_via_adapter(
     source: DataSource,
     *,
     adapter_name: str = "csv",
-    adapter_kwargs: dict[str, object] | None = None,
+    adapter_kwargs: dict[str, Any] | None = None,
 ) -> list[RawSubmission]:
     cls = get_raw_submissions_adapter_class(adapter_name)
-    adapter = _instantiate(cls, adapter_kwargs)
+    adapter = cls(**(adapter_kwargs or {}))
     return adapter.load(source)
 
 
@@ -188,10 +179,10 @@ def load_question_set_via_adapter(
     source: DataSource,
     *,
     adapter_name: str = "examplify",
-    adapter_kwargs: dict[str, object] | None = None,
+    adapter_kwargs: dict[str, Any] | None = None,
 ) -> QuestionSet:
     cls = get_question_set_adapter_class(adapter_name)
-    adapter = _instantiate(cls, adapter_kwargs)
+    adapter = cls(**(adapter_kwargs or {}))
     return adapter.load(source)
 
 
@@ -199,10 +190,10 @@ def load_rubric_via_adapter(
     source: DataSource,
     *,
     adapter_name: str = "examplify",
-    adapter_kwargs: dict[str, object] | None = None,
+    adapter_kwargs: dict[str, Any] | None = None,
 ) -> Rubric:
     cls = get_rubric_adapter_class(adapter_name)
-    adapter = _instantiate(cls, adapter_kwargs)
+    adapter = cls(**(adapter_kwargs or {}))
     return adapter.load(source)
 
 
@@ -227,17 +218,17 @@ def run_pipeline(
     raw_submissions: list[RawSubmission] | None = None,
     submissions_source: DataSource | None = None,
     submissions_adapter_name: str = "csv",
-    submissions_adapter_kwargs: dict[str, object] | None = None,
+    submissions_adapter_kwargs: dict[str, Any] | None = None,
     submissions_parser_strict: bool = False,
     # Question set source:
     # Option A: serialized QuestionSet via serializer_name + question_set_source
     question_set_source: DataSource | None = None,
     question_set_serializer_name: str | None = None,
-    question_set_serializer_kwargs: dict[str, object] | None = None,
+    question_set_serializer_kwargs: dict[str, Any] | None = None,
     # Option B: vendor adapter via adapter_name + question_set_adapter_source
     question_set_adapter_source: DataSource | None = None,
     question_set_adapter_name: str = "examplify",
-    question_set_adapter_kwargs: dict[str, object] | None = None,
+    question_set_adapter_kwargs: dict[str, Any] | None = None,
     # Inference defaults (used only if neither A nor B provided):
     choice_delimiter: str = DEFAULT_CHOICE_DELIMITER,
     choice_option_limit: int = DEFAULT_CHOICE_OPTION_LIMIT,
@@ -248,17 +239,17 @@ def run_pipeline(
     # Option A: serialized Rubric via serializer_name + rubric_source
     rubric_source: DataSource | None = None,
     rubric_serializer_name: str | None = None,
-    rubric_serializer_kwargs: dict[str, object] | None = None,
+    rubric_serializer_kwargs: dict[str, Any] | None = None,
     # Option B: vendor adapter via adapter_name + rubric_adapter_source
     rubric_adapter_source: DataSource | None = None,
     rubric_adapter_name: str = "examplify",
-    rubric_adapter_kwargs: dict[str, object] | None = None,
+    rubric_adapter_kwargs: dict[str, Any] | None = None,
     rubric_grading_strict: bool = False,
     rubric_override_results: bool = True,
     rubric_grade_questions_without_rule: bool = True,
     # Optional graded output:
     graded_output_serializer_name: str | None = "csv",
-    graded_output_serializer_kwargs: dict[str, object] | None = None,
+    graded_output_serializer_kwargs: dict[str, Any] | None = None,
     graded_output_sink: DataSink | None = None,
 ) -> PipelineResult:
     """

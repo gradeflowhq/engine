@@ -7,22 +7,22 @@ from ...questions.types import Answer, QuestionId, QuestionType
 from ..aggregations.completeness import output_fn, passed_fn, points_fn
 from ..result import Result
 from ..types import CompletenessAggregation, RuleValidationError
-from .base import BaseRule, BaseSingleQuestionRule
+from .base import (
+    BaseRule,
+    BaseSingleQuestionRule,
+    rule_display_name_field,
+    rule_question_types_field,
+    rule_type_field,
+)
 
 if TYPE_CHECKING:
     from . import SingleTargetRule
 
 
 class CompositeRule(BaseRule):
-    type: Literal["COMPOSITE"] = Field(
-        default="COMPOSITE", frozen=True, json_schema_extra={"readOnly": True}
-    )
-    display_name: Literal["Composite"] = Field(
-        default="Composite", frozen=True, json_schema_extra={"readOnly": True}
-    )
-    question_types: frozenset[QuestionType] = Field(
-        default=frozenset({"TEXT", "NUMERIC"}), frozen=True, json_schema_extra={"readOnly": True}
-    )
+    type: Literal["COMPOSITE"] = rule_type_field("COMPOSITE")
+    display_name: Literal["Composite"] = rule_display_name_field("Composite")
+    question_types: frozenset[QuestionType] = rule_question_types_field({"TEXT", "NUMERIC"})
     rules: list["SingleTargetRule"] = Field(
         ..., min_length=1, description="List of rules to apply to the answer"
     )

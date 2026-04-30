@@ -7,7 +7,13 @@ from pydantic import BaseModel, Field, computed_field
 
 from ...questions.types import Answer, QuestionType
 from ..result import Result
-from .base import BaseRule, BaseSingleQuestionRule
+from .base import (
+    BaseRule,
+    BaseSingleQuestionRule,
+    rule_display_name_field,
+    rule_question_types_field,
+    rule_type_field,
+)
 
 
 @lru_cache(maxsize=256)
@@ -33,15 +39,9 @@ class RegexConfig(BaseModel):
 
 
 class RegexRule(BaseRule):
-    type: Literal["REGEX"] = Field(
-        default="REGEX", frozen=True, json_schema_extra={"readOnly": True}
-    )
-    display_name: Literal["Regex"] = Field(
-        default="Regex", frozen=True, json_schema_extra={"readOnly": True}
-    )
-    question_types: frozenset[QuestionType] = Field(
-        default=frozenset({"TEXT"}), frozen=True, json_schema_extra={"readOnly": True}
-    )
+    type: Literal["REGEX"] = rule_type_field("REGEX")
+    display_name: Literal["Regex"] = rule_display_name_field("Regex")
+    question_types: frozenset[QuestionType] = rule_question_types_field({"TEXT"})
     pattern: str = Field(..., description="Regular expression pattern to match against the answer")
     config: RegexConfig = Field(
         default_factory=RegexConfig,
@@ -82,5 +82,4 @@ class RegexRule(BaseRule):
 
 
 class RegexQuestionRule(RegexRule, BaseSingleQuestionRule):
-    def compute_points(self, result: Result, max_points: float) -> float:
-        return max_points if result.passed else 0.0
+    pass

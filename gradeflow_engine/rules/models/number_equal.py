@@ -1,17 +1,23 @@
-from typing import Literal
+from typing import Literal, cast
 
 from pydantic import BaseModel, Field, computed_field
 
 from ...questions.types import Answer, QuestionType
 from ..result import Result
-from .base import BaseRule, BaseSingleQuestionRule
+from .base import (
+    BaseRule,
+    BaseSingleQuestionRule,
+    rule_display_name_field,
+    rule_question_types_field,
+    rule_type_field,
+)
 
-NonEmptyNumeric = int | float
+NumericValue = int | float
 
 
 def is_equal_fn(
-    answer: NonEmptyNumeric,
-    correct_answers: list[NonEmptyNumeric],
+    answer: NumericValue,
+    correct_answers: list[NumericValue],
     approximate: bool,
     tolerance: float,
 ) -> bool:
@@ -26,8 +32,8 @@ def is_equal_fn(
 
 
 def feedback_fn(
-    answer: NonEmptyNumeric,
-    correct_answers: list[NonEmptyNumeric],
+    answer: NumericValue,
+    correct_answers: list[NumericValue],
     is_equal: bool,
     approximate: bool,
     tolerance: float,
@@ -58,15 +64,9 @@ class NumberEqualConfig(BaseModel):
 
 
 class NumberEqualRule(BaseRule):
-    type: Literal["NUMBER_EQUAL"] = Field(
-        default="NUMBER_EQUAL", frozen=True, json_schema_extra={"readOnly": True}
-    )
-    display_name: Literal["Number Equal"] = Field(
-        default="Number Equal", frozen=True, json_schema_extra={"readOnly": True}
-    )
-    question_types: frozenset[QuestionType] = Field(
-        default=frozenset({"NUMERIC"}), frozen=True, json_schema_extra={"readOnly": True}
-    )
+    type: Literal["NUMBER_EQUAL"] = rule_type_field("NUMBER_EQUAL")
+    display_name: Literal["Number Equal"] = rule_display_name_field("Number Equal")
+    question_types: frozenset[QuestionType] = rule_question_types_field({"NUMERIC"})
     answers: list[int | float] = Field(
         ..., min_length=1, description="List of acceptable numeric answers"
     )
@@ -88,15 +88,17 @@ class NumberEqualRule(BaseRule):
             return f"Equal to: {', '.join(str(ans) for ans in self.answers)}."
 
     def _process_answer(self, answer: Answer) -> Result:
-        assert isinstance(answer, NonEmptyNumeric), "Answer must be numeric"
+        if not isinstance(answer, (int, float)) or isinstance(answer, bool):
+            raise TypeError("Answer must be numeric")
+        numeric_answer = cast(NumericValue, answer)
         is_equal = is_equal_fn(
-            answer=answer,
+            answer=numeric_answer,
             correct_answers=self.answers,
             approximate=self.config.approximate,
             tolerance=self.config.tolerance,
         )
         feedback = feedback_fn(
-            answer=answer,
+            answer=numeric_answer,
             correct_answers=self.answers,
             is_equal=is_equal,
             approximate=self.config.approximate,
@@ -111,5 +113,4 @@ class NumberEqualRule(BaseRule):
 
 
 class NumberEqualQuestionRule(NumberEqualRule, BaseSingleQuestionRule):
-    def compute_points(self, result: Result, max_points: float) -> float:
-        return max_points if result.passed else 0.0
+    pass

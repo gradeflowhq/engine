@@ -7,7 +7,13 @@ from ...questions.types import Answer, QuestionType
 from ..aggregations.completeness import output_fn, passed_fn, points_fn
 from ..result import Result
 from ..types import CompletenessAggregation, RuleValidationError
-from .base import BaseRule, BaseSingleQuestionRule
+from .base import (
+    BaseRule,
+    BaseSingleQuestionRule,
+    rule_display_name_field,
+    rule_question_types_field,
+    rule_type_field,
+)
 
 if TYPE_CHECKING:
     from . import SingleTargetRule
@@ -21,15 +27,9 @@ def feedback_fn(results: list[Result]) -> str:
 
 
 class MultiValuedRule(BaseRule):
-    type: Literal["MULTI_VALUED"] = Field(
-        default="MULTI_VALUED", frozen=True, json_schema_extra={"readOnly": True}
-    )
-    display_name: Literal["Multi Valued"] = Field(
-        default="Multi Valued", frozen=True, json_schema_extra={"readOnly": True}
-    )
-    question_types: frozenset[QuestionType] = Field(
-        default=frozenset({"MULTI_VALUED"}), frozen=True, json_schema_extra={"readOnly": True}
-    )
+    type: Literal["MULTI_VALUED"] = rule_type_field("MULTI_VALUED")
+    display_name: Literal["Multi Valued"] = rule_display_name_field("Multi Valued")
+    question_types: frozenset[QuestionType] = rule_question_types_field({"MULTI_VALUED"})
     rules: list["SingleTargetRule"] = Field(
         ...,
         min_length=1,
@@ -68,10 +68,11 @@ class MultiValuedRule(BaseRule):
         return errors
 
     def _process_answer(self, answer: Answer) -> Result:
-        assert isinstance(answer, list), f"Answer must be a list for {self.type}."
-        assert len(answer) == len(self.rules), (
-            f"Number of answers must match number of rules in {self.type}."
-        )
+        if not isinstance(answer, list):
+            raise TypeError(f"Answer must be a list for {self.type}.")
+        if len(answer) != len(self.rules):
+            raise ValueError(f"Number of answers must match number of rules in {self.type}.")
+
         results: list[Result] = [
             rule.process_answer(value) for value, rule in zip(answer, self.rules, strict=True)
         ]

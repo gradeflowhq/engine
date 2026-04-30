@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import functools
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Literal
@@ -9,7 +7,13 @@ from rapidfuzz.distance import JaroWinkler, Levenshtein
 
 from ...questions.types import Answer, QuestionType
 from ..result import Result
-from .base import BaseRule, BaseSingleQuestionRule
+from .base import (
+    BaseRule,
+    BaseSingleQuestionRule,
+    rule_display_name_field,
+    rule_question_types_field,
+    rule_type_field,
+)
 
 if TYPE_CHECKING:
     from fastembed import TextEmbedding
@@ -25,7 +29,7 @@ def _raise_algorithm_import_error(algorithm: str) -> ImportError:
 
 
 @functools.cache
-def _get_transformer_model() -> TextEmbedding:
+def _get_transformer_model() -> "TextEmbedding":
     try:
         from fastembed import TextEmbedding
     except ImportError as e:
@@ -76,15 +80,9 @@ ALGORITHM_MAP: dict[str, AlgorithmFn] = {
 class SimilarityRule(BaseRule):
     """A rule that checks for similarity between the student's answer and a reference text."""
 
-    type: Literal["SIMILARITY"] = Field(
-        default="SIMILARITY", frozen=True, json_schema_extra={"readOnly": True}
-    )
-    display_name: Literal["Similarity"] = Field(
-        default="Similarity", frozen=True, json_schema_extra={"readOnly": True}
-    )
-    question_types: frozenset[QuestionType] = Field(
-        default=frozenset({"TEXT"}), frozen=True, json_schema_extra={"readOnly": True}
-    )
+    type: Literal["SIMILARITY"] = rule_type_field("SIMILARITY")
+    display_name: Literal["Similarity"] = rule_display_name_field("Similarity")
+    question_types: frozenset[QuestionType] = rule_question_types_field({"TEXT"})
     references: list[str] = Field(..., description="Reference answers for similarity comparison")
     threshold: float = Field(
         default=0.8, description="Similarity threshold for passing the rule (0 to 1)"
@@ -133,5 +131,4 @@ class SimilarityRule(BaseRule):
 
 
 class SimilarityQuestionRule(SimilarityRule, BaseSingleQuestionRule):
-    def compute_points(self, result: Result, max_points: float) -> float:
-        return max_points if result.passed else 0.0
+    pass

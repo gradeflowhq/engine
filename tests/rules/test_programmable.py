@@ -9,7 +9,9 @@ from gradeflow_engine.rules.models.programmable import (
     ProgrammableQuestionRule,
     ProgrammableRule,
     StringParameter,
+    _unwrap_parameter,
 )
+from gradeflow_engine.rules.result import Result
 
 # ---------------------------------------------------------------------------
 # PASS_FAIL mode — basic
@@ -443,3 +445,14 @@ def test_description_pass_fail_mode() -> None:
 def test_description_output_mode() -> None:
     rule = ProgrammableRule(mode="OUTPUT")
     assert "`output`" in rule.description
+
+
+def test_programmable_unwrap_parameter_rejects_unknown_value() -> None:
+    with pytest.raises(TypeError):
+        _unwrap_parameter(object())  # type: ignore[arg-type]
+
+
+def test_programmable_question_rule_rejects_unknown_mode() -> None:
+    malformed = ProgrammableQuestionRule.model_construct(question_id="Q1", mode="BAD")
+    with pytest.raises(ValueError):
+        malformed.compute_points(Result(output=1, passed=True, feedback="", rule="x"), 1)

@@ -1,5 +1,6 @@
 import pytest
 
+from gradeflow_engine.questions.models import ChoiceQuestion, TextQuestion
 from gradeflow_engine.questions.types import Answer, QuestionId
 from gradeflow_engine.rules.models.multiple_choice import (
     MultipleChoiceQuestionRule,
@@ -174,3 +175,25 @@ def test_multiple_choice_rule_output_and_feedback_without_points() -> None:
     assert res_partial.output == 0.0
     assert res_partial.passed is True
     assert "Partial credit: (1 - 1) / 3 * max points (minimum: 0)." in res_partial.feedback
+
+
+def test_multiple_choice_defensive_edges() -> None:
+    malformed = MultipleChoiceRule.model_construct(answer={"A"}, mode="BAD")
+    with pytest.raises(ValueError):
+        _ = malformed.description
+    with pytest.raises(ValueError):
+        malformed._process_answer({"A"})
+
+    assert MultipleChoiceRule(answer={"A"}).validate_question_compatibility(TextQuestion())
+    invalid_choice_errors = MultipleChoiceRule(answer={"B"}).validate_question_compatibility(
+        ChoiceQuestion(options={"A"})
+    )
+    assert "Invalid answer choices" in invalid_choice_errors[0]
+
+    with pytest.raises(TypeError):
+        MultipleChoiceRule(answer={"A"})._process_answer(["A"])  # type: ignore[arg-type]
+
+
+def test_multiple_choice_description_variants() -> None:
+    assert "at least one" in MultipleChoiceRule(answer={"A"}, mode="ANY").description
+    assert "Partial credit" in MultipleChoiceRule(answer={"A"}, mode="PARTIAL").description

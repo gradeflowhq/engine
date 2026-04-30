@@ -6,10 +6,17 @@ from rapidfuzz.distance import JaroWinkler
 
 from ...questions.models import Question
 from ...questions.types import Answer, QuestionId, QuestionType
-from ..result import QuestionResult
+from ..result import QuestionResult, Result
 from ..types import RuleValidationError
 from ..validators import validate_unique_target_questions_in_rules
-from .base import BaseMultiQuestionRule, BaseRule, BaseSingleQuestionRule
+from .base import (
+    BaseMultiQuestionRule,
+    BaseRule,
+    BaseSingleQuestionRule,
+    rule_display_name_field,
+    rule_question_types_field,
+    rule_type_field,
+)
 
 if TYPE_CHECKING:
     from . import SingleTargetQuestionRule, SingleTargetRule
@@ -100,21 +107,15 @@ def choose_assumption_result(
 
 
 class AssumptionSetBaseRule(BaseRule):
-    question_types: frozenset[QuestionType] = Field(
-        default=frozenset({"TEXT", "CHOICE", "NUMERIC", "MULTI_VALUED"}),
-        frozen=True,
-        json_schema_extra={"readOnly": True},
+    question_types: frozenset[QuestionType] = rule_question_types_field(
+        {"TEXT", "CHOICE", "NUMERIC", "MULTI_VALUED"}
     )
     mode: AssumptionSetMode = Field("MAX", description="Mode to select which assumption to use")
 
 
 class AssumptionSetQuestionRule(AssumptionSetBaseRule, BaseSingleQuestionRule):
-    type: Literal["ASSUMPTION_SET"] = Field(
-        default="ASSUMPTION_SET", frozen=True, json_schema_extra={"readOnly": True}
-    )
-    display_name: Literal["Assumption Set"] = Field(
-        default="Assumption Set", frozen=True, json_schema_extra={"readOnly": True}
-    )
+    type: Literal["ASSUMPTION_SET"] = rule_type_field("ASSUMPTION_SET")
+    display_name: Literal["Assumption Set"] = rule_display_name_field("Assumption Set")
     assumptions: list[Assumption] = Field(
         ..., description="List of assumptions in the assumption set"
     )
@@ -150,14 +151,16 @@ class AssumptionSetQuestionRule(AssumptionSetBaseRule, BaseSingleQuestionRule):
     ) -> dict[QuestionId, QuestionResult]:
         return self._rule.process_submission(answer_map, max_points_map)
 
+    def _process_answer(self, answer: Answer) -> Result:
+        raise NotImplementedError("Assumption-set question rules must process full submissions.")
+
+    def compute_points(self, result: Result, max_points: float) -> float:
+        raise NotImplementedError("Assumption-set question rules compute points per assumption.")
+
 
 class AssumptionSetMultiQuestionRule(AssumptionSetBaseRule, BaseMultiQuestionRule):
-    type: Literal["ASSUMPTION_SET_MULTI"] = Field(
-        default="ASSUMPTION_SET_MULTI", frozen=True, json_schema_extra={"readOnly": True}
-    )
-    display_name: Literal["Assumption Set"] = Field(
-        default="Assumption Set", frozen=True, json_schema_extra={"readOnly": True}
-    )
+    type: Literal["ASSUMPTION_SET_MULTI"] = rule_type_field("ASSUMPTION_SET_MULTI")
+    display_name: Literal["Assumption Set"] = rule_display_name_field("Assumption Set")
     assumptions: list[MultiQuestionAssumption] = Field(
         ..., description="List of assumptions in the assumption set"
     )

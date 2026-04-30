@@ -5,6 +5,7 @@ from gradeflow_engine.rules.executors.python import (
     _decode_variables,
     _encode_variables,
     _from_json_safe,
+    _is_json_safe,
     _to_json_safe,
     run,
 )
@@ -25,6 +26,10 @@ class TestJsonSafe:
     def test_dict_without_tag_unchanged(self) -> None:
         d = {"key": "val"}
         assert _from_json_safe(d) == d
+
+    def test_is_json_safe_rejects_non_json_values(self) -> None:
+        assert _is_json_safe({"x": [1]}) is True
+        assert _is_json_safe(object()) is False
 
 
 class TestEncodeDecodeVariables:

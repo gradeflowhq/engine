@@ -6,19 +6,19 @@ from ...questions.types import Answer, QuestionType
 from ..aggregations.completeness import output_fn, passed_fn, points_fn
 from ..result import Result
 from ..types import CompletenessAggregation
-from .base import BaseRule, BaseSingleQuestionRule
+from .base import (
+    BaseRule,
+    BaseSingleQuestionRule,
+    rule_display_name_field,
+    rule_question_types_field,
+    rule_type_field,
+)
 
 
 class KeywordsRule(BaseRule):
-    type: Literal["KEYWORDS"] = Field(
-        default="KEYWORDS", frozen=True, json_schema_extra={"readOnly": True}
-    )
-    display_name: Literal["Keywords"] = Field(
-        default="Keywords", frozen=True, json_schema_extra={"readOnly": True}
-    )
-    question_types: frozenset[QuestionType] = Field(
-        default=frozenset({"TEXT"}), frozen=True, json_schema_extra={"readOnly": True}
-    )
+    type: Literal["KEYWORDS"] = rule_type_field("KEYWORDS")
+    display_name: Literal["Keywords"] = rule_display_name_field("Keywords")
+    question_types: frozenset[QuestionType] = rule_question_types_field({"TEXT"})
     keywords: list[str] = Field(
         ...,
         min_length=1,

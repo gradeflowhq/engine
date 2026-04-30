@@ -63,15 +63,6 @@ class TestRegistry:
         r.register("  Foo  ", "bar")
         assert r.get("foo") == "bar"
 
-    def test_register_decorator(self) -> None:
-        r: Registry[type] = Registry("class")
-
-        @r.register_decorator("myclass")
-        class MyClass:
-            pass
-
-        assert r.get("myclass") is MyClass
-
 
 class TestAdapterRegistry:
     def test_get_missing_raises_adapter_not_found_error(self) -> None:

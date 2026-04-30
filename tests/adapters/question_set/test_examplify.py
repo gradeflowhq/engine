@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from gradeflow_engine.adapters.question_set.examplify import ExamplifyQuestionSetAdapter
 from gradeflow_engine.core import load_question_set_via_adapter
 from gradeflow_engine.io.sources import FileSource, StringSource
 from gradeflow_engine.question_sets.model import QuestionSet
@@ -327,3 +328,16 @@ def test_question_set_include_thrown_out_and_skip_full_credit() -> None:
     )
     assert "Q41" in qset_fc.question_map
     assert isinstance(qset_fc.question_map["Q41"], TextQuestion)
+
+
+def test_examplify_question_set_builder_edges() -> None:
+    adapter = ExamplifyQuestionSetAdapter()
+    cfg = adapter.config
+
+    default_question = adapter._build_question("essay", None, "", "", cfg, 2.0)
+    assert isinstance(default_question, TextQuestion)
+    assert default_question.max_points == 2.0
+
+    empty_fitb = adapter._build_fitb_question(None, "", cfg, 3.0)
+    assert isinstance(empty_fitb, TextQuestion)
+    assert empty_fitb.max_points == 3.0

@@ -9,25 +9,17 @@ from ..aggregations.completeness import points_fn
 from ..constraints import QuestionConstraint
 from ..result import Result
 from ..types import CompletenessAggregation, RuleValidationError
-from .base import BaseRule, BaseSingleQuestionRule
+from .base import (
+    BaseRule,
+    BaseSingleQuestionRule,
+    rule_constraints_field,
+    rule_display_name_field,
+    rule_question_types_field,
+    rule_type_field,
+)
 
 
-def choice_output_fn(
-    answer_set: set[str], correct_set: set[str], mode: CompletenessAggregation
-) -> float:
-    if mode == "ALL":
-        return float(answer_set == correct_set)
-    elif mode == "ANY":
-        return float(any(choice in answer_set for choice in correct_set))
-    elif mode == "PARTIAL":
-        num_correct = sum(1 for choice in correct_set if choice in answer_set)
-        num_incorrect = sum(1 for choice in answer_set if choice not in correct_set)
-        return max(0.0, num_correct - num_incorrect) / len(correct_set)
-    else:
-        raise ValueError(f"Unknown mode: {mode}")
-
-
-def feedback_fn(
+def _build_feedback(
     answer_set: set[str], correct_set: set[str], mode: CompletenessAggregation, passed: bool
 ) -> str:
     correct_choices = answer_set & correct_set
@@ -58,28 +50,38 @@ def feedback_fn(
     return feedback
 
 
-def passed_fn(answer_set: set[str], correct_set: set[str], mode: CompletenessAggregation) -> bool:
+def _evaluate_choice(
+    answer_set: set[str], correct_set: set[str], mode: CompletenessAggregation
+) -> Result:
     if mode == "ALL":
-        return answer_set == correct_set
-    elif mode in ["ANY", "PARTIAL"]:
-        return len(answer_set & correct_set) > 0
+        passed = answer_set == correct_set
+        output = float(passed)
+    elif mode == "ANY":
+        passed = len(answer_set & correct_set) > 0
+        output = float(passed)
+    elif mode == "PARTIAL":
+        num_correct = sum(1 for choice in correct_set if choice in answer_set)
+        num_incorrect = sum(1 for choice in answer_set if choice not in correct_set)
+        passed = num_correct > 0
+        output = max(0.0, num_correct - num_incorrect) / len(correct_set)
     else:
         raise ValueError(f"Unknown mode: {mode}")
 
+    return Result(
+        output=output,
+        passed=passed,
+        feedback=_build_feedback(answer_set, correct_set, mode=mode, passed=passed),
+        rule=MultipleChoiceRule.__name__,
+    )
+
 
 class MultipleChoiceRule(BaseRule):
-    type: Literal["MULTIPLE_CHOICE"] = Field(
-        default="MULTIPLE_CHOICE", frozen=True, json_schema_extra={"readOnly": True}
+    type: Literal["MULTIPLE_CHOICE"] = rule_type_field("MULTIPLE_CHOICE")
+    display_name: Literal["Multiple Choice"] = rule_display_name_field("Multiple Choice")
+    question_types: frozenset[QuestionType] = rule_question_types_field({"CHOICE"})
+    constraints: list[QuestionConstraint] = rule_constraints_field(
+        [QuestionConstraint(type="CHOICE", source="options", target="answer")]
     )
-    display_name: Literal["Multiple Choice"] = Field(
-        default="Multiple Choice", frozen=True, json_schema_extra={"readOnly": True}
-    )
-    question_types: frozenset[QuestionType] = Field(
-        default=frozenset({"CHOICE"}), frozen=True, json_schema_extra={"readOnly": True}
-    )
-    constraints: list[QuestionConstraint] = [
-        QuestionConstraint(type="CHOICE", source="options", target="answer"),
-    ]
     answer: set[str] = Field(..., min_length=1, description="Set of correct choices")
     mode: CompletenessAggregation = Field(
         default="ALL",
@@ -120,20 +122,12 @@ class MultipleChoiceRule(BaseRule):
         return errors
 
     def _process_answer(self, answer: Answer) -> Result:
-        assert isinstance(answer, set) and all(isinstance(a, str) for a in answer), (
-            "Answer must be a set of strings for MultipleChoiceRule."
-        )
+        if not isinstance(answer, set) or not all(isinstance(a, str) for a in answer):
+            raise TypeError("Answer must be a set of strings for MultipleChoiceRule.")
 
         answer_set = set(map(str, answer))
-        passed = passed_fn(answer_set, self.answer, mode=self.mode)
-        output = choice_output_fn(answer_set, self.answer, mode=self.mode)
-        feedback = feedback_fn(answer_set, self.answer, mode=self.mode, passed=passed)
-        return Result(
-            output=output,
-            passed=passed,
-            feedback=feedback,
-            rule=self.__class__.__name__,
-        )
+        result = _evaluate_choice(answer_set, self.answer, mode=self.mode)
+        return result.model_copy(update={"rule": self.__class__.__name__})
 
 
 class MultipleChoiceQuestionRule(MultipleChoiceRule, BaseSingleQuestionRule):

@@ -1,3 +1,7 @@
+import pytest
+
+from gradeflow_engine.questions.models.multi_valued import MultiValuedQuestion
+from gradeflow_engine.questions.models.text import TextQuestion
 from gradeflow_engine.questions.types import Answer, QuestionId
 from gradeflow_engine.rules.models import SingleTargetRule
 from gradeflow_engine.rules.models.multi_valued import (
@@ -5,6 +9,7 @@ from gradeflow_engine.rules.models.multi_valued import (
     MultiValuedRule,
     feedback_fn,
 )
+from gradeflow_engine.rules.models.numeric_range import NumericRangeRule
 from gradeflow_engine.rules.models.text_match import TextMatchRule
 from gradeflow_engine.rules.result import Result
 
@@ -66,12 +71,12 @@ def test_multi_valued_all_fail() -> None:
     assert result.output == 0.0
 
 
-def test_multi_valued_length_mismatch_asserts() -> None:
+def test_multi_valued_length_mismatch_raises_value_error() -> None:
     rules: list[SingleTargetRule] = [TextMatchRule(answers=["A"])]
     rule = MultiValuedRule(rules=rules)
     import pytest
 
-    with pytest.raises(AssertionError, match="must match"):
+    with pytest.raises(ValueError, match="must match"):
         rule.process_answer(["A", "B"])
 
 
@@ -104,3 +109,18 @@ def test_multi_valued_description() -> None:
     rule = MultiValuedRule(rules=rules)
     assert "Value 1" in rule.description
     assert "Value 2" in rule.description
+
+
+def test_multi_valued_validation_edges() -> None:
+    rule = MultiValuedRule(rules=[TextMatchRule(answers=["x"])])
+    assert rule.validate_question_compatibility(TextQuestion())
+    assert rule.validate_question_compatibility(MultiValuedQuestion(value_types=["TEXT", "TEXT"]))
+
+    inner_error_rule = MultiValuedRule(rules=[NumericRangeRule(min_value=1)])
+    errors = inner_error_rule.validate_question_compatibility(
+        MultiValuedQuestion(value_types=["TEXT"])
+    )
+    assert any("Value 0" in error for error in errors)
+
+    with pytest.raises(TypeError):
+        rule._process_answer("not a list")

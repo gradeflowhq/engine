@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 from pydantic import BaseModel, Field
 
@@ -91,7 +91,7 @@ def _handle_grading_exception(
 
 
 def grade_submission(
-    rules: list[QuestionRule],
+    rules: Sequence[QuestionRule],
     submission: Submission,
     question_map: Mapping[QuestionId, Question],
     strict: bool = False,

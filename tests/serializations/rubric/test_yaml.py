@@ -1,10 +1,12 @@
 import pytest
+import yaml
 
 from gradeflow_engine.core import dump_rubric_to_blob, load_rubric_from_blob
-from gradeflow_engine.exceptions import LoadError, RubricValidationError
+from gradeflow_engine.exceptions import DumpError, LoadError, RubricValidationError
 from gradeflow_engine.rubrics.model import Rubric
 from gradeflow_engine.rules.models.length import LengthQuestionRule
 from gradeflow_engine.serializations.base import DataBlob
+from gradeflow_engine.serializations.rubric import yaml as rubric_yaml
 
 
 def test_valid_minimal_parses() -> None:
@@ -70,3 +72,13 @@ def test_dump_roundtrip_strips_engine_fields() -> None:
 
     restored = load_rubric_from_blob(blob, serializer_name="yaml")
     assert restored.model_dump() == rubric.model_dump()
+
+
+def test_rubric_yaml_dump_error_edge(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        rubric_yaml.yaml,
+        "safe_dump",
+        lambda obj, sort_keys=False: (_ for _ in ()).throw(yaml.YAMLError("bad dump")),
+    )
+    with pytest.raises(DumpError):
+        rubric_yaml.YamlRubricSerializer().dumps(Rubric(rules=[]))

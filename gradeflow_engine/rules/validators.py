@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any, TypeGuard
 
 from ..questions.types import (
@@ -65,7 +65,7 @@ def validate_answer_type(answer: Answer, question_types: frozenset[QuestionType]
 
 
 def validate_unique_target_questions_in_rules(
-    rules: list["QuestionRule"],
+    rules: Sequence["QuestionRule"],
 ) -> list[RuleValidationError]:
     # Aggregate errors from individual rule validations
     errors: list[RuleValidationError] = []

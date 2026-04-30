@@ -4,9 +4,9 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from ...mixins import ConfigurableMixin
 from ...submissions.models import Submission
-from ..base import DataBlob, Serializer
-from ..registries import submissions_serializer_registry
+from ..base import DataBlob, Dumper
 
 
 class JsonSubmissionsConfig(BaseModel):
@@ -21,25 +21,18 @@ class _Encoder(json.JSONEncoder):
         return super().default(o)
 
 
-class JsonSubmissionsSerializer(Serializer[Iterable[Submission]]):
+class JsonSubmissionsSerializer(
+    ConfigurableMixin[JsonSubmissionsConfig], Dumper[Iterable[Submission]]
+):
     format = "json"
     media_type = "application/json"
     config: JsonSubmissionsConfig = JsonSubmissionsConfig()
 
-    def __init__(self, **kwargs: object) -> None:
-        self.config = self.config.model_validate(kwargs)
-
     def dumps(self, submissions: Iterable[Submission]) -> DataBlob:
-        items = [gs.model_dump() for gs in submissions]
+        items = [submission.model_dump() for submission in submissions]
         text = json.dumps(
             items,
             cls=_Encoder,
             ensure_ascii=self.config.ensure_ascii,
         )
         return DataBlob(data=text.encode("utf-8"), media_type=self.media_type, extension="json")
-
-    def loads(self, blob) -> Iterable[Submission]:
-        raise NotImplementedError("Deserializing submissions from JSON is not supported.")
-
-
-submissions_serializer_registry.register("json", JsonSubmissionsSerializer)

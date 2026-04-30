@@ -1,3 +1,7 @@
+from abc import ABC, abstractmethod
+from collections.abc import Iterable
+from typing import Any
+
 from pydantic import BaseModel, Field, computed_field
 
 from ...exceptions import MissingAnswerError
@@ -11,33 +15,50 @@ from ..validators import is_empty, validate_answer_type
 DEFAULT_MAX_POINTS = 1.0
 
 
-class BaseRule(BaseModel):
-    question_types: frozenset[QuestionType] = Field(
-        default=frozenset(),
-        frozen=True,
-        json_schema_extra={"readOnly": True},
-    )
-    constraints: list[QuestionConstraint] = Field(
-        default=[],
+def rule_type_field(default: str) -> Any:
+    return Field(default=default, frozen=True, json_schema_extra={"readOnly": True})
+
+
+def rule_display_name_field(default: str) -> Any:
+    return Field(default=default, frozen=True, json_schema_extra={"readOnly": True})
+
+
+def rule_question_types_field(question_types: Iterable[QuestionType]) -> Any:
+    return Field(
+        default=frozenset(question_types),
         frozen=True,
         json_schema_extra={"readOnly": True},
     )
 
+
+def rule_constraints_field(constraints: Iterable[QuestionConstraint]) -> Any:
+    return Field(
+        default=list(constraints),
+        frozen=True,
+        json_schema_extra={"readOnly": True},
+    )
+
+
+class BaseRule(BaseModel, ABC):
+    question_types: frozenset[QuestionType] = rule_question_types_field(())
+    constraints: list[QuestionConstraint] = rule_constraints_field(())
+
     @computed_field  # type: ignore[prop-decorator]
     @property
+    @abstractmethod
     def description(self) -> str:
         raise NotImplementedError("Subclasses must implement this method.")
 
     def validate_question_compatibility(self, question: Question) -> list[RuleValidationError]:
-        assert hasattr(self, "type"), "Rule must have a 'type' attribute."
+        rule_type = getattr(self, "type", self.__class__.__name__)
         errors: list[RuleValidationError] = []
         if question.type not in self.question_types:
             errors.append(
-                f"Rule of type {self.type} "  # type: ignore[attr-defined]
-                f"is not compatible with question type {question.type}."
+                f"Rule of type {rule_type} is not compatible with question type {question.type}."
             )
         return errors
 
+    @abstractmethod
     def _process_answer(self, answer: Answer) -> Result:
         raise NotImplementedError("Subclasses must implement this method.")
 
@@ -47,19 +68,22 @@ class BaseRule(BaseModel):
                 output=0,
                 passed=False,
                 feedback="No answer provided.",
-                rule=self.type,  # type: ignore[attr-defined]
+                rule=getattr(self, "type", self.__class__.__name__),
             )
         validate_answer_type(answer, self.question_types)
         return self._process_answer(answer)
 
 
-class BaseQuestionRule:
+class BaseQuestionRule(ABC):
+    @abstractmethod
     def validate_questions_exist(self, question_ids: set[QuestionId]) -> list[RuleValidationError]:
         raise NotImplementedError("Subclasses must implement this method.")
 
+    @abstractmethod
     def validate_unique_target_questions(self) -> list[RuleValidationError]:
         raise NotImplementedError("Subclasses must implement this method.")
 
+    @abstractmethod
     def get_target_question_ids(self) -> set[QuestionId]:
         raise NotImplementedError("Subclasses must implement this method.")
 
@@ -86,7 +110,7 @@ class BaseSingleQuestionRule(BaseRule, BaseQuestionRule):
         return {self.question_id}
 
     def compute_points(self, result: Result, max_points: float) -> float:
-        raise NotImplementedError("Subclasses must implement this method.")
+        return max_points if result.passed else 0.0
 
     def process_submission(
         self, answer_map: dict[QuestionId, Answer], max_points_map: dict[QuestionId, float]
@@ -105,6 +129,10 @@ class BaseSingleQuestionRule(BaseRule, BaseQuestionRule):
 
 
 class BaseMultiQuestionRule(BaseRule, BaseQuestionRule):
+    def _process_answer(self, answer: Answer) -> Result:
+        raise NotImplementedError("Multi-question rules must process full submissions.")
+
+    @abstractmethod
     def process_submission(
         self, answer_map: dict[QuestionId, Answer], max_points_map: dict[QuestionId, float]
     ) -> dict[QuestionId, QuestionResult]:

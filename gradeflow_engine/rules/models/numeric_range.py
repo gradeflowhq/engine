@@ -4,19 +4,19 @@ from pydantic import Field, computed_field
 
 from ...questions.types import Answer, QuestionType
 from ..result import Result
-from .base import BaseRule, BaseSingleQuestionRule
+from .base import (
+    BaseRule,
+    BaseSingleQuestionRule,
+    rule_display_name_field,
+    rule_question_types_field,
+    rule_type_field,
+)
 
 
 class NumericRangeRule(BaseRule):
-    type: Literal["NUMERIC_RANGE"] = Field(
-        default="NUMERIC_RANGE", frozen=True, json_schema_extra={"readOnly": True}
-    )
-    display_name: Literal["Numeric Range"] = Field(
-        default="Numeric Range", frozen=True, json_schema_extra={"readOnly": True}
-    )
-    question_types: frozenset[QuestionType] = Field(
-        default=frozenset({"NUMERIC"}), frozen=True, json_schema_extra={"readOnly": True}
-    )
+    type: Literal["NUMERIC_RANGE"] = rule_type_field("NUMERIC_RANGE")
+    display_name: Literal["Numeric Range"] = rule_display_name_field("Numeric Range")
+    question_types: frozenset[QuestionType] = rule_question_types_field({"NUMERIC"})
     min_value: float | None = Field(default=None, description="Minimum acceptable value")
     max_value: float | None = Field(default=None, description="Maximum acceptable value")
 
@@ -33,7 +33,8 @@ class NumericRangeRule(BaseRule):
             return "No numeric range specified."
 
     def _process_answer(self, answer: Answer) -> Result:
-        assert isinstance(answer, (int, float)), "Answer must be numeric for NumericRangeRule."
+        if not isinstance(answer, (int, float)) or isinstance(answer, bool):
+            raise TypeError("Answer must be numeric for NumericRangeRule.")
 
         passed = True
         feedback = f"{answer}"
@@ -53,5 +54,4 @@ class NumericRangeRule(BaseRule):
 
 
 class NumericRangeQuestionRule(NumericRangeRule, BaseSingleQuestionRule):
-    def compute_points(self, result: Result, max_points: float) -> float:
-        return max_points if result.passed else 0.0
+    pass

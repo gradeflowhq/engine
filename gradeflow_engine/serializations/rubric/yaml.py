@@ -4,9 +4,9 @@ import yaml
 from pydantic import BaseModel, ValidationError
 
 from ...exceptions import DumpError, LoadError, RubricValidationError
+from ...mixins import ConfigurableMixin
 from ...rubrics.model import Rubric
 from ..base import DataBlob, Serializer
-from ..registries import rubric_serializer_registry
 from .utils import model_dump_minimal
 
 
@@ -14,13 +14,10 @@ class YamlRubricConfig(BaseModel):
     format: Literal["yaml"] = "yaml"
 
 
-class YamlRubricSerializer(Serializer[Rubric]):
+class YamlRubricSerializer(ConfigurableMixin[YamlRubricConfig], Serializer[Rubric]):
     format = "yaml"
     media_type = "application/yaml"
     config: YamlRubricConfig = YamlRubricConfig()
-
-    def __init__(self, **kwargs: object) -> None:
-        self.config = self.config.model_validate(kwargs)
 
     def dumps(self, obj: Rubric) -> DataBlob:
         try:
@@ -37,6 +34,3 @@ class YamlRubricSerializer(Serializer[Rubric]):
             raise RubricValidationError(e) from e
         except Exception as e:
             raise LoadError("yaml", str(e)) from e
-
-
-rubric_serializer_registry.register("yaml", YamlRubricSerializer)

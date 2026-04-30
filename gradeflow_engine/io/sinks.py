@@ -27,3 +27,11 @@ class BytesSink:
 
     def write(self, blob: DataBlob) -> None:
         self.blob = blob
+
+
+class StringSink:
+    def __init__(self) -> None:
+        self.data: str = ""
+
+    def write(self, blob: DataBlob) -> None:
+        self.data = blob.data.decode("utf-8")

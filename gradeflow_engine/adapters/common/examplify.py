@@ -56,9 +56,17 @@ def get_str(row: dict[str, str | None], key: str) -> str:
     return (val or "").strip()
 
 
-def build_qid(_: ExamplifyBaseConfig, seq: str) -> str:
-    # Keep signature to avoid touching callers
+def build_qid(seq: str) -> str:
     return f"{QID_PREFIX}{seq.strip()}"
+
+
+def maybe_build_qid(row: dict[str, str | None], cfg: ExamplifyParseConfig) -> str | None:
+    seq = get_str(row, "Seq")
+    if not seq:
+        return None
+    if not cfg.include_thrown_out and get_str(row, "ThrowOut").lower() == "true":
+        return None
+    return build_qid(seq)
 
 
 def points_from_row(row: dict[str, str | None]) -> float:

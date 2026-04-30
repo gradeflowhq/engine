@@ -1,8 +1,10 @@
-from typing import Generic, Protocol, TypeVar
+from typing import Protocol, TypeVar
 
 from pydantic import BaseModel
 
 T = TypeVar("T")  # Domain model (e.g., QuestionSet, Rubric, list[GradedSubmission])
+DumpT = TypeVar("DumpT", contravariant=True)
+LoadT = TypeVar("LoadT", covariant=True)
 
 
 class DataBlob(BaseModel):
@@ -18,17 +20,23 @@ class DataBlob(BaseModel):
     extension: str
 
 
-class Serializer(Protocol, Generic[T]):
-    """
-    Minimal serializer protocol:
-    - dumps: object -> DataBlob
-    - loads: DataBlob -> object
-    Implementations should be pure, stateless, and side-effect free.
-    """
-
+class Dumper(Protocol[DumpT]):
     format: str  # canonical key (e.g., 'yaml', 'json', 'csv')
     media_type: str  # e.g., 'application/yaml'
 
-    def dumps(self, obj: T) -> DataBlob: ...
+    def dumps(self, obj: DumpT) -> DataBlob: ...
 
-    def loads(self, blob: DataBlob) -> T: ...
+
+class Loader(Protocol[LoadT]):
+    format: str  # canonical key (e.g., 'yaml', 'json', 'csv')
+    media_type: str  # e.g., 'application/yaml'
+
+    def loads(self, blob: DataBlob) -> LoadT: ...
+
+
+class Serializer(Dumper[T], Loader[T], Protocol[T]):
+    """
+    Bidirectional serializer protocol.
+
+    Output-only serializers should implement Dumper[T] instead.
+    """

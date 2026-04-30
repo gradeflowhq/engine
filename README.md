@@ -23,7 +23,7 @@ pip install -e .
 ## Project Structure
 
 - `core.py`: High-level API and pipeline orchestration
-- `cli.py`: Typer-based CLI with rich terminal output
+- `cli/`: Typer-based CLI with rich terminal output
 - `registry.py`: Generic registry for pluggable components
 - `exceptions.py`: Custom exception hierarchy for all engine errors
 - `adapters/`: External data source adapters (Examplify, CSV)
@@ -34,6 +34,7 @@ pip install -e .
 - `submissions/`: Submission models and processing
 - `rules/`: Rule models, aggregations, subprocess-based Python executors, and validators
 - `questions/`: Question models, parsing utilities, and answer types
+- `mixins.py`: Shared mixins
 - `py.typed`: PEP 561 marker for type-checking support
 
 ## Running with Docker

@@ -1,23 +1,23 @@
 from typing import Literal
 
-from pydantic import Field, computed_field
+from pydantic import computed_field
 
 from ...questions.types import Answer, QuestionType
 from ..result import Result
-from .base import BaseRule, BaseSingleQuestionRule
+from .base import (
+    BaseRule,
+    BaseSingleQuestionRule,
+    rule_display_name_field,
+    rule_question_types_field,
+    rule_type_field,
+)
 
 
 class ManualRule(BaseRule):
-    type: Literal["MANUAL"] = Field(
-        default="MANUAL", frozen=True, json_schema_extra={"readOnly": True}
-    )
-    display_name: Literal["Manual"] = Field(
-        default="Manual", frozen=True, json_schema_extra={"readOnly": True}
-    )
-    question_types: frozenset[QuestionType] = Field(
-        default=frozenset({"TEXT", "NUMERIC", "CHOICE", "MULTI_VALUED"}),
-        frozen=True,
-        json_schema_extra={"readOnly": True},
+    type: Literal["MANUAL"] = rule_type_field("MANUAL")
+    display_name: Literal["Manual"] = rule_display_name_field("Manual")
+    question_types: frozenset[QuestionType] = rule_question_types_field(
+        {"TEXT", "NUMERIC", "CHOICE", "MULTI_VALUED"}
     )
 
     @computed_field  # type: ignore[prop-decorator]
@@ -25,7 +25,7 @@ class ManualRule(BaseRule):
     def description(self) -> str:
         return "Manual grading required."
 
-    def process_answer(self, answer: Answer) -> Result:  # override validated process_answer
+    def _process_answer(self, answer: Answer) -> Result:
         return Result(
             output=0,
             passed=False,
@@ -33,6 +33,9 @@ class ManualRule(BaseRule):
             rule=self.__class__.__name__,
             graded=False,
         )
+
+    def process_answer(self, answer: Answer) -> Result:  # override validated process_answer
+        return self._process_answer(answer)
 
 
 class ManualQuestionRule(ManualRule, BaseSingleQuestionRule):

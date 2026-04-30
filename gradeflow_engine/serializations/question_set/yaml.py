@@ -4,22 +4,19 @@ import yaml
 from pydantic import BaseModel, ValidationError
 
 from ...exceptions import DumpError, LoadError, QuestionSetValidationError
+from ...mixins import ConfigurableMixin
 from ...question_sets.model import QuestionSet
 from ..base import DataBlob, Serializer
-from ..registries import question_set_serializer_registry
 
 
 class YamlQuestionSetConfig(BaseModel):
     format: Literal["yaml"] = "yaml"
 
 
-class YamlQuestionSetSerializer(Serializer[QuestionSet]):
+class YamlQuestionSetSerializer(ConfigurableMixin[YamlQuestionSetConfig], Serializer[QuestionSet]):
     format = "yaml"
     media_type = "application/yaml"
     config: YamlQuestionSetConfig = YamlQuestionSetConfig()
-
-    def __init__(self, **kwargs: object) -> None:
-        self.config = self.config.model_validate(kwargs)
 
     def dumps(self, obj: QuestionSet) -> DataBlob:
         try:
@@ -36,6 +33,3 @@ class YamlQuestionSetSerializer(Serializer[QuestionSet]):
             raise QuestionSetValidationError(e) from e
         except Exception as e:
             raise LoadError("yaml", str(e)) from e
-
-
-question_set_serializer_registry.register("yaml", YamlQuestionSetSerializer)

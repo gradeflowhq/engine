@@ -1,52 +1,7 @@
-from typing import cast
+from typing import Any, cast
 
 from gradeflow_engine.rubrics.model import Rubric
-from gradeflow_engine.serializations.rubric.utils import (
-    ENGINE_FIELDS,
-    JSONDict,
-    JSONList,
-    JSONValue,
-    model_dump_minimal,
-    remove_engine_fields,
-)
-
-
-def test_removes_top_level_engine_fields() -> None:
-    data: JSONValue = {"name": "Rule1", "question_types": ["TEXT"], "constraints": {}, "points": 10}
-    result = remove_engine_fields(data)
-    assert result == {"name": "Rule1", "points": 10}
-
-
-def test_removes_nested_engine_fields() -> None:
-    data: JSONValue = {
-        "rules": [
-            {"name": "r1", "question_types": ["NUMERIC"], "value": 5},
-            {"name": "r2", "constraints": {"min": 0}},
-        ]
-    }
-    result = remove_engine_fields(data)
-    assert result == {"rules": [{"name": "r1", "value": 5}, {"name": "r2"}]}
-
-
-def test_preserves_non_engine_keys() -> None:
-    data: JSONValue = {"key": "val", "nested": {"a": 1}}
-    assert remove_engine_fields(data) == data
-
-
-def test_scalars_passthrough() -> None:
-    assert remove_engine_fields(42) == 42
-    assert remove_engine_fields("str") == "str"
-    assert remove_engine_fields(None) is None
-
-
-def test_empty_structures() -> None:
-    assert remove_engine_fields({}) == {}
-    assert remove_engine_fields([]) == []
-
-
-def test_engine_fields_constant_contains_expected() -> None:
-    assert "question_types" in ENGINE_FIELDS
-    assert "constraints" in ENGINE_FIELDS
+from gradeflow_engine.serializations.rubric.utils import model_dump_minimal
 
 
 def test_model_dump_minimal_strips_engine_fields_from_models() -> None:
@@ -57,7 +12,6 @@ def test_model_dump_minimal_strips_engine_fields_from_models() -> None:
                     "type": "LENGTH",
                     "question_id": "q1",
                     "min_length": 1,
-                    "max_points": 2.0,
                 }
             ]
         }
@@ -66,8 +20,50 @@ def test_model_dump_minimal_strips_engine_fields_from_models() -> None:
     dumped = model_dump_minimal(rubric)
 
     assert isinstance(dumped, dict)
-    dumped_dict = cast(JSONDict, dumped)
-    rules = cast(JSONList, dumped_dict["rules"])
-    rule = cast(JSONDict, rules[0])
+    rules = cast(list[dict[str, Any]], dumped["rules"])
+    rule = rules[0]
     assert "question_types" not in rule
     assert "constraints" not in rule
+    assert "min_length" in rule
+    assert rule["min_length"] == 1
+    assert "question_id" in rule
+    assert rule["question_id"] == "q1"
+    assert rule["type"] == "LENGTH"
+
+
+def test_model_dump_minimal_strips_engine_fields_from_nested_models() -> None:
+    rubric = Rubric.model_validate(
+        {
+            "rules": [
+                {
+                    "type": "COMPOSITE",
+                    "question_id": "q1",
+                    "aggregation": "ALL",
+                    "rules": [
+                        {
+                            "type": "MULTIPLE_CHOICE",
+                            "answer": ["A"],
+                            "mode": "ALL",
+                        },
+                    ],
+                }
+            ]
+        }
+    )
+
+    dumped = model_dump_minimal(rubric)
+
+    assert isinstance(dumped, dict)
+    rules = cast(list[dict[str, Any]], dumped["rules"])
+    outer_rule = rules[0]
+    inner_rule = cast(list[dict[str, Any]], outer_rule["rules"])[0]
+    assert "question_types" not in outer_rule
+    assert "constraints" not in outer_rule
+    assert "question_types" not in inner_rule
+    assert "constraints" not in inner_rule
+    assert outer_rule["type"] == "COMPOSITE"
+    assert outer_rule["question_id"] == "q1"
+    assert outer_rule["aggregation"] == "ALL"
+    assert inner_rule["type"] == "MULTIPLE_CHOICE"
+    assert inner_rule["answer"] == {"A"}
+    assert inner_rule["mode"] == "ALL"

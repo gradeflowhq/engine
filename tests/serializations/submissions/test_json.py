@@ -1,7 +1,10 @@
 import json
 from typing import Any
 
+import pytest
+
 from gradeflow_engine.core import dump_submissions_to_blob
+from gradeflow_engine.serializations.submissions.json import _Encoder
 from gradeflow_engine.submissions.models import Submission
 
 
@@ -34,3 +37,8 @@ def test_json_serializer_compact_and_parseable(
     item3: dict[str, Any] = next(i for i in payload if i.get("student_id") == "s3")
     assert set(item3["answer_map"]["Q2"]) == {"A", "B"}
     assert item3["answer_map"]["Q3"] == ["", " spaced ", 0]
+
+
+def test_json_encoder_rejects_unknown_object() -> None:
+    with pytest.raises(TypeError):
+        _Encoder().default(object())

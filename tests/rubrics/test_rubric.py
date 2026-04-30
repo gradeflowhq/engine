@@ -1,11 +1,15 @@
+from typing import Any, cast
+
 import pytest
 
+from gradeflow_engine.exceptions import GradingError
 from gradeflow_engine.question_sets.model import QuestionSet
 from gradeflow_engine.questions.models import ChoiceQuestion, TextQuestion
-from gradeflow_engine.rubrics.model import Rubric, RubricCoverage
+from gradeflow_engine.rubrics.model import Rubric, RubricCoverage, grade_submission
 from gradeflow_engine.rules.models.length import LengthQuestionRule
 from gradeflow_engine.rules.models.multiple_choice import MultipleChoiceQuestionRule
 from gradeflow_engine.rules.models.text_match import TextMatchQuestionRule
+from gradeflow_engine.rules.result import QuestionResult
 from gradeflow_engine.submissions.models import Submission
 
 
@@ -203,3 +207,75 @@ def test_rubric_no_rules_no_answer() -> None:
     assert graded.result_map["Q2"].max_points == 5.0
     assert graded.result_map["Q2"].passed is False
     assert graded.result_map["Q2"].rule == "None"
+
+
+def test_rubric_grading_exception_and_partial_override_paths() -> None:
+    class BadRule:
+        type = "BAD"
+
+        def get_target_question_ids(self) -> set[str]:
+            return {"Q1"}
+
+        def process_submission(
+            self, answer_map: dict[str, object], max_points_map: dict[str, float]
+        ) -> dict[str, QuestionResult]:
+            raise RuntimeError("bad rule")
+
+    class TwoResultRule:
+        type = "TWO"
+
+        def get_target_question_ids(self) -> set[str]:
+            return {"Q1", "Q2"}
+
+        def process_submission(
+            self, answer_map: dict[str, object], max_points_map: dict[str, float]
+        ) -> dict[str, QuestionResult]:
+            return {
+                qid: QuestionResult(
+                    output=True,
+                    passed=True,
+                    feedback="",
+                    rule="TWO",
+                    points=1,
+                    max_points=1,
+                )
+                for qid in self.get_target_question_ids()
+            }
+
+    submission = Submission(student_id="s1", answer_map={"Q1": "x", "Q2": "y"})
+    question_map = {"Q1": TextQuestion(), "Q2": TextQuestion()}
+
+    with pytest.raises(GradingError):
+        grade_submission([cast(Any, BadRule())], submission, question_map, strict=True)
+
+    graded = grade_submission([cast(Any, BadRule())], submission, question_map, strict=False)
+    assert graded.result_map["Q1"].rule == "ManualQuestionRule"
+
+    existing = QuestionResult(
+        output=True,
+        passed=True,
+        feedback="existing",
+        rule="Existing",
+        points=9,
+        max_points=9,
+    )
+    submission = submission.model_copy(update={"result_map": {"Q1": existing}})
+    graded = grade_submission(
+        [cast(Any, TwoResultRule())],
+        submission,
+        question_map,
+        override_results=False,
+        grade_questions_without_rule=False,
+    )
+    assert graded.result_map["Q1"] is existing
+    assert graded.result_map["Q2"].rule == "TWO"
+
+    submission = submission.model_copy(update={"result_map": {"Q1": existing, "Q2": existing}})
+    skipped = grade_submission(
+        [cast(Any, TwoResultRule())],
+        submission,
+        question_map,
+        override_results=False,
+        grade_questions_without_rule=False,
+    )
+    assert skipped.result_map == submission.result_map

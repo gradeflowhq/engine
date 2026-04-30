@@ -1,3 +1,4 @@
+from gradeflow_engine.questions.models.numeric import NumericQuestion
 from gradeflow_engine.questions.types import Answer, QuestionId
 from gradeflow_engine.rules.models.length import LengthQuestionRule, LengthRule
 
@@ -96,3 +97,7 @@ def test_length_description_branches() -> None:
     assert "At least" in LengthRule(min_length=3).description
     assert "At most" in LengthRule(max_length=10).description
     assert "No length" in LengthRule().description
+
+
+def test_length_validate_question_compatibility_rejects_numeric() -> None:
+    assert LengthRule(min_length=1).validate_question_compatibility(NumericQuestion())

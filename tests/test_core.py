@@ -374,3 +374,24 @@ def test_get_unknown_raw_submissions_adapter_raises_adapter_not_found_error() ->
     with pytest.raises(AdapterNotFoundError) as exc_info:
         get_raw_submissions_adapter_class("nonexistent_adapter")
     assert "nonexistent_adapter" in exc_info.value.name
+
+
+def test_core_pipeline_loads_rubric_from_adapter_source() -> None:
+    result = run_pipeline(
+        raw_submissions=[RawSubmission(student_id="s1", raw_answer_map={"Q1": "a"})],
+        question_set_source=StringSource(
+            "question_map:\n  Q1: {type: CHOICE, options: [a], allow_multiple: false}\n",
+            media_type="application/yaml",
+            extension="yaml",
+        ),
+        question_set_serializer_name="yaml",
+        rubric_adapter_source=StringSource(
+            "Seq,ThrowOut,Type,Original Answer,Adjusted Answer\n1,false,Choice,A,\n",
+            media_type="text/csv",
+            extension="csv",
+        ),
+        graded_output_serializer_name=None,
+    )
+
+    assert result.rubric is not None
+    assert result.submissions[0].result_map["Q1"].points == 1.0

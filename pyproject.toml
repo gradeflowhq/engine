@@ -77,10 +77,18 @@ indent-style = "space"
 python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
-disallow_untyped_defs = false
+disallow_untyped_defs = true
+warn_unreachable = true
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 markers = [
     "ml: tests requiring the ml extra (fastembed, numpy)",
 ]
+
+[tool.coverage.run]
+source = ["gradeflow_engine"]
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true

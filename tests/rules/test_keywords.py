@@ -1,3 +1,5 @@
+import pytest
+
 from gradeflow_engine.questions.types import Answer, QuestionId
 from gradeflow_engine.rules.models.keywords import KeywordsQuestionRule, KeywordsRule
 
@@ -80,3 +82,11 @@ def test_keywords_description_modes() -> None:
 
     partial_rule = KeywordsRule(keywords=["a", "b"], mode="PARTIAL")
     assert "partial" in partial_rule.description.lower()
+
+
+def test_keywords_description_edge_cases() -> None:
+    assert "Partial credit" in KeywordsRule(keywords=["x"], mode="PARTIAL").description
+
+    malformed = KeywordsRule.model_construct(keywords=["x"], mode="BAD")
+    with pytest.raises(ValueError):
+        _ = malformed.description

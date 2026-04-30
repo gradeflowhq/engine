@@ -8,7 +8,13 @@ from ..aggregations.completeness import output_fn, passed_fn, points_fn
 from ..executors import python
 from ..result import Result
 from ..types import CompletenessAggregation
-from .base import BaseRule, BaseSingleQuestionRule
+from .base import (
+    BaseRule,
+    BaseSingleQuestionRule,
+    rule_display_name_field,
+    rule_question_types_field,
+    rule_type_field,
+)
 
 ProgrammingLanguage = Literal["python"]  # Extendable to other languages in the future
 
@@ -88,15 +94,9 @@ result = {{'output': output, 'expected': expected, 'passed': passed}}
 
 
 class ProgrammingRule(BaseRule):
-    type: Literal["PROGRAMMING"] = Field(
-        default="PROGRAMMING", frozen=True, json_schema_extra={"readOnly": True}
-    )
-    display_name: Literal["Programming"] = Field(
-        default="Programming", frozen=True, json_schema_extra={"readOnly": True}
-    )
-    question_types: frozenset[QuestionType] = Field(
-        default=frozenset({"TEXT"}), frozen=True, json_schema_extra={"readOnly": True}
-    )
+    type: Literal["PROGRAMMING"] = rule_type_field("PROGRAMMING")
+    display_name: Literal["Programming"] = rule_display_name_field("Programming")
+    question_types: frozenset[QuestionType] = rule_question_types_field({"TEXT"})
     testcases: list[ProgrammingTestCase] = Field(
         ..., min_length=1, description="List of test cases to run against the code"
     )

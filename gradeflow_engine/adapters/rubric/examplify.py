@@ -1,8 +1,6 @@
-from typing import Literal
+from typing import ClassVar, Literal
 
-from pydantic import ValidationError
-
-from ...exceptions import AdapterLoadError, GradeFlowError, RubricValidationError
+from ...exceptions import RubricValidationError
 from ...io.sources import DataSource
 from ...questions.models.choice import ChoiceQuestion
 from ...questions.parser import MultiValuedParserConfig
@@ -12,23 +10,24 @@ from ...rules.models.multi_valued import MultiValuedQuestionRule
 from ...rules.models.multiple_choice import MultipleChoiceQuestionRule
 from ...rules.models.number_equal import NumberEqualQuestionRule, NumberEqualRule
 from ...rules.models.text_match import TextMatchQuestionRule, TextMatchRule
+from ..base import BaseAdapter
 from ..common.examplify import (
     CHOICE_DELIMITER,
     CHOICE_NORMALIZE_CASE,
     TRIM_WHITESPACE,
     ExamplifyRuleConfig,
-    build_qid,
     extract_blank_segments,
     get_str,
     is_all_numeric_str,
     make_dict_reader,
+    maybe_build_qid,
     parse_number_str_list,
     split_alternatives,
 )
-from ..registries import RubricAdapter, rubric_adapter_registry
+from ..registries import RubricAdapter
 
 
-class ExamplifyRubricAdapter(RubricAdapter):
+class ExamplifyRubricAdapter(BaseAdapter[ExamplifyRuleConfig, Rubric], RubricAdapter):
     """
     Examplify → Rubric adapter with separate RuleConfig.
 
@@ -51,28 +50,16 @@ class ExamplifyRubricAdapter(RubricAdapter):
     - Points: use Adjusted Points or Original Points; floor at 0.0 when missing/negative.
     """
 
-    name: Literal["examplify"] = "examplify"
+    name: ClassVar[Literal["examplify"]] = "examplify"
     config: ExamplifyRuleConfig = ExamplifyRuleConfig()
-
-    def __init__(self, **kwargs: object) -> None:
-        self.config = self.config.model_validate(kwargs)
-
-    def load(self, source: DataSource) -> Rubric:
-        try:
-            return self._load(source)
-        except ValidationError as e:
-            raise RubricValidationError(e) from e
-        except GradeFlowError:
-            raise
-        except Exception as e:
-            raise AdapterLoadError(self.name, str(e)) from e
+    _validation_error_cls = RubricValidationError
 
     def _load(self, source: DataSource) -> Rubric:
         cfg = self.config
         rules: list[QuestionRule] = []
 
         for row in make_dict_reader(source.read().data.decode("utf-8")):
-            qid = self._maybe_build_qid(row, cfg)
+            qid = maybe_build_qid(row, cfg)
             if not qid:
                 continue
 
@@ -98,14 +85,6 @@ class ExamplifyRubricAdapter(RubricAdapter):
     # -----------------
     # Helpers
     # -----------------
-    def _maybe_build_qid(self, row: dict[str, str | None], cfg: ExamplifyRuleConfig) -> str | None:
-        seq = get_str(row, "Seq")
-        if not seq:
-            return None
-        if not cfg.include_thrown_out and get_str(row, "ThrowOut").lower() == "true":
-            return None
-        return build_qid(cfg, seq)
-
     def _preferred_answer_key(self, row: dict[str, str | None]) -> str:
         adjusted = get_str(row, "Adjusted Answer")
         original = get_str(row, "Original Answer")
@@ -191,7 +170,3 @@ class ExamplifyRubricAdapter(RubricAdapter):
             question_id=qid,
             answers=answers,
         )
-
-
-# Canonical registration
-rubric_adapter_registry.register("examplify", ExamplifyRubricAdapter)  # type: ignore[arg-type]

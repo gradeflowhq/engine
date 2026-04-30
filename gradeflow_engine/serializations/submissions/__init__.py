@@ -10,6 +10,3 @@ SubmissionsSerializerConfig = Annotated[
     CsvSubmissionsConfig | JsonSubmissionsConfig | YamlSubmissionsConfig,
     Discriminator("format"),
 ]
-
-# Back-compat alias
-GradedSubmissionsSerializerConfig = SubmissionsSerializerConfig
