@@ -62,8 +62,8 @@ def _evaluate_choice(
     elif mode == "PARTIAL":
         num_correct = sum(1 for choice in correct_set if choice in answer_set)
         num_incorrect = sum(1 for choice in answer_set if choice not in correct_set)
-        passed = num_correct > 0
         output = max(0.0, num_correct - num_incorrect) / len(correct_set)
+        passed = output > 0.0
     else:
         raise ValueError(f"Unknown mode: {mode}")
 

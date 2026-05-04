@@ -170,11 +170,18 @@ def test_multiple_choice_rule_output_and_feedback_without_points() -> None:
     assert "Correct choice(s) selected: B." in res_any.feedback
 
     rule_partial = MultipleChoiceRule(answer={"A", "B", "C"}, mode="PARTIAL")
+
     res_partial = rule_partial.process_answer({"A", "X"})
     # num_correct=1, num_incorrect=1 -> max(0, 1-1)/3 = 0.0
     assert res_partial.output == 0.0
-    assert res_partial.passed is True
+    assert res_partial.passed is False
     assert "Partial credit: (1 - 1) / 3 * max points (minimum: 0)." in res_partial.feedback
+
+    res_partial = rule_partial.process_answer({"A", "B"})
+    # num_correct=2, num_incorrect=1 -> max(0, 2-1)/3 = 1/3
+    assert res_partial.output == pytest.approx(2.0 / 3.0)
+    assert res_partial.passed is True
+    assert "Partial credit: (2 - 0) / 3 * max points (minimum: 0)." in res_partial.feedback
 
 
 def test_multiple_choice_defensive_edges() -> None:
