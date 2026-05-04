@@ -164,6 +164,27 @@ class SubmissionError(GradeFlowError):
     """Base class for submission-related errors."""
 
 
+class MalformedCsvRowError(SubmissionError):
+    """
+    Raised when a CSV row is malformed, typically resulting in None values in DictReader.
+    This often happens when unquoted newlines split a single submission row across multiple lines.
+    """
+
+    def __init__(self, line_number: int, row_data: dict[str, Any], missing_cols: list[str]) -> None:
+        # Create a concise preview of the row data for debugging context
+        preview_items = list(row_data.items())[:6]
+        preview_str = ", ".join(f"{k}={v!r}" for k, v in preview_items)
+        if len(row_data) > 6:
+            preview_str += ", ..."
+
+        super().__init__(
+            f"Malformed CSV data detected around line {line_number}. "
+            f"The following columns contain missing values (None), likely due to an unquoted "
+            f"newline splitting the row: {missing_cols}. "
+            f"Row preview: {{{preview_str}}}"
+        )
+
+
 class MissingStudentIdError(SubmissionError):
     """Raised when the student ID column is absent in a source row."""
 
