@@ -204,3 +204,309 @@ def test_multiple_choice_defensive_edges() -> None:
 def test_multiple_choice_description_variants() -> None:
     assert "at least one" in MultipleChoiceRule(answer={"A"}, mode="ANY").description
     assert "Partial credit" in MultipleChoiceRule(answer={"A"}, mode="PARTIAL").description
+
+
+# ────────────────────────────────────────────────────────────────────────────────
+# CONTAIN mode tests
+# ────────────────────────────────────────────────────────────────────────────────
+
+
+def test_multiple_choice_contain_mode_exact_match_passes() -> None:
+    """Student selects exactly the required choices — should pass."""
+    rule = MultipleChoiceRule(answer={"A", "B"}, mode="CONTAIN")
+    result = rule.process_answer({"A", "B"})
+
+    assert result.passed is True
+    assert result.output == 1.0
+
+
+def test_multiple_choice_contain_mode_superset_passes() -> None:
+    """Student selects all required choices plus extras — should still pass."""
+    rule = MultipleChoiceRule(answer={"A", "B"}, mode="CONTAIN")
+    result = rule.process_answer({"A", "B", "C", "D"})
+
+    assert result.passed is True
+    assert result.output == 1.0
+
+
+def test_multiple_choice_contain_mode_missing_required_fails() -> None:
+    """Student is missing one required choice — should fail."""
+    rule = MultipleChoiceRule(answer={"A", "B"}, mode="CONTAIN")
+    result = rule.process_answer({"A", "C"})
+
+    assert result.passed is False
+    assert result.output == 0.0
+
+
+def test_multiple_choice_contain_mode_empty_selection_fails() -> None:
+    """Student selects nothing — should fail."""
+    rule = MultipleChoiceRule(answer={"A", "B"}, mode="CONTAIN")
+    result = rule.process_answer(set())
+
+    assert result.passed is False
+    assert result.output == 0.0
+
+
+def test_multiple_choice_contain_mode_disjoint_selection_fails() -> None:
+    """Student selects choices with no overlap with the answer — should fail."""
+    rule = MultipleChoiceRule(answer={"A", "B"}, mode="CONTAIN")
+    result = rule.process_answer({"X", "Y"})
+
+    assert result.passed is False
+    assert result.output == 0.0
+
+
+def test_multiple_choice_contain_mode_single_answer_contained() -> None:
+    """Single required choice is present among student selections."""
+    rule = MultipleChoiceRule(answer={"A"}, mode="CONTAIN")
+    result = rule.process_answer({"A", "B", "C"})
+
+    assert result.passed is True
+    assert result.output == 1.0
+
+
+def test_multiple_choice_contain_mode_single_answer_missing() -> None:
+    """Single required choice is absent from student selections."""
+    rule = MultipleChoiceRule(answer={"A"}, mode="CONTAIN")
+    result = rule.process_answer({"B", "C"})
+
+    assert result.passed is False
+    assert result.output == 0.0
+
+
+def test_multiple_choice_contain_question_rule_full_points() -> None:
+    """CONTAIN mode via question rule awards full points when answer is contained."""
+    qrule = MultipleChoiceQuestionRule(
+        question_id="q_contain",
+        answer={"A", "B"},
+        mode="CONTAIN",
+    )
+    res = qrule.process_submission({"q_contain": {"A", "B", "C"}}, {"q_contain": 10.0})["q_contain"]
+
+    assert res.passed is True
+    assert res.points == 10.0
+    assert res.max_points == 10.0
+
+
+def test_multiple_choice_contain_question_rule_zero_points() -> None:
+    """CONTAIN mode via question rule awards zero points when answer is not fully contained."""
+    qrule = MultipleChoiceQuestionRule(
+        question_id="q_contain_fail",
+        answer={"A", "B"},
+        mode="CONTAIN",
+    )
+    res = qrule.process_submission({"q_contain_fail": {"A", "C"}}, {"q_contain_fail": 10.0})[
+        "q_contain_fail"
+    ]
+
+    assert res.passed is False
+    assert res.points == 0.0
+
+
+def test_multiple_choice_contain_mode_feedback_on_pass() -> None:
+    """CONTAIN mode feedback indicates which required choices were selected."""
+    rule = MultipleChoiceRule(answer={"A", "B"}, mode="CONTAIN")
+    result = rule.process_answer({"A", "B", "X"})
+
+    assert result.passed is True
+    # Feedback should mention the correct choices that were selected
+    assert "A" in result.feedback
+    assert "B" in result.feedback
+
+
+def test_multiple_choice_contain_mode_feedback_on_fail() -> None:
+    """CONTAIN mode feedback indicates which required choices were missing."""
+    rule = MultipleChoiceRule(answer={"A", "B"}, mode="CONTAIN")
+    result = rule.process_answer({"A", "X"})
+
+    assert result.passed is False
+    # Feedback should mention the missing required choice
+    assert "B" in result.feedback
+
+
+def test_multiple_choice_contain_description() -> None:
+    """CONTAIN mode has a meaningful description."""
+    rule = MultipleChoiceRule(answer={"A", "B"}, mode="CONTAIN")
+    desc = rule.description
+    assert desc  # non-empty
+    # Description should reference containment semantics
+    assert "contain" in desc.lower() or "include" in desc.lower() or "must" in desc.lower()
+
+
+# ────────────────────────────────────────────────────────────────────────────────
+# NOT_CONTAIN mode tests
+# ────────────────────────────────────────────────────────────────────────────────
+
+
+def test_multiple_choice_not_contain_mode_no_overlap_passes() -> None:
+    """Student selects none of the forbidden choices — should pass."""
+    rule = MultipleChoiceRule(answer={"A", "B"}, mode="NOT_CONTAIN")
+    result = rule.process_answer({"C", "D"})
+
+    assert result.passed is True
+    assert result.output == 1.0
+
+
+def test_multiple_choice_not_contain_mode_empty_selection_passes() -> None:
+    """Student selects nothing — none of the forbidden choices are present, should pass."""
+    rule = MultipleChoiceRule(answer={"A", "B"}, mode="NOT_CONTAIN")
+    result = rule.process_answer(set())
+
+    assert result.passed is True
+    assert result.output == 1.0
+
+
+def test_multiple_choice_not_contain_mode_one_forbidden_present_fails() -> None:
+    """Student selects one of the forbidden choices — should fail."""
+    rule = MultipleChoiceRule(answer={"A", "B"}, mode="NOT_CONTAIN")
+    result = rule.process_answer({"A", "C"})
+
+    assert result.passed is False
+    assert result.output == 0.0
+
+
+def test_multiple_choice_not_contain_mode_all_forbidden_present_fails() -> None:
+    """Student selects all forbidden choices — should fail."""
+    rule = MultipleChoiceRule(answer={"A", "B"}, mode="NOT_CONTAIN")
+    result = rule.process_answer({"A", "B"})
+
+    assert result.passed is False
+    assert result.output == 0.0
+
+
+def test_multiple_choice_not_contain_mode_all_forbidden_plus_extras_fails() -> None:
+    """Student selects all forbidden choices plus extras — should still fail."""
+    rule = MultipleChoiceRule(answer={"A", "B"}, mode="NOT_CONTAIN")
+    result = rule.process_answer({"A", "B", "C", "D"})
+
+    assert result.passed is False
+    assert result.output == 0.0
+
+
+def test_multiple_choice_not_contain_mode_single_forbidden_absent() -> None:
+    """Single forbidden choice is absent — should pass."""
+    rule = MultipleChoiceRule(answer={"A"}, mode="NOT_CONTAIN")
+    result = rule.process_answer({"B", "C"})
+
+    assert result.passed is True
+    assert result.output == 1.0
+
+
+def test_multiple_choice_not_contain_mode_single_forbidden_present() -> None:
+    """Single forbidden choice is present — should fail."""
+    rule = MultipleChoiceRule(answer={"A"}, mode="NOT_CONTAIN")
+    result = rule.process_answer({"A"})
+
+    assert result.passed is False
+    assert result.output == 0.0
+
+
+def test_multiple_choice_not_contain_question_rule_full_points() -> None:
+    """NOT_CONTAIN mode via question rule awards full points when no forbidden choices present."""
+    qrule = MultipleChoiceQuestionRule(
+        question_id="q_not_contain",
+        answer={"X", "Y"},
+        mode="NOT_CONTAIN",
+    )
+    res = qrule.process_submission({"q_not_contain": {"A", "B", "C"}}, {"q_not_contain": 8.0})[
+        "q_not_contain"
+    ]
+
+    assert res.passed is True
+    assert res.points == 8.0
+    assert res.max_points == 8.0
+
+
+def test_multiple_choice_not_contain_question_rule_zero_points() -> None:
+    """NOT_CONTAIN mode via question rule awards zero when a forbidden choice is present."""
+    qrule = MultipleChoiceQuestionRule(
+        question_id="q_not_contain_fail",
+        answer={"X", "Y"},
+        mode="NOT_CONTAIN",
+    )
+    res = qrule.process_submission({"q_not_contain_fail": {"A", "X"}}, {"q_not_contain_fail": 8.0})[
+        "q_not_contain_fail"
+    ]
+
+    assert res.passed is False
+    assert res.points == 0.0
+
+
+def test_multiple_choice_not_contain_mode_feedback_on_pass() -> None:
+    """NOT_CONTAIN mode feedback on pass indicates no forbidden choices were selected."""
+    rule = MultipleChoiceRule(answer={"A", "B"}, mode="NOT_CONTAIN")
+    result = rule.process_answer({"C", "D"})
+
+    assert result.passed is True
+    assert result.feedback  # non-empty feedback
+
+
+def test_multiple_choice_not_contain_mode_feedback_on_fail() -> None:
+    """NOT_CONTAIN mode feedback on fail indicates which forbidden choices were selected."""
+    rule = MultipleChoiceRule(answer={"A", "B"}, mode="NOT_CONTAIN")
+    result = rule.process_answer({"A", "C"})
+
+    assert result.passed is False
+    # Feedback should mention the forbidden choice that was selected
+    assert "A" in result.feedback
+
+
+def test_multiple_choice_not_contain_description() -> None:
+    """NOT_CONTAIN mode has a meaningful description."""
+    rule = MultipleChoiceRule(answer={"A", "B"}, mode="NOT_CONTAIN")
+    desc = rule.description
+    assert desc  # non-empty
+    # Description should reference exclusion/not-contain semantics
+    assert (
+        "not" in desc.lower()
+        or "exclude" in desc.lower()
+        or "must not" in desc.lower()
+        or "forbidden" in desc.lower()
+    )
+
+
+# ────────────────────────────────────────────────────────────────────────────────
+# CONTAIN / NOT_CONTAIN interaction with defensive edges
+# ────────────────────────────────────────────────────────────────────────────────
+
+
+def test_multiple_choice_contain_rejects_non_set_input() -> None:
+    """CONTAIN mode should reject non-set input just like other modes."""
+    rule = MultipleChoiceRule(answer={"A"}, mode="CONTAIN")
+    with pytest.raises(TypeError):
+        rule._process_answer(["A"])  # type: ignore[arg-type]
+
+
+def test_multiple_choice_not_contain_rejects_non_set_input() -> None:
+    """NOT_CONTAIN mode should reject non-set input just like other modes."""
+    rule = MultipleChoiceRule(answer={"A"}, mode="NOT_CONTAIN")
+    with pytest.raises(TypeError):
+        rule._process_answer(["A"])  # type: ignore[arg-type]
+
+
+def test_multiple_choice_contain_validates_question_compatibility() -> None:
+    """CONTAIN mode should validate against ChoiceQuestion options like other modes."""
+    rule = MultipleChoiceRule(answer={"B"}, mode="CONTAIN")
+    errors = rule.validate_question_compatibility(ChoiceQuestion(options={"A"}))
+    assert "Invalid answer choices" in errors[0]
+
+
+def test_multiple_choice_not_contain_validates_question_compatibility() -> None:
+    """NOT_CONTAIN mode should validate against ChoiceQuestion options like other modes."""
+    rule = MultipleChoiceRule(answer={"B"}, mode="NOT_CONTAIN")
+    errors = rule.validate_question_compatibility(ChoiceQuestion(options={"A"}))
+    assert "Invalid answer choices" in errors[0]
+
+
+def test_multiple_choice_contain_compatible_with_text_question() -> None:
+    """CONTAIN mode should flag TextQuestion as incompatible, like other modes."""
+    assert MultipleChoiceRule(answer={"A"}, mode="CONTAIN").validate_question_compatibility(
+        TextQuestion()
+    )
+
+
+def test_multiple_choice_not_contain_compatible_with_text_question() -> None:
+    """NOT_CONTAIN mode should flag TextQuestion as incompatible, like other modes."""
+    assert MultipleChoiceRule(answer={"A"}, mode="NOT_CONTAIN").validate_question_compatibility(
+        TextQuestion()
+    )

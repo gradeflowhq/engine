@@ -39,6 +39,10 @@ def _build_feedback(
     feedback = " ".join(feedback_parts)
     if mode == "ALL" and not passed:
         feedback = "Incorrect choice(s).\n" + feedback
+    if mode == "CONTAIN" and not passed:
+        feedback = "Not all required choices were selected.\n" + feedback
+    if mode == "NOT_CONTAIN" and not passed:
+        feedback = "Some incorrect choices were selected.\n" + feedback
     if mode == "ANY" and not passed:
         feedback = "No correct choice(s) were selected.\n" + feedback
     if mode == "PARTIAL" and len(incorrect_choices) + len(notselected_correct) > 0:
@@ -55,6 +59,12 @@ def _evaluate_choice(
 ) -> Result:
     if mode == "ALL":
         passed = answer_set == correct_set
+        output = float(passed)
+    elif mode == "CONTAIN":
+        passed = correct_set.issubset(answer_set)
+        output = float(passed)
+    elif mode == "NOT_CONTAIN":
+        passed = answer_set.isdisjoint(correct_set)
         output = float(passed)
     elif mode == "ANY":
         passed = len(answer_set & correct_set) > 0
@@ -87,10 +97,12 @@ class MultipleChoiceRule(BaseRule):
         default="ALL",
         description=(
             "Mode of choice matching: "
-            "'ALL' requires all correct choices to be selected, "
-            "'ANY' requires at least one, "
-            "'PARTIAL' gives credit for each correct choice selected minus "
-            "each incorrect choice selected."
+            "'ALL' requires all specified choices to be selected, "
+            "'CONTAIN' requires all specified choices to be selected but allows extra choices, "
+            "'NOT_CONTAIN' requires none of the specified choices to be selected, "
+            "'ANY' requires at least one of thespecified choices to be selected, "
+            "'PARTIAL' gives credit for each specified choice selected minus "
+            "each unspecified choice selected."
         ),
     )
 
@@ -101,6 +113,12 @@ class MultipleChoiceRule(BaseRule):
             return f"Include all of these choices: {', '.join(self.answer)}."
         elif self.mode == "ANY":
             return f"Include at least one of these choices: {', '.join(self.answer)}."
+        elif self.mode == "CONTAIN":
+            return (
+                f"Include all of these choices (but may include others): {', '.join(self.answer)}."
+            )
+        elif self.mode == "NOT_CONTAIN":
+            return f"Do not include any of these choices: {', '.join(self.answer)}."
         elif self.mode == "PARTIAL":
             return f"Partial credit for correct choices: {', '.join(self.answer)}."
         else:

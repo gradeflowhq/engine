@@ -25,7 +25,7 @@ def passed_fn(passed_list: list[bool], mode: CompletenessAggregation) -> bool:
 def points_fn(result: Result, mode: CompletenessAggregation, max_points: float) -> float:
     if not isinstance(result.output, float):
         raise ValueError("Result output must be a float for points calculation.")
-    if mode in {"ALL", "ANY"}:
+    if mode in {"ALL", "ANY", "CONTAIN", "NOT_CONTAIN"}:
         return max_points if result.passed else 0.0
     elif mode == "PARTIAL":
         return max_points * result.output
