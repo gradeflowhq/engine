@@ -1,11 +1,16 @@
 import pytest
 
+from gradeflow_engine.exceptions import MissingAnswerError
+from gradeflow_engine.questions.models import Question
+from gradeflow_engine.questions.models.text import TextQuestion
+from gradeflow_engine.questions.types import QuestionId
 from gradeflow_engine.rules.models.programmable import (
     BooleanParameter,
     DictParameter,
     FloatParameter,
     IntParameter,
     ListParameter,
+    ProgrammableMultiQuestionRule,
     ProgrammableQuestionRule,
     ProgrammableRule,
     StringParameter,
@@ -456,3 +461,397 @@ def test_programmable_question_rule_rejects_unknown_mode() -> None:
     malformed = ProgrammableQuestionRule.model_construct(question_id="Q1", mode="BAD")
     with pytest.raises(ValueError):
         malformed.compute_points(Result(output=1, passed=True, feedback="", rule="x"), 1)
+
+
+# ===========================================================================
+# ProgrammableMultiQuestionRule
+# ===========================================================================
+
+
+# ---------------------------------------------------------------------------
+# PASS_FAIL mode — basic multi-question
+# ---------------------------------------------------------------------------
+
+
+def test_multi_pass_fail_all_pass() -> None:
+    code = """
+results = {}
+for qid, answer in answer_map.items():
+    results[qid] = {'passed': True, 'output': 1.0, 'feedback': f'{qid} ok'}
+"""
+    rule = ProgrammableMultiQuestionRule(
+        target_question_ids=["Q1", "Q2"], code=code, mode="PASS_FAIL"
+    )
+    qresults = rule.process_submission({"Q1": "a", "Q2": "b"}, {"Q1": 3.0, "Q2": 5.0})
+
+    assert qresults["Q1"].passed is True
+    assert qresults["Q1"].points == 3.0
+    assert qresults["Q2"].passed is True
+    assert qresults["Q2"].points == 5.0
+
+
+def test_multi_pass_fail_some_fail() -> None:
+    code = """
+results = {
+    'Q1': {'passed': True, 'output': 1.0, 'feedback': 'ok'},
+    'Q2': {'passed': False, 'output': 0.0, 'feedback': 'wrong'},
+}
+"""
+    rule = ProgrammableMultiQuestionRule(
+        target_question_ids=["Q1", "Q2"], code=code, mode="PASS_FAIL"
+    )
+    qresults = rule.process_submission({"Q1": "a", "Q2": "b"}, {"Q1": 2.0, "Q2": 4.0})
+
+    assert qresults["Q1"].points == 2.0
+    assert qresults["Q2"].points == 0.0
+
+
+def test_multi_pass_fail_high_output_irrelevant_when_not_passed() -> None:
+    code = """
+results = {'Q1': {'passed': False, 'output': 0.99, 'feedback': 'nope'}}
+"""
+    rule = ProgrammableMultiQuestionRule(target_question_ids=["Q1"], code=code, mode="PASS_FAIL")
+    qresults = rule.process_submission({"Q1": "x"}, {"Q1": 10.0})
+
+    assert qresults["Q1"].points == 0.0
+
+
+# ---------------------------------------------------------------------------
+# OUTPUT mode — multi-question
+# ---------------------------------------------------------------------------
+
+
+def test_multi_output_partial_scales_per_question() -> None:
+    code = """
+results = {
+    'Q1': {'output': 0.5, 'passed': True, 'feedback': 'half'},
+    'Q2': {'output': 0.25, 'passed': False, 'feedback': 'quarter'},
+}
+"""
+    rule = ProgrammableMultiQuestionRule(target_question_ids=["Q1", "Q2"], code=code, mode="OUTPUT")
+    qresults = rule.process_submission({"Q1": "a", "Q2": "b"}, {"Q1": 10.0, "Q2": 8.0})
+
+    assert qresults["Q1"].points == pytest.approx(5.0)
+    assert qresults["Q2"].points == pytest.approx(2.0)
+
+
+def test_multi_output_full_yields_max_points() -> None:
+    code = """
+results = {qid: {'output': 1.0, 'passed': True, 'feedback': 'full'} for qid in answer_map}
+"""
+    rule = ProgrammableMultiQuestionRule(target_question_ids=["Q1", "Q2"], code=code, mode="OUTPUT")
+    qresults = rule.process_submission({"Q1": "a", "Q2": "b"}, {"Q1": 3.0, "Q2": 7.0})
+
+    assert qresults["Q1"].points == 3.0
+    assert qresults["Q2"].points == 7.0
+
+
+def test_multi_output_zero_yields_zero_points() -> None:
+    code = """
+results = {qid: {'output': 0.0, 'passed': False, 'feedback': 'zero'} for qid in answer_map}
+"""
+    rule = ProgrammableMultiQuestionRule(target_question_ids=["Q1"], code=code, mode="OUTPUT")
+    qresults = rule.process_submission({"Q1": "a"}, {"Q1": 5.0})
+
+    assert qresults["Q1"].points == 0.0
+
+
+# ---------------------------------------------------------------------------
+# answer_map injection
+# ---------------------------------------------------------------------------
+
+
+def test_multi_answer_map_contains_only_target_questions() -> None:
+    code = """
+results = {}
+for qid in answer_map:
+    results[qid] = {'passed': True, 'output': 1.0, 'feedback': str(sorted(answer_map.keys()))}
+"""
+    rule = ProgrammableMultiQuestionRule(
+        target_question_ids=["Q1", "Q3"], code=code, mode="PASS_FAIL"
+    )
+    qresults = rule.process_submission({"Q1": "a", "Q2": "b", "Q3": "c"}, {"Q1": 1.0, "Q3": 1.0})
+
+    # Feedback should show only Q1 and Q3, not Q2
+    assert "Q2" not in qresults["Q1"].feedback
+    assert "Q1" in qresults["Q1"].feedback
+    assert "Q3" in qresults["Q1"].feedback
+
+
+def test_multi_answer_values_are_passed_through() -> None:
+    code = """
+results = {}
+for qid, ans in answer_map.items():
+    results[qid] = {'passed': True, 'output': 1.0, 'feedback': str(ans)}
+"""
+    rule = ProgrammableMultiQuestionRule(target_question_ids=["Q1"], code=code, mode="PASS_FAIL")
+    qresults = rule.process_submission({"Q1": "hello"}, {"Q1": 1.0})
+
+    assert qresults["Q1"].feedback == "hello"
+
+
+def test_multi_numeric_answers_in_map() -> None:
+    code = """
+total = sum(answer_map.values())
+results = {qid: {'output': v / total, 'passed': True, 'feedback': ''}
+           for qid, v in answer_map.items()}
+"""
+    rule = ProgrammableMultiQuestionRule(target_question_ids=["Q1", "Q2"], code=code, mode="OUTPUT")
+    qresults = rule.process_submission({"Q1": 3, "Q2": 7}, {"Q1": 10.0, "Q2": 10.0})
+
+    assert qresults["Q1"].points == pytest.approx(3.0)
+    assert qresults["Q2"].points == pytest.approx(7.0)
+
+
+# ---------------------------------------------------------------------------
+# Parameter injection — multi-question
+# ---------------------------------------------------------------------------
+
+
+def test_multi_parameters_accessible_in_code() -> None:
+    code = """
+results = {}
+for qid, ans in answer_map.items():
+    results[qid] = {
+        'passed': ans == expected[qid],
+        'output': 1.0 if ans == expected[qid] else 0.0,
+        'feedback': f'expected {expected[qid]}',
+    }
+"""
+    rule = ProgrammableMultiQuestionRule(
+        target_question_ids=["Q1", "Q2"],
+        code=code,
+        mode="PASS_FAIL",
+        parameters={
+            "expected": DictParameter(
+                value={
+                    "Q1": StringParameter(value="yes"),
+                    "Q2": StringParameter(value="no"),
+                }
+            )
+        },
+    )
+    qresults = rule.process_submission({"Q1": "yes", "Q2": "wrong"}, {"Q1": 1.0, "Q2": 1.0})
+
+    assert qresults["Q1"].passed is True
+    assert qresults["Q2"].passed is False
+
+
+# ---------------------------------------------------------------------------
+# Error handling — multi-question
+# ---------------------------------------------------------------------------
+
+
+def test_multi_runtime_error_returns_error_for_all_questions() -> None:
+    code = "raise RuntimeError('multi boom')"
+    rule = ProgrammableMultiQuestionRule(
+        target_question_ids=["Q1", "Q2"], code=code, mode="PASS_FAIL"
+    )
+    qresults = rule.process_submission({"Q1": "a", "Q2": "b"}, {"Q1": 5.0, "Q2": 5.0})
+
+    for qid in ["Q1", "Q2"]:
+        assert qresults[qid].passed is False
+        assert qresults[qid].points == 0.0
+        assert "Error during code execution" in qresults[qid].feedback
+        assert "multi boom" in qresults[qid].feedback
+
+
+def test_multi_syntax_error_returns_error_for_all_questions() -> None:
+    code = "def ("
+    rule = ProgrammableMultiQuestionRule(target_question_ids=["Q1"], code=code, mode="PASS_FAIL")
+    qresults = rule.process_submission({"Q1": "a"}, {"Q1": 1.0})
+
+    assert qresults["Q1"].passed is False
+    assert "Error during code execution" in qresults["Q1"].feedback
+
+
+def test_multi_missing_answer_raises() -> None:
+    code = "results = {}"
+    rule = ProgrammableMultiQuestionRule(
+        target_question_ids=["Q1", "Q2"], code=code, mode="PASS_FAIL"
+    )
+    with pytest.raises(MissingAnswerError):
+        rule.process_submission({"Q1": "a"}, {"Q1": 1.0, "Q2": 1.0})
+
+
+def test_multi_missing_question_in_results_dict_gets_defaults() -> None:
+    """Code returns results for Q1 but not Q2 — Q2 should get defaults."""
+    code = """
+results = {'Q1': {'passed': True, 'output': 1.0, 'feedback': 'ok'}}
+"""
+    rule = ProgrammableMultiQuestionRule(
+        target_question_ids=["Q1", "Q2"], code=code, mode="PASS_FAIL"
+    )
+    qresults = rule.process_submission({"Q1": "a", "Q2": "b"}, {"Q1": 2.0, "Q2": 3.0})
+
+    assert qresults["Q1"].passed is True
+    assert qresults["Q1"].points == 2.0
+    assert qresults["Q2"].passed is False
+    assert qresults["Q2"].points == 0.0
+
+
+def test_multi_non_dict_result_for_question_gets_defaults() -> None:
+    """Code returns a non-dict value for a question — should get defaults."""
+    code = """
+results = {'Q1': 'not a dict'}
+"""
+    rule = ProgrammableMultiQuestionRule(target_question_ids=["Q1"], code=code, mode="PASS_FAIL")
+    qresults = rule.process_submission({"Q1": "a"}, {"Q1": 1.0})
+
+    assert qresults["Q1"].passed is False
+    assert qresults["Q1"].points == 0.0
+
+
+def test_multi_no_results_variable_gets_defaults() -> None:
+    """Code sets no 'results' variable — all questions get defaults."""
+    code = "x = 42"
+    rule = ProgrammableMultiQuestionRule(
+        target_question_ids=["Q1", "Q2"], code=code, mode="PASS_FAIL"
+    )
+    qresults = rule.process_submission({"Q1": "a", "Q2": "b"}, {"Q1": 1.0, "Q2": 1.0})
+
+    for qid in ["Q1", "Q2"]:
+        assert qresults[qid].passed is False
+        assert qresults[qid].points == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Default max_points — multi-question
+# ---------------------------------------------------------------------------
+
+
+def test_multi_missing_max_points_defaults_to_one() -> None:
+    code = """
+results = {qid: {'passed': True, 'output': 1.0, 'feedback': ''} for qid in answer_map}
+"""
+    rule = ProgrammableMultiQuestionRule(target_question_ids=["Q1"], code=code, mode="PASS_FAIL")
+    # max_points_map does not contain Q1
+    qresults = rule.process_submission({"Q1": "a"}, {})
+
+    assert qresults["Q1"].points == 1.0
+    assert qresults["Q1"].max_points == 1.0
+
+
+def test_multi_zero_max_points_yields_zero() -> None:
+    code = """
+results = {qid: {'passed': True, 'output': 1.0, 'feedback': ''} for qid in answer_map}
+"""
+    rule = ProgrammableMultiQuestionRule(target_question_ids=["Q1"], code=code, mode="OUTPUT")
+    qresults = rule.process_submission({"Q1": "a"}, {"Q1": 0.0})
+
+    assert qresults["Q1"].points == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Validation — multi-question
+# ---------------------------------------------------------------------------
+
+
+def test_multi_validate_questions_exist_all_present() -> None:
+    rule = ProgrammableMultiQuestionRule(
+        target_question_ids=["Q1", "Q2"], code="results = {}", mode="PASS_FAIL"
+    )
+    errors = rule.validate_questions_exist({"Q1", "Q2", "Q3"})
+    assert errors == []
+
+
+def test_multi_validate_questions_exist_some_missing() -> None:
+    rule = ProgrammableMultiQuestionRule(
+        target_question_ids=["Q1", "Q2", "Q3"], code="results = {}", mode="PASS_FAIL"
+    )
+    errors = rule.validate_questions_exist({"Q1"})
+    assert len(errors) == 2
+    assert any("Q2" in e for e in errors)
+    assert any("Q3" in e for e in errors)
+
+
+def test_multi_validate_unique_no_duplicates() -> None:
+    rule = ProgrammableMultiQuestionRule(
+        target_question_ids=["Q1", "Q2"], code="results = {}", mode="PASS_FAIL"
+    )
+    errors = rule.validate_unique_target_questions()
+    assert errors == []
+
+
+def test_multi_validate_unique_with_duplicates() -> None:
+    rule = ProgrammableMultiQuestionRule.model_construct(
+        target_question_ids=["Q1", "Q1", "Q2"],
+        code="results = {}",
+        mode="PASS_FAIL",
+        type="PROGRAMMABLE_MULTI",
+        display_name="Programmable (Multi)",
+        question_types=frozenset({"TEXT", "NUMERIC", "CHOICE", "MULTI_VALUED"}),
+        constraints=[],
+        parameters={},
+    )
+    errors = rule.validate_unique_target_questions()
+    assert len(errors) == 1
+    assert "Q1" in errors[0]
+
+
+def test_multi_validate_compatibility_all_compatible() -> None:
+    rule = ProgrammableMultiQuestionRule(
+        target_question_ids=["Q1", "Q2"], code="results = {}", mode="PASS_FAIL"
+    )
+    question_map: dict[QuestionId, Question] = {"Q1": TextQuestion(), "Q2": TextQuestion()}
+    errors = rule.validate_compatibility(question_map)
+    assert errors == []
+
+
+def test_multi_validate_compatibility_missing_question_skipped() -> None:
+    rule = ProgrammableMultiQuestionRule(
+        target_question_ids=["Q1", "Q2"], code="results = {}", mode="PASS_FAIL"
+    )
+    question_map: dict[QuestionId, Question] = {"Q1": TextQuestion()}
+    # Q2 not in map — should not error (existence validated elsewhere)
+    errors = rule.validate_compatibility(question_map)
+    assert errors == []
+
+
+def test_multi_get_target_question_ids() -> None:
+    rule = ProgrammableMultiQuestionRule(
+        target_question_ids=["Q1", "Q2", "Q3"], code="results = {}", mode="PASS_FAIL"
+    )
+    assert rule.get_target_question_ids() == {"Q1", "Q2", "Q3"}
+
+
+# ---------------------------------------------------------------------------
+# description computed field — multi-question
+# ---------------------------------------------------------------------------
+
+
+def test_multi_description_pass_fail_mode() -> None:
+    rule = ProgrammableMultiQuestionRule(
+        target_question_ids=["Q1", "Q2"], code="results = {}", mode="PASS_FAIL"
+    )
+    assert "`passed`" in rule.description
+    assert "Q1" in rule.description
+    assert "Q2" in rule.description
+
+
+def test_multi_description_output_mode() -> None:
+    rule = ProgrammableMultiQuestionRule(
+        target_question_ids=["Q1"], code="results = {}", mode="OUTPUT"
+    )
+    assert "`output`" in rule.description
+    assert "Q1" in rule.description
+
+
+# ---------------------------------------------------------------------------
+# Rejects unknown mode — multi-question
+# ---------------------------------------------------------------------------
+
+
+def test_multi_programmable_rejects_unknown_mode() -> None:
+    rule = ProgrammableMultiQuestionRule.model_construct(
+        target_question_ids=["Q1"],
+        code="results = {'Q1': {'passed': True, 'output': 1.0, 'feedback': ''}}",
+        mode="BAD",
+        type="PROGRAMMABLE_MULTI",
+        display_name="Programmable (Multi)",
+        question_types=frozenset({"TEXT", "NUMERIC", "CHOICE", "MULTI_VALUED"}),
+        constraints=[],
+        parameters={},
+    )
+    with pytest.raises(ValueError):
+        rule.process_submission({"Q1": "a"}, {"Q1": 1.0})
