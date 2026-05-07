@@ -27,6 +27,7 @@ def test_valid_minimal_parses() -> None:
     assert len(rubric.rules) == 1
     assert isinstance(rubric.rules[0], LengthQuestionRule)
     assert rubric.rules[0].question_id == "q1"
+    assert len(rubric.rules[0].id) == 32
 
 
 def test_malformed_yaml_raises_load_error() -> None:
@@ -69,6 +70,7 @@ def test_dump_roundtrip_strips_engine_fields() -> None:
 
     assert "question_types" not in text
     assert "constraints" not in text
+    assert "id:" in text
 
     restored = load_rubric_from_blob(blob, serializer_name="yaml")
     assert restored.model_dump() == rubric.model_dump()

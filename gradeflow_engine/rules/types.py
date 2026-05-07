@@ -6,3 +6,4 @@ CompletenessAggregation = Literal["ALL", "ANY", "PARTIAL"]
 AggregationType = NumericAggregation | BooleanAggregation | CompletenessAggregation
 
 RuleValidationError = str
+RuleId = str

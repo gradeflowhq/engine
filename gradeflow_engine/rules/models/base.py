@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from typing import Any
+from uuid import uuid4
 
 from pydantic import BaseModel, Field, computed_field
 
@@ -9,10 +10,14 @@ from ...questions.models import Question
 from ...questions.types import Answer, QuestionId, QuestionType
 from ..constraints import QuestionConstraint
 from ..result import QuestionResult, Result
-from ..types import RuleValidationError
+from ..types import RuleId, RuleValidationError
 from ..validators import is_empty, validate_answer_type
 
 DEFAULT_MAX_POINTS = 1.0
+
+
+def new_rule_id() -> RuleId:
+    return uuid4().hex
 
 
 def rule_type_field(default: str) -> Any:
@@ -40,6 +45,7 @@ def rule_constraints_field(constraints: Iterable[QuestionConstraint]) -> Any:
 
 
 class BaseRule(BaseModel, ABC):
+    id: RuleId = Field(default_factory=new_rule_id)
     question_types: frozenset[QuestionType] = rule_question_types_field(())
     constraints: list[QuestionConstraint] = rule_constraints_field(())
 

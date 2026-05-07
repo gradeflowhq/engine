@@ -50,6 +50,9 @@ gradeflow-engine = "gradeflow_engine.cli:app"
 [tool.setuptools.packages.find]
 include = ["gradeflow_engine*"]
 
+[tool.setuptools.package-data]
+gradeflow_engine = ["py.typed"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"

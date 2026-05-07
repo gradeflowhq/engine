@@ -7,6 +7,7 @@ from gradeflow_engine.rules.models.base import (
     BaseRule,
     BaseSingleQuestionRule,
 )
+from gradeflow_engine.rules.models.text_match import TextMatchQuestionRule
 from gradeflow_engine.rules.result import Result
 
 
@@ -16,6 +17,14 @@ def test_rule_base_classes_are_abstract() -> None:
 
     with pytest.raises(TypeError):
         BaseSingleQuestionRule(question_id="Q1")  # type: ignore[abstract]
+
+
+def test_rule_id_defaults_to_generated_hex() -> None:
+    first = TextMatchQuestionRule(question_id="Q1", answers=["yes"])
+    second = TextMatchQuestionRule(question_id="Q1", answers=["yes"])
+
+    assert len(first.id) == 32
+    assert first.id != second.id
 
 
 def test_rule_base_unimplemented_methods_and_default_paths() -> None:
