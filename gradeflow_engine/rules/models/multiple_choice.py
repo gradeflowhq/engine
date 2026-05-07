@@ -19,39 +19,76 @@ from .base import (
 )
 
 
+def _sorted_join(items: set[str]) -> str:
+    return ", ".join(sorted(items))
+
+
 def _build_feedback(
     answer_set: set[str], correct_set: set[str], mode: CompletenessAggregation, passed: bool
 ) -> str:
-    correct_choices = answer_set & correct_set
-    incorrect_choices = answer_set - correct_set
-    notselected_correct = correct_set - answer_set
-    feedback_parts: list[str] = []
-    if correct_choices:
-        feedback_parts.append(f"Correct choice(s) selected: {', '.join(sorted(correct_choices))}.")
-    if incorrect_choices:
-        feedback_parts.append(
-            f"Incorrect choice(s) selected: {', '.join(sorted(incorrect_choices))}."
+    correct_selected = answer_set & correct_set
+    incorrect_selected = answer_set - correct_set
+    missed_correct = correct_set - answer_set
+
+    # --- Header: verdict line ---
+    if passed:
+        if mode == "PARTIAL" and (incorrect_selected or missed_correct):
+            header = "Partially correct."
+        else:
+            header = "Correct."
+    else:
+        verdict_map: dict[CompletenessAggregation, str] = {
+            "ALL": "Incorrect — all correct choices must be selected with no extras.",
+            "CONTAIN": "Incorrect — all correct choices must be selected.",
+            "NOT_CONTAIN": "Incorrect — none of the specified choices should be selected.",
+            "ANY": "Incorrect — at least one correct choice must be selected.",
+            "PARTIAL": "Incorrect.",
+        }
+        header = verdict_map.get(mode, "Incorrect.")
+
+    # --- Body: breakdown ---
+    body_parts: list[str] = []
+
+    if correct_selected:
+        body_parts.append(f"Correct choice(s) selected: {_sorted_join(correct_selected)}")
+    if incorrect_selected:
+        body_parts.append(f"Incorrect choice(s) selected: {_sorted_join(incorrect_selected)}")
+    if missed_correct:
+        body_parts.append(f"Correct choice(s) not selected: {_sorted_join(missed_correct)}")
+
+    # --- Footer: scoring context for PARTIAL mode ---
+    footer = ""
+    if mode == "PARTIAL":
+        n_correct = len(correct_selected)
+        n_incorrect = len(incorrect_selected)
+        n_total = len(correct_set)
+        raw_score = max(0, n_correct - n_incorrect)
+        footer = (
+            f"Score: max(0, {n_correct} correct − {n_incorrect} incorrect) "
+            f"/ {n_total} = {raw_score}/{n_total} of max points."
         )
-    if notselected_correct:
-        feedback_parts.append(
-            f"Correct choice(s) not selected: {', '.join(sorted(notselected_correct))}."
-        )
-    feedback = " ".join(feedback_parts)
-    if mode == "ALL" and not passed:
-        feedback = "Incorrect choice(s).\n" + feedback
-    if mode == "CONTAIN" and not passed:
-        feedback = "Not all required choices were selected.\n" + feedback
-    if mode == "NOT_CONTAIN" and not passed:
-        feedback = "Some incorrect choices were selected.\n" + feedback
-    if mode == "ANY" and not passed:
-        feedback = "No correct choice(s) were selected.\n" + feedback
-    if mode == "PARTIAL" and len(incorrect_choices) + len(notselected_correct) > 0:
-        feedback = (
-            f"Partial credit: "
-            f"({len(correct_choices)} - {len(incorrect_choices)}) / {len(correct_set)} "
-            "* max points (minimum: 0).\n"
-        ) + feedback
-    return feedback
+
+    # --- Expected answer (shown on failure for learning) ---
+    expected = ""
+    if not passed:
+        if mode == "NOT_CONTAIN":
+            expected = f"Expected: none of {{{_sorted_join(correct_set)}}}"
+        elif len(correct_set) == 1:
+            expected = f"Expected: {_sorted_join(correct_set)}"
+        else:
+            label = "all of" if mode in ("ALL", "CONTAIN") else "any of"
+            expected = f"Expected: {label} {{{_sorted_join(correct_set)}}}"
+
+    # --- Assemble ---
+    sections = [header]
+    if body_parts:
+        sections.append("\n".join(body_parts))
+    if footer:
+        sections.append(footer)
+    if expected:
+        sections.append(expected)
+
+    return "\n".join(sections)
 
 
 def _evaluate_choice(
@@ -100,7 +137,7 @@ class MultipleChoiceRule(BaseRule):
             "'ALL' requires all specified choices to be selected, "
             "'CONTAIN' requires all specified choices to be selected but allows extra choices, "
             "'NOT_CONTAIN' requires none of the specified choices to be selected, "
-            "'ANY' requires at least one of thespecified choices to be selected, "
+            "'ANY' requires at least one of the specified choices to be selected, "
             "'PARTIAL' gives credit for each specified choice selected minus "
             "each unspecified choice selected."
         ),

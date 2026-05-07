@@ -82,8 +82,10 @@ def test_multiple_choice_all_mode_incorrect_output_points_feedback_passed() -> N
     assert res.output == 0.0
     assert res.points == 0.0
     # Feedback should include the ALL-mode incorrect prefix and indicate not-selected correct
-    assert res.feedback.startswith("Incorrect choice(s).")
-    assert "Correct choice(s) not selected: B." in res.feedback
+    assert res.feedback.startswith(
+        "Incorrect — all correct choices must be selected with no extras."
+    )
+    assert "Correct choice(s) not selected: B" in res.feedback
 
 
 def test_multiple_choice_any_mode_pass_with_one_correct() -> None:
@@ -99,9 +101,9 @@ def test_multiple_choice_any_mode_pass_with_one_correct() -> None:
     assert res.output == 1.0
     assert res.points == 5.0
     # Feedback should list correct and incorrect selections; no "No correct" prefix when passed
-    assert "Correct choice(s) selected: B." in res.feedback
-    assert "Incorrect choice(s) selected: X." in res.feedback
-    assert "No correct choice(s) were selected." not in res.feedback
+    assert "Correct choice(s) selected: B" in res.feedback
+    assert "Incorrect choice(s) selected: X" in res.feedback
+    assert "No correct choice(s) were selected" not in res.feedback
 
 
 def test_multiple_choice_any_mode_fail_with_none_correct() -> None:
@@ -116,7 +118,7 @@ def test_multiple_choice_any_mode_fail_with_none_correct() -> None:
     assert res.output == 0.0
     assert res.points == 0.0
     # Feedback should start with ANY-mode failure message
-    assert res.feedback.startswith("No correct choice(s) were selected.")
+    assert res.feedback.startswith("Incorrect — at least one correct choice must be selected.")
 
 
 def test_multiple_choice_partial_mode_fractional_output_points_feedback_passed() -> None:
@@ -131,11 +133,11 @@ def test_multiple_choice_partial_mode_fractional_output_points_feedback_passed()
     assert res.passed is True  # at least one correct selected -> passed True for PARTIAL
     assert pytest.approx(res.output) == (1.0 / 3.0)
     assert pytest.approx(res.points) == 3.0  # 9 * (1/3)
-    # Feedback includes Partial credit formula and details of correct/incorrect/not-selected
-    assert "Partial credit: (2 - 1) / 3 * max points (minimum: 0)." in res.feedback
-    assert "Correct choice(s) selected: A, B." in res.feedback
-    assert "Incorrect choice(s) selected: X." in res.feedback
-    assert "Correct choice(s) not selected: C." in res.feedback
+    # Feedback includes score formula and details of correct/incorrect/not-selected
+    assert "Score: max(0, 2 correct − 1 incorrect) / 3 = 1/3" in res.feedback
+    assert "Correct choice(s) selected: A, B" in res.feedback
+    assert "Incorrect choice(s) selected: X" in res.feedback
+    assert "Correct choice(s) not selected: C" in res.feedback
 
 
 def test_multiple_choice_partial_mode_all_incorrect_zero_output_points_fail() -> None:
@@ -150,9 +152,9 @@ def test_multiple_choice_partial_mode_all_incorrect_zero_output_points_fail() ->
     assert res.passed is False
     assert res.output == 0.0
     assert res.points == 0.0
-    # Feedback should contain Partial credit line and mention not-selected correct choices
-    assert "Partial credit:" in res.feedback
-    assert "Correct choice(s) not selected: A, B." in res.feedback
+    # Feedback should contain Score line and mention not-selected correct choices
+    assert "Score:" in res.feedback
+    assert "Correct choice(s) not selected: A, B" in res.feedback
 
 
 def test_multiple_choice_rule_output_and_feedback_without_points() -> None:
@@ -161,13 +163,15 @@ def test_multiple_choice_rule_output_and_feedback_without_points() -> None:
     res_all = rule_all.process_answer({"A"})
     assert res_all.output == 0.0
     assert res_all.passed is False
-    assert res_all.feedback.startswith("Incorrect choice(s).")
+    assert res_all.feedback.startswith(
+        "Incorrect — all correct choices must be selected with no extras."
+    )
 
     rule_any = MultipleChoiceRule(answer={"A", "B"}, mode="ANY")
     res_any = rule_any.process_answer({"B"})
     assert res_any.output == 1.0
     assert res_any.passed is True
-    assert "Correct choice(s) selected: B." in res_any.feedback
+    assert "Correct choice(s) selected: B" in res_any.feedback
 
     rule_partial = MultipleChoiceRule(answer={"A", "B", "C"}, mode="PARTIAL")
 
@@ -175,13 +179,13 @@ def test_multiple_choice_rule_output_and_feedback_without_points() -> None:
     # num_correct=1, num_incorrect=1 -> max(0, 1-1)/3 = 0.0
     assert res_partial.output == 0.0
     assert res_partial.passed is False
-    assert "Partial credit: (1 - 1) / 3 * max points (minimum: 0)." in res_partial.feedback
+    assert "Score:" in res_partial.feedback
 
     res_partial = rule_partial.process_answer({"A", "B"})
-    # num_correct=2, num_incorrect=1 -> max(0, 2-1)/3 = 1/3
+    # num_correct=2, num_incorrect=0 -> max(0, 2-0)/3 = 2/3
     assert res_partial.output == pytest.approx(2.0 / 3.0)
     assert res_partial.passed is True
-    assert "Partial credit: (2 - 0) / 3 * max points (minimum: 0)." in res_partial.feedback
+    assert "Score:" in res_partial.feedback
 
 
 def test_multiple_choice_defensive_edges() -> None:
