@@ -5,10 +5,9 @@ from pydantic import Field, computed_field
 from ...questions.models import Question
 from ...questions.models.choice import ChoiceQuestion
 from ...questions.types import Answer, QuestionType
-from ..aggregations.completeness import points_fn
 from ..constraints import QuestionConstraint
 from ..result import Result
-from ..types import CompletenessAggregation, RuleValidationError
+from ..types import RuleValidationError
 from .base import (
     BaseRule,
     BaseSingleQuestionRule,
@@ -18,13 +17,26 @@ from .base import (
     rule_type_field,
 )
 
+MatchMode = Literal["ALL", "CONTAIN", "NOT_CONTAIN", "ANY", "PARTIAL"]
+
+
+def _points_fn(result: Result, mode: MatchMode, max_points: float) -> float:
+    if not isinstance(result.output, float):
+        raise ValueError("Result output must be a float for points calculation.")
+    if mode in {"ALL", "ANY", "CONTAIN", "NOT_CONTAIN"}:
+        return max_points if result.passed else 0.0
+    elif mode == "PARTIAL":
+        return max_points * result.output
+    else:
+        raise ValueError(f"Unsupported match mode: {mode}")
+
 
 def _sorted_join(items: set[str]) -> str:
     return ", ".join(sorted(items))
 
 
 def _build_feedback(
-    answer_set: set[str], correct_set: set[str], mode: CompletenessAggregation, passed: bool
+    answer_set: set[str], correct_set: set[str], mode: MatchMode, passed: bool
 ) -> str:
     correct_selected = answer_set & correct_set
     incorrect_selected = answer_set - correct_set
@@ -37,7 +49,7 @@ def _build_feedback(
         else:
             header = "Correct."
     else:
-        verdict_map: dict[CompletenessAggregation, str] = {
+        verdict_map: dict[MatchMode, str] = {
             "ALL": "Incorrect — all correct choices must be selected with no extras.",
             "CONTAIN": "Incorrect — all correct choices must be selected.",
             "NOT_CONTAIN": "Incorrect — none of the specified choices should be selected.",
@@ -91,9 +103,7 @@ def _build_feedback(
     return "\n".join(sections)
 
 
-def _evaluate_choice(
-    answer_set: set[str], correct_set: set[str], mode: CompletenessAggregation
-) -> Result:
+def _evaluate_choice(answer_set: set[str], correct_set: set[str], mode: MatchMode) -> Result:
     if mode == "ALL":
         passed = answer_set == correct_set
         output = float(passed)
@@ -130,7 +140,7 @@ class MultipleChoiceRule(BaseRule):
         [QuestionConstraint(type="CHOICE", source="options", target="answer")]
     )
     answer: set[str] = Field(..., min_length=1, description="Set of correct choices")
-    mode: CompletenessAggregation = Field(
+    mode: MatchMode = Field(
         default="ALL",
         description=(
             "Mode of choice matching: "
@@ -187,4 +197,4 @@ class MultipleChoiceRule(BaseRule):
 
 class MultipleChoiceQuestionRule(MultipleChoiceRule, BaseSingleQuestionRule):
     def compute_points(self, result: Result, max_points: float) -> float:
-        return points_fn(result, mode=self.mode, max_points=max_points)
+        return _points_fn(result, mode=self.mode, max_points=max_points)
