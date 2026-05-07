@@ -18,7 +18,7 @@ from .multi_valued import MultiValuedQuestionRule, MultiValuedRule
 from .multiple_choice import MultipleChoiceQuestionRule, MultipleChoiceRule
 from .number_equal import NumberEqualQuestionRule, NumberEqualRule
 from .numeric_range import NumericRangeQuestionRule, NumericRangeRule
-from .programmable import ProgrammableQuestionRule, ProgrammableRule
+from .programmable import ProgrammableMultiQuestionRule, ProgrammableQuestionRule, ProgrammableRule
 from .programming import ProgrammingQuestionRule, ProgrammingRule
 from .regex import RegexQuestionRule, RegexRule
 from .similarity import SimilarityQuestionRule, SimilarityRule
@@ -74,7 +74,7 @@ ConditionalMultiQuestionRule.model_rebuild()
 
 
 MultiTargetQuestionRule = Annotated[
-    AssumptionSetMultiQuestionRule | ConditionalMultiQuestionRule,
+    AssumptionSetMultiQuestionRule | ConditionalMultiQuestionRule | ProgrammableMultiQuestionRule,
     Discriminator("type"),
 ]
 
