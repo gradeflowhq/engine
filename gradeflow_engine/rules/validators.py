@@ -35,11 +35,11 @@ def is_single_valued(a: Any) -> TypeGuard[SingleValuedAnswer]:
 
 
 def is_choice(a: Any) -> TypeGuard[ChoiceAnswer]:
-    return isinstance(a, set) and all(isinstance(x, str) for x in a)  # type: ignore
+    return isinstance(a, set) and all(isinstance(x, str) for x in a)
 
 
 def is_multi_valued(a: Any) -> TypeGuard[MultiValuedAnswer]:
-    return isinstance(a, list) and all(is_single_valued(x) for x in a)  # type: ignore
+    return isinstance(a, list) and all(is_single_valued(x) for x in a)
 
 
 Validator = Callable[[Any], bool]

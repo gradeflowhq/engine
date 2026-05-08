@@ -20,11 +20,11 @@ DEFAULT_MULTI_VALUE_DELIMITER = "~"
 DEFAULT_EMPTY_MARKER = "N/A"
 
 
-def _get_question_ids(raw_submissions: list[RawSubmission]) -> set[QuestionId]:
+def get_question_ids(raw_submissions: list[RawSubmission]) -> set[QuestionId]:
     return {qid for rs in raw_submissions for qid in rs.raw_answer_map.keys()}
 
 
-def _get_raw_answers_for_qid(raw_submissions: list[RawSubmission], qid: QuestionId) -> list[str]:
+def get_raw_answers_for_qid(raw_submissions: list[RawSubmission], qid: QuestionId) -> list[str]:
     return [rs.raw_answer_map[qid] for rs in raw_submissions if qid in rs.raw_answer_map]
 
 
@@ -185,8 +185,8 @@ def infer_question_map(
     empty_marker: str = DEFAULT_EMPTY_MARKER,
 ) -> dict[QuestionId, Question]:
     question_map: dict[QuestionId, Question] = {}
-    for qid in _get_question_ids(raw_submissions):
-        raw_answers = _get_raw_answers_for_qid(raw_submissions, qid)
+    for qid in get_question_ids(raw_submissions):
+        raw_answers = get_raw_answers_for_qid(raw_submissions, qid)
         try:
             question_map[qid] = _infer_question_for_qid(
                 raw_answers,
