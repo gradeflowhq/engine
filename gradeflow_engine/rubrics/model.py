@@ -1,7 +1,7 @@
 import logging
 from collections.abc import Mapping, Sequence
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict
 
 from ..exceptions import GradingError, MissingAnswerError
 from ..question_sets.model import QuestionSet
@@ -10,7 +10,7 @@ from ..questions.types import QuestionId
 from ..rules.models import QuestionRule
 from ..rules.models.manual import ManualQuestionRule
 from ..rules.result import QuestionResult
-from ..rules.types import RuleValidationError
+from ..rules.types import RuleId, RuleValidationError
 from ..rules.validators import validate_unique_target_questions_in_rules
 from ..submissions.models import Submission
 
@@ -159,11 +159,24 @@ def grade_submission(
 
 
 class RubricCoverage(BaseModel):
-    question_ids: set[QuestionId] = Field(default_factory=set)
-    covered_question_ids: set[QuestionId] = Field(default_factory=set)
-    total: int = 0
-    covered: int = 0
-    percentage: float = 0.0
+    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
+
+    question_ids: set[QuestionId]
+    covered_question_ids: set[QuestionId]
+    uncovered_question_ids: set[QuestionId]
+
+    question_rules: dict[QuestionId, RuleId]
+    global_rules: dict[QuestionId, RuleId]
+    questions_by_rule: dict[RuleId, set[QuestionId]]
+
+    total: int
+    covered: int
+    percentage: float
+
+
+class StaleRuleReference(BaseModel):
+    rule_id: RuleId
+    qids: list[QuestionId]
 
 
 class Rubric(BaseModel):
@@ -219,11 +232,50 @@ class Rubric(BaseModel):
 
     def get_coverage(self, question_set: QuestionSet) -> RubricCoverage:
         question_ids = set(question_set.question_map.keys())
-        covered_question_ids = self.get_target_question_ids().intersection(question_ids)
+        question_rules: dict[QuestionId, RuleId] = {}
+        global_rules: dict[QuestionId, RuleId] = {}
+
+        for rule in self.rules:
+            for qid in rule.get_target_question_ids().intersection(question_ids):
+                if rule.scope == "question":
+                    question_rules[qid] = rule.id
+                elif rule.scope == "global":
+                    global_rules[qid] = rule.id
+
+        covered_question_ids = set(question_rules) | set(global_rules)
+        uncovered_question_ids = question_ids - covered_question_ids
+        questions_by_rule: dict[RuleId, set[QuestionId]] = {}
+        for rule_map in (question_rules, global_rules):
+            for qid, rule_id in rule_map.items():
+                questions_by_rule.setdefault(rule_id, set()).add(qid)
+
         return RubricCoverage(
             question_ids=question_ids,
             covered_question_ids=covered_question_ids,
+            uncovered_question_ids=uncovered_question_ids,
+            question_rules=question_rules,
+            global_rules=global_rules,
+            questions_by_rule=questions_by_rule,
             total=len(question_ids),
             covered=len(covered_question_ids),
             percentage=len(covered_question_ids) / len(question_ids) if question_ids else 0.0,
+        )
+
+    def get_stale_rule_references(self, question_set: QuestionSet) -> list[StaleRuleReference]:
+        question_ids = set(question_set.question_map.keys())
+        references: list[StaleRuleReference] = []
+        for rule in self.rules:
+            qids = sorted(rule.get_referenced_question_ids() - question_ids)
+            if qids:
+                references.append(StaleRuleReference(rule_id=rule.id, qids=qids))
+        return references
+
+    def remove_stale_rules(self, question_set: QuestionSet) -> "Rubric":
+        question_ids = set(question_set.question_map.keys())
+        return Rubric(
+            rules=[
+                rule
+                for rule in self.rules
+                if rule.get_referenced_question_ids().issubset(question_ids)
+            ]
         )

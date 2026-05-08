@@ -64,7 +64,7 @@ def print_coverage(coverage: RubricCoverage) -> None:
     console.print(summary)
 
     covered_ids = natsorted(coverage.covered_question_ids)
-    uncovered_ids = natsorted(coverage.question_ids - coverage.covered_question_ids)
+    uncovered_ids = natsorted(coverage.uncovered_question_ids)
 
     details = Table(box=box.SIMPLE)
     details.add_column("Covered IDs", style="green")

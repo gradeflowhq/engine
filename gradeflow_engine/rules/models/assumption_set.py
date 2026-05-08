@@ -207,6 +207,14 @@ class AssumptionSetMultiQuestionRule(AssumptionSetBaseRule, BaseMultiQuestionRul
             for qid in rule.get_target_question_ids()
         }
 
+    def get_referenced_question_ids(self) -> set[QuestionId]:
+        return {
+            qid
+            for assumption in self.assumptions
+            for rule in assumption.rules
+            for qid in rule.get_referenced_question_ids()
+        }
+
     def process_submission(
         self, answer_map: dict[QuestionId, Answer], max_points_map: dict[QuestionId, float]
     ) -> dict[QuestionId, QuestionResult]:

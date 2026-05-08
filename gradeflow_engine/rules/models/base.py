@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
-from typing import Any
+from typing import Any, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from ...exceptions import MissingAnswerError
 from ...questions.models import Question
@@ -44,7 +44,13 @@ def rule_constraints_field(constraints: Iterable[QuestionConstraint]) -> Any:
     )
 
 
+def rule_scope_field(default: str) -> Any:
+    return Field(default=default, frozen=True, json_schema_extra={"readOnly": True})
+
+
 class BaseRule(BaseModel, ABC):
+    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
+
     id: RuleId = Field(default_factory=new_rule_id)
     question_types: frozenset[QuestionType] = rule_question_types_field(())
     constraints: list[QuestionConstraint] = rule_constraints_field(())
@@ -93,8 +99,12 @@ class BaseQuestionRule(ABC):
     def get_target_question_ids(self) -> set[QuestionId]:
         raise NotImplementedError("Subclasses must implement this method.")
 
+    def get_referenced_question_ids(self) -> set[QuestionId]:
+        return self.get_target_question_ids()
+
 
 class BaseSingleQuestionRule(BaseRule, BaseQuestionRule):
+    scope: Literal["question"] = rule_scope_field("question")
     question_id: QuestionId
 
     def validate_compatibility(
@@ -135,6 +145,8 @@ class BaseSingleQuestionRule(BaseRule, BaseQuestionRule):
 
 
 class BaseMultiQuestionRule(BaseRule, BaseQuestionRule):
+    scope: Literal["global"] = rule_scope_field("global")
+
     def _process_answer(self, answer: Answer) -> Result:
         raise NotImplementedError("Multi-question rules must process full submissions.")
 

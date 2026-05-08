@@ -6,8 +6,11 @@ from gradeflow_engine.exceptions import GradingError
 from gradeflow_engine.question_sets.model import QuestionSet
 from gradeflow_engine.questions.models import ChoiceQuestion, TextQuestion
 from gradeflow_engine.rubrics.model import Rubric, RubricCoverage, grade_submission
+from gradeflow_engine.rules.models.conditional import ConditionalMultiQuestionRule
 from gradeflow_engine.rules.models.length import LengthQuestionRule
+from gradeflow_engine.rules.models.manual import ManualQuestionRule
 from gradeflow_engine.rules.models.multiple_choice import MultipleChoiceQuestionRule
+from gradeflow_engine.rules.models.programmable import ProgrammableMultiQuestionRule
 from gradeflow_engine.rules.models.text_match import TextMatchQuestionRule
 from gradeflow_engine.rules.result import QuestionResult
 from gradeflow_engine.submissions.models import Submission
@@ -137,6 +140,10 @@ def test_rubric_get_coverage_basic() -> None:
     assert cov.percentage == pytest.approx(0.5)  # type: ignore
     assert cov.question_ids == {"Q1", "Q2"}
     assert cov.covered_question_ids == {"Q1"}
+    assert cov.uncovered_question_ids == {"Q2"}
+    assert cov.question_rules == {"Q1": r1.id}
+    assert cov.global_rules == {}
+    assert cov.questions_by_rule == {r1.id: {"Q1"}}
 
 
 def test_rubric_get_coverage_empty_qset() -> None:
@@ -150,6 +157,91 @@ def test_rubric_get_coverage_empty_qset() -> None:
     assert cov.percentage == 0.0
     assert cov.question_ids == set()
     assert cov.covered_question_ids == set()
+    assert cov.uncovered_question_ids == set()
+    assert cov.question_rules == {}
+    assert cov.global_rules == {}
+    assert cov.questions_by_rule == {}
+
+
+def test_rubric_get_coverage_returns_rule_maps() -> None:
+    qset = QuestionSet(
+        question_map={
+            "Q1": TextQuestion(),
+            "Q2": TextQuestion(),
+            "Q3": ChoiceQuestion(),
+            "Q4": TextQuestion(),
+        }
+    )
+    direct = ManualQuestionRule(id="direct", question_id="Q1")
+    global_rule = ProgrammableMultiQuestionRule(
+        id="global",
+        target_question_ids=["Q2", "Q3"],
+    )
+    rubric = Rubric(rules=[direct, global_rule])
+
+    coverage = rubric.get_coverage(qset)
+
+    assert coverage.question_rules == {"Q1": "direct"}
+    assert coverage.global_rules == {"Q2": "global", "Q3": "global"}
+    assert coverage.questions_by_rule == {
+        "direct": {"Q1"},
+        "global": {"Q2", "Q3"},
+    }
+    assert coverage.covered_question_ids == {"Q1", "Q2", "Q3"}
+    assert coverage.uncovered_question_ids == {"Q4"}
+    assert direct.scope == "question"
+    assert global_rule.scope == "global"
+
+
+def test_serialization_schemas_require_backend_guaranteed_fields() -> None:
+    coverage_schema = RubricCoverage.model_json_schema(mode="serialization")
+    assert set(coverage_schema["required"]) >= {
+        "question_ids",
+        "covered_question_ids",
+        "uncovered_question_ids",
+        "question_rules",
+        "global_rules",
+        "questions_by_rule",
+        "total",
+        "covered",
+        "percentage",
+    }
+
+    output_schema = TextMatchQuestionRule.model_json_schema(mode="serialization")
+    assert set(output_schema["required"]) >= {
+        "id",
+        "question_types",
+        "constraints",
+        "scope",
+        "question_id",
+        "type",
+        "display_name",
+        "answers",
+        "description",
+    }
+
+    input_schema = TextMatchQuestionRule.model_json_schema(mode="validation")
+    assert set(input_schema["required"]) == {"question_id", "answers"}
+
+
+def test_rubric_stale_rule_references_and_pruning_are_top_level() -> None:
+    qset = make_question_set()
+    keep = ManualQuestionRule(id="keep", question_id="q1")
+    stale = ConditionalMultiQuestionRule(
+        id="stale",
+        if_rules=[ManualQuestionRule(question_id="missing-if")],
+        then_rules=[ManualQuestionRule(question_id="q1")],
+        else_rules=[ManualQuestionRule(question_id="missing-else")],
+    )
+    rubric = Rubric(rules=[keep, stale])
+
+    references = rubric.get_stale_rule_references(qset)
+    pruned = rubric.remove_stale_rules(qset)
+
+    assert [(ref.rule_id, ref.qids) for ref in references] == [
+        ("stale", ["missing-else", "missing-if"]),
+    ]
+    assert [rule.id for rule in pruned.rules] == ["keep"]
 
 
 def test_rubric_no_rules_no_answer() -> None:

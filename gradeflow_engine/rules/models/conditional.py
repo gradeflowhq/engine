@@ -99,6 +99,13 @@ class ConditionalMultiQuestionRule(BaseMultiQuestionRule):
             for qid in rule.get_target_question_ids()
         }
 
+    def get_referenced_question_ids(self) -> set[QuestionId]:
+        return {
+            qid
+            for rule in self.if_rules + self.then_rules + self.else_rules
+            for qid in rule.get_referenced_question_ids()
+        }
+
     def process_submission(
         self, answer_map: dict[QuestionId, Answer], max_points_map: dict[QuestionId, float]
     ) -> dict[QuestionId, QuestionResult]:
