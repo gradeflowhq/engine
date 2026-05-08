@@ -1,4 +1,4 @@
-from typing import Literal, cast
+from typing import Literal
 
 from pydantic import BaseModel, Field, computed_field
 
@@ -90,15 +90,14 @@ class NumberEqualRule(BaseRule):
     def _process_answer(self, answer: Answer) -> Result:
         if not isinstance(answer, (int, float)) or isinstance(answer, bool):
             raise TypeError("Answer must be numeric")
-        numeric_answer = cast(NumericValue, answer)
         is_equal = is_equal_fn(
-            answer=numeric_answer,
+            answer=answer,
             correct_answers=self.answers,
             approximate=self.config.approximate,
             tolerance=self.config.tolerance,
         )
         feedback = feedback_fn(
-            answer=numeric_answer,
+            answer=answer,
             correct_answers=self.answers,
             is_equal=is_equal,
             approximate=self.config.approximate,
