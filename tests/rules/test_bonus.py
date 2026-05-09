@@ -15,7 +15,7 @@ def test_bonus_rule_basic_result_properties() -> None:
     assert res.passed is True
     assert res.graded is True
     assert "Bonus points awarded" in res.feedback
-    assert res.rule == "BonusRule"
+    assert res.rule == "Bonus"
 
 
 def test_bonus_question_rule_awards_full_points() -> None:

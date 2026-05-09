@@ -8,7 +8,6 @@ from gradeflow_engine.questions.models import ChoiceQuestion, TextQuestion
 from gradeflow_engine.rubrics.model import Rubric, RubricCoverage, grade_submission
 from gradeflow_engine.rules.models.conditional import ConditionalMultiQuestionRule
 from gradeflow_engine.rules.models.length import LengthQuestionRule
-from gradeflow_engine.rules.models.manual import ManualQuestionRule
 from gradeflow_engine.rules.models.multiple_choice import MultipleChoiceQuestionRule
 from gradeflow_engine.rules.models.programmable import ProgrammableMultiQuestionRule
 from gradeflow_engine.rules.models.text_match import TextMatchQuestionRule
@@ -172,7 +171,7 @@ def test_rubric_get_coverage_returns_rule_maps() -> None:
             "Q4": TextQuestion(),
         }
     )
-    direct = ManualQuestionRule(id="direct", question_id="Q1")
+    direct = TextMatchQuestionRule(id="direct", question_id="Q1", answers=["x"])
     global_rule = ProgrammableMultiQuestionRule(
         id="global",
         target_question_ids=["Q2", "Q3"],
@@ -226,12 +225,12 @@ def test_serialization_schemas_require_backend_guaranteed_fields() -> None:
 
 def test_rubric_stale_rule_references_and_pruning_are_top_level() -> None:
     qset = make_question_set()
-    keep = ManualQuestionRule(id="keep", question_id="q1")
+    keep = TextMatchQuestionRule(id="keep", question_id="q1", answers=["x"])
     stale = ConditionalMultiQuestionRule(
         id="stale",
-        if_rules=[ManualQuestionRule(question_id="missing-if")],
-        then_rules=[ManualQuestionRule(question_id="q1")],
-        else_rules=[ManualQuestionRule(question_id="missing-else")],
+        if_rules=[TextMatchQuestionRule(question_id="missing-if", answers=["x"])],
+        then_rules=[TextMatchQuestionRule(question_id="q1", answers=["x"])],
+        else_rules=[TextMatchQuestionRule(question_id="missing-else", answers=["x"])],
     )
     rubric = Rubric(rules=[keep, stale])
 
@@ -271,7 +270,7 @@ def test_rubric_no_rules_no_answer() -> None:
     assert graded.result_map["Q1"].points == 10.0
     assert graded.result_map["Q1"].max_points == 10.0
     assert graded.result_map["Q1"].passed is True
-    assert graded.result_map["Q1"].rule == "TextMatchQuestionRule"
+    assert graded.result_map["Q1"].rule == "Text Match"
 
     # Q2 should not be graded since it's not covered by any rule
     assert "Q2" not in graded.result_map
@@ -291,14 +290,14 @@ def test_rubric_no_rules_no_answer() -> None:
     assert graded.result_map["Q1"].points == 10.0
     assert graded.result_map["Q1"].max_points == 10.0
     assert graded.result_map["Q1"].passed is True
-    assert graded.result_map["Q1"].rule == "TextMatchQuestionRule"
+    assert graded.result_map["Q1"].rule == "Text Match"
 
     # Grading should be processed for Q1
     assert "Q2" in graded.result_map
     assert graded.result_map["Q2"].points == 0.0
     assert graded.result_map["Q2"].max_points == 5.0
     assert graded.result_map["Q2"].passed is False
-    assert graded.result_map["Q2"].rule == "None"
+    assert graded.result_map["Q2"].rule == "No Rule"
 
 
 def test_rubric_grading_exception_and_partial_override_paths() -> None:
@@ -341,7 +340,12 @@ def test_rubric_grading_exception_and_partial_override_paths() -> None:
         grade_submission([cast(Any, BadRule())], submission, question_map, strict=True)
 
     graded = grade_submission([cast(Any, BadRule())], submission, question_map, strict=False)
-    assert graded.result_map["Q1"].rule == "ManualQuestionRule"
+    fallback = graded.result_map["Q1"]
+    assert fallback.rule == "Manual"
+    assert fallback.feedback == "Manual grading required."
+    assert fallback.graded is False
+    assert fallback.points == 0.0
+    assert fallback.max_points == 1.0
 
     existing = QuestionResult(
         output=True,

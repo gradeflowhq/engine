@@ -1,12 +1,24 @@
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal
+from types import GenericAlias
+from typing import TYPE_CHECKING, Any, Literal, cast
 
-from pydantic import BaseModel, Field, TypeAdapter, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field, create_model
+from pydantic.fields import FieldInfo
 from rapidfuzz.distance import JaroWinkler
 
 from ...questions.models import Question
 from ...questions.types import Answer, QuestionId, QuestionType
 from ..result import QuestionResult, Result
+from ..schema import (
+    RULE_INPUT,
+    RULE_LIST_INPUT,
+    gradeflow_schema_extra,
+    question_rule_classes,
+    question_rule_union,
+    rule_question_types,
+    rule_type,
+    value_rule_union,
+)
 from ..types import RuleValidationError
 from ..validators import validate_unique_target_questions_in_rules
 from .base import (
@@ -19,6 +31,7 @@ from .base import (
 )
 
 if TYPE_CHECKING:
+    from ..context import RuleContext, RulePath
     from . import SingleTargetQuestionRule, SingleTargetRule
 
 
@@ -28,16 +41,12 @@ AssumptionSetMode = Literal["MAX", "MIN"]
 def _convert_rule_to_question_rule(
     rule: "SingleTargetRule", question_id: QuestionId
 ) -> "SingleTargetQuestionRule":
-    """Convert a SingleTargetRule to its corresponding SingleTargetQuestionRule variant."""
-    from . import SingleTargetQuestionRule
-
-    # Get all the rule's fields and add the question_id
     rule_data = rule.model_dump()
     rule_data["question_id"] = question_id
-
-    # Use Pydantic's discriminated union to parse into the correct QuestionRule type
-    adapter: TypeAdapter[SingleTargetQuestionRule] = TypeAdapter(SingleTargetQuestionRule)
-    return adapter.validate_python(rule_data)
+    for rule_class in question_rule_classes():
+        if rule_type(rule_class) == rule_data["type"]:
+            return cast("SingleTargetQuestionRule", rule_class.model_validate(rule_data))
+    raise ValueError(f"No question rule found for rule type {rule_data['type']}")
 
 
 class BaseAssumption(BaseModel):
@@ -46,10 +55,14 @@ class BaseAssumption(BaseModel):
 
 
 class Assumption(BaseAssumption):
+    model_config = ConfigDict(title="Assumption")
+
     rule: "SingleTargetRule" = Field(..., description="Rule that defines the assumption")
 
 
 class MultiQuestionAssumption(BaseAssumption):
+    model_config = ConfigDict(title="Assumption")
+
     rules: list["SingleTargetQuestionRule"] = Field(
         ..., description="List of rules that define the assumption"
     )
@@ -112,6 +125,13 @@ class AssumptionSetBaseRule(BaseRule):
     )
     mode: AssumptionSetMode = Field("MAX", description="Mode to select which assumption to use")
 
+    @classmethod
+    def initial_value_overrides(
+        cls,
+        _context: "RuleContext",
+    ) -> dict[str, Any]:
+        return {"assumptions": []}
+
 
 class AssumptionSetQuestionRule(AssumptionSetBaseRule, BaseSingleQuestionRule):
     type: Literal["ASSUMPTION_SET"] = rule_type_field("ASSUMPTION_SET")
@@ -119,6 +139,56 @@ class AssumptionSetQuestionRule(AssumptionSetBaseRule, BaseSingleQuestionRule):
     assumptions: list[Assumption] = Field(
         ..., description="List of assumptions in the assumption set"
     )
+
+    @classmethod
+    def field_overrides(
+        cls,
+        context: "RuleContext",
+    ) -> dict[str, tuple[object, FieldInfo]]:
+        overrides = super().field_overrides(context)
+        if context.question_type is None:
+            return overrides
+        assumption = create_model(
+            Assumption.__name__,
+            __base__=Assumption,
+            rule=(
+                value_rule_union(context.question_type),
+                cast(
+                    FieldInfo,
+                    Field(
+                        ...,
+                        description="Rule that defines the assumption",
+                        json_schema_extra=gradeflow_schema_extra(RULE_INPUT),
+                    ),
+                ),
+            ),
+        )
+        return {
+            **overrides,
+            "assumptions": (
+                GenericAlias(list, assumption),
+                cast(
+                    FieldInfo,
+                    Field(..., description="List of assumptions in the assumption set"),
+                ),
+            ),
+        }
+
+    @classmethod
+    def nested_context(
+        cls,
+        context: "RuleContext",
+        path: "RulePath",
+    ) -> "RuleContext | None":
+        if (
+            len(path) == 3
+            and path[0] == "assumptions"
+            and isinstance(path[1], int)
+            and path[2] == "rule"
+            and context.question_type in rule_question_types(cls)
+        ):
+            return context.for_value_rules()
+        return None
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -164,6 +234,53 @@ class AssumptionSetMultiQuestionRule(AssumptionSetBaseRule, BaseMultiQuestionRul
     assumptions: list[MultiQuestionAssumption] = Field(
         ..., description="List of assumptions in the assumption set"
     )
+
+    @classmethod
+    def field_overrides(
+        cls,
+        context: "RuleContext",
+    ) -> dict[str, tuple[object, FieldInfo]]:
+        assumption = create_model(
+            MultiQuestionAssumption.__name__,
+            __base__=MultiQuestionAssumption,
+            rules=(
+                GenericAlias(list, question_rule_union(context)),
+                cast(
+                    FieldInfo,
+                    Field(
+                        ...,
+                        description="List of rules that define the assumption",
+                        json_schema_extra=gradeflow_schema_extra(RULE_LIST_INPUT),
+                    ),
+                ),
+            ),
+        )
+        return {
+            **super().field_overrides(context),
+            "assumptions": (
+                GenericAlias(list, assumption),
+                cast(
+                    FieldInfo,
+                    Field(..., description="List of assumptions in the assumption set"),
+                ),
+            ),
+        }
+
+    @classmethod
+    def nested_context(
+        cls,
+        context: "RuleContext",
+        path: "RulePath",
+    ) -> "RuleContext | None":
+        if (
+            len(path) == 4
+            and path[0] == "assumptions"
+            and isinstance(path[1], int)
+            and path[2] == "rules"
+            and isinstance(path[3], int)
+        ):
+            return context.for_question_rules()
+        return None
 
     @computed_field  # type: ignore[prop-decorator]
     @property

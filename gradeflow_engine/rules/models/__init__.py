@@ -13,7 +13,6 @@ from .composite import CompositeQuestionRule, CompositeRule
 from .conditional import ConditionalMultiQuestionRule
 from .keywords import KeywordsQuestionRule, KeywordsRule
 from .length import LengthQuestionRule, LengthRule
-from .manual import ManualQuestionRule, ManualRule
 from .multi_valued import MultiValuedQuestionRule, MultiValuedRule
 from .multiple_choice import MultipleChoiceQuestionRule, MultipleChoiceRule
 from .number_equal import NumberEqualQuestionRule, NumberEqualRule
@@ -34,7 +33,6 @@ SingleTargetRule = Annotated[
     | KeywordsRule
     | RegexRule
     | LengthRule
-    | ManualRule
     | MultiValuedRule
     | MultipleChoiceRule
     | NumberEqualRule
@@ -53,7 +51,6 @@ SingleTargetQuestionRule = Annotated[
     | KeywordsQuestionRule
     | RegexQuestionRule
     | LengthQuestionRule
-    | ManualQuestionRule
     | MultiValuedQuestionRule
     | MultipleChoiceQuestionRule
     | NumberEqualQuestionRule

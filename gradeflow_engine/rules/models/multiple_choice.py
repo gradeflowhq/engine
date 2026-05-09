@@ -1,12 +1,15 @@
-from typing import Literal
+from types import GenericAlias
+from typing import TYPE_CHECKING, Literal, cast
 
 from pydantic import Field, computed_field
+from pydantic.fields import FieldInfo
 
 from ...questions.models import Question
 from ...questions.models.choice import ChoiceQuestion
 from ...questions.types import Answer, QuestionType
 from ..constraints import QuestionConstraint
 from ..result import Result
+from ..schema import literal_type
 from ..types import RuleValidationError
 from .base import (
     BaseRule,
@@ -16,6 +19,9 @@ from .base import (
     rule_question_types_field,
     rule_type_field,
 )
+
+if TYPE_CHECKING:
+    from ..context import RuleContext
 
 MatchMode = Literal["ALL", "CONTAIN", "NOT_CONTAIN", "ANY", "PARTIAL"]
 
@@ -103,7 +109,9 @@ def _build_feedback(
     return "\n".join(sections)
 
 
-def _evaluate_choice(answer_set: set[str], correct_set: set[str], mode: MatchMode) -> Result:
+def _evaluate_choice(
+    answer_set: set[str], correct_set: set[str], mode: MatchMode, rule_name: str
+) -> Result:
     if mode == "ALL":
         passed = answer_set == correct_set
         output = float(passed)
@@ -128,7 +136,7 @@ def _evaluate_choice(answer_set: set[str], correct_set: set[str], mode: MatchMod
         output=output,
         passed=passed,
         feedback=_build_feedback(answer_set, correct_set, mode=mode, passed=passed),
-        rule=MultipleChoiceRule.__name__,
+        rule=rule_name,
     )
 
 
@@ -152,6 +160,22 @@ class MultipleChoiceRule(BaseRule):
             "each unspecified choice selected."
         ),
     )
+
+    @classmethod
+    def field_overrides(
+        cls,
+        context: "RuleContext",
+    ) -> dict[str, tuple[object, FieldInfo]]:
+        overrides = super().field_overrides(context)
+        if not isinstance(context.question, ChoiceQuestion):
+            return overrides
+        return {
+            **overrides,
+            "answer": (
+                GenericAlias(set, literal_type(sorted(context.question.options))),
+                cast(FieldInfo, Field(..., min_length=1)),
+            ),
+        }
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -191,8 +215,12 @@ class MultipleChoiceRule(BaseRule):
             raise TypeError("Answer must be a set of strings for MultipleChoiceRule.")
 
         answer_set = set(map(str, answer))
-        result = _evaluate_choice(answer_set, self.answer, mode=self.mode)
-        return result.model_copy(update={"rule": self.__class__.__name__})
+        return _evaluate_choice(
+            answer_set,
+            self.answer,
+            mode=self.mode,
+            rule_name=self.display_name,
+        )
 
 
 class MultipleChoiceQuestionRule(MultipleChoiceRule, BaseSingleQuestionRule):

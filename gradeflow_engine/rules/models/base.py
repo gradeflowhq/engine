@@ -1,9 +1,11 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field, create_model
+from pydantic.fields import FieldInfo
+from pydantic_core import PydanticUndefined
 
 from ...exceptions import MissingAnswerError
 from ...questions.models import Question
@@ -13,7 +15,12 @@ from ..result import QuestionResult, Result
 from ..types import RuleId, RuleValidationError
 from ..validators import is_empty, validate_answer_type
 
+if TYPE_CHECKING:
+    from ..context import RuleContext, RulePath
+
 DEFAULT_MAX_POINTS = 1.0
+CONTEXT_OMIT_FIELDS = {"id", "scope", "display_name", "question_types", "constraints"}
+INITIAL_OMIT_FIELDS = {"id", "display_name", "question_types", "constraints"}
 
 
 def new_rule_id() -> RuleId:
@@ -51,9 +58,77 @@ def rule_scope_field(default: str) -> Any:
 class BaseRule(BaseModel, ABC):
     model_config = ConfigDict(json_schema_serialization_defaults_required=True)
 
-    id: RuleId = Field(default_factory=new_rule_id)
+    id: RuleId = Field(default_factory=new_rule_id, json_schema_extra={"readOnly": True})
     question_types: frozenset[QuestionType] = rule_question_types_field(())
     constraints: list[QuestionConstraint] = rule_constraints_field(())
+
+    @classmethod
+    def __pydantic_init_subclass__(cls, **kwargs: Any) -> None:
+        super().__pydantic_init_subclass__(**kwargs)
+        if "display_name" not in cls.model_fields:
+            return
+
+        cls.model_config = ConfigDict(
+            **{
+                **cls.model_config,
+                "title": cast(str, cls.model_fields["display_name"].default),
+            }
+        )
+
+    @classmethod
+    def from_context(
+        cls,
+        context: "RuleContext",
+    ) -> type[BaseModel]:
+        fields: dict[str, tuple[object, FieldInfo]] = {
+            field_name: (field_info.annotation, field_info)
+            for field_name, field_info in cls.model_fields.items()
+            if field_name not in CONTEXT_OMIT_FIELDS
+        }
+        fields.update(cls.field_overrides(context))
+        return cast(
+            type[BaseModel],
+            create_model(cls.__name__, __config__=cls.model_config, **cast(Any, fields)),
+        )
+
+    @classmethod
+    def field_overrides(
+        cls,
+        context: "RuleContext",
+    ) -> dict[str, tuple[object, FieldInfo]]:
+        return {}
+
+    @classmethod
+    def initial_value_from_context(cls, context: "RuleContext") -> dict[str, Any]:
+        initial: dict[str, Any] = {}
+        for field_name, field_info in cls.model_fields.items():
+            if field_name in INITIAL_OMIT_FIELDS:
+                continue
+            if field_info.default is not PydanticUndefined:
+                initial[field_name] = field_info.default
+            elif field_info.default_factory is not None:
+                initial[field_name] = field_info.get_default(call_default_factory=True)
+
+        if context.scope == "question" and context.question_id and context.slot_index is None:
+            initial["question_id"] = context.question_id
+
+        initial.update(cls.initial_value_overrides(context))
+        return initial
+
+    @classmethod
+    def initial_value_overrides(
+        cls,
+        context: "RuleContext",
+    ) -> dict[str, Any]:
+        return {}
+
+    @classmethod
+    def nested_context(
+        cls,
+        context: "RuleContext",
+        path: "RulePath",
+    ) -> "RuleContext | None":
+        return None
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -80,7 +155,7 @@ class BaseRule(BaseModel, ABC):
                 output=0,
                 passed=False,
                 feedback="No answer provided.",
-                rule=getattr(self, "type", self.__class__.__name__),
+                rule="No Answer",
             )
         validate_answer_type(answer, self.question_types)
         return self._process_answer(answer)
@@ -106,6 +181,41 @@ class BaseQuestionRule(ABC):
 class BaseSingleQuestionRule(BaseRule, BaseQuestionRule):
     scope: Literal["question"] = rule_scope_field("question")
     question_id: QuestionId
+
+    @classmethod
+    def field_overrides(
+        cls,
+        context: "RuleContext",
+    ) -> dict[str, tuple[object, FieldInfo]]:
+        question_types = cls.model_fields["question_types"].default
+        if context.question_id and not context.question_id_editable:
+            return {
+                "question_id": (
+                    Literal.__getitem__(context.question_id),
+                    cast(
+                        FieldInfo,
+                        Field(
+                            default=context.question_id,
+                            frozen=True,
+                            json_schema_extra={"readOnly": True},
+                        ),
+                    ),
+                )
+            }
+        question_ids = [
+            question_id
+            for question_id, question in context.question_set.question_map.items()
+            if question.type in question_types
+        ]
+        field_kwargs: dict[str, Any] = {}
+        if question_ids:
+            field_kwargs["json_schema_extra"] = {"enum": question_ids}
+        return {
+            "question_id": (
+                str,
+                cast(FieldInfo, Field(..., **field_kwargs)),
+            )
+        }
 
     def validate_compatibility(
         self, question_map: dict[QuestionId, Question]

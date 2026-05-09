@@ -340,6 +340,30 @@ feedback = 'nested dict-of-list check'
     assert rule.process_answer("z").passed is False
 
 
+def test_programmable_parameters_infer_missing_dtype_from_value() -> None:
+    rule = ProgrammableRule.model_validate(
+        {
+            "type": "PROGRAMMABLE",
+            "parameters": {
+                "target": {"value": 3},
+                "suffix": {"value": "!"},
+                "enabled": {"value": True},
+                "threshold": {"value": 0.5},
+                "labels": {"value": [{"value": "ok"}]},
+                "mapping": {"value": {"expected": {"value": "yes"}}},
+            },
+        }
+    )
+
+    assert isinstance(rule.parameters["target"], IntParameter)
+    assert isinstance(rule.parameters["suffix"], StringParameter)
+    assert isinstance(rule.parameters["enabled"], BooleanParameter)
+    assert isinstance(rule.parameters["threshold"], FloatParameter)
+    assert isinstance(rule.parameters["labels"], ListParameter)
+    assert isinstance(rule.parameters["mapping"], DictParameter)
+    assert _unwrap_parameter(rule.parameters["mapping"]) == {"expected": "yes"}
+
+
 # ---------------------------------------------------------------------------
 # OUTPUT mode — boundary values and scoring edge cases
 # ---------------------------------------------------------------------------

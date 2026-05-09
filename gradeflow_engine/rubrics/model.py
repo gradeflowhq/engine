@@ -8,7 +8,7 @@ from ..question_sets.model import QuestionSet
 from ..questions.models import Question
 from ..questions.types import QuestionId
 from ..rules.models import QuestionRule
-from ..rules.models.manual import ManualQuestionRule
+from ..rules.models.base import DEFAULT_MAX_POINTS
 from ..rules.result import QuestionResult
 from ..rules.types import RuleId, RuleValidationError
 from ..rules.validators import validate_unique_target_questions_in_rules
@@ -20,7 +20,7 @@ def _missing_answer_result(max_points: float) -> QuestionResult:
         points=0.0,
         max_points=max_points,
         feedback="No answer provided.",
-        rule="NoAnswer",
+        rule="No Answer",
         passed=False,
         output=0.0,
     )
@@ -32,9 +32,21 @@ def _zero_point_result(max_points: float) -> QuestionResult:
         points=0.0,
         max_points=max_points,
         feedback="",
-        rule="None",
+        rule="No Rule",
         passed=False,
         output=0.0,
+    )
+
+
+def _ungraded_result(max_points: float) -> QuestionResult:
+    return QuestionResult(
+        points=0.0,
+        max_points=max_points,
+        feedback="Manual grading required.",
+        rule="Manual",
+        passed=False,
+        output=0.0,
+        graded=False,
     )
 
 
@@ -57,7 +69,9 @@ def _handle_missing_answer(
         f"Assigning 0 points for this question."
     )
     result = {
-        question_id: _missing_answer_result(max_points=max_points_map.get(question_id, 0.0))
+        question_id: _missing_answer_result(
+            max_points=max_points_map.get(question_id, DEFAULT_MAX_POINTS)
+        )
         for question_id in rule.get_target_question_ids()
     }
     return result
@@ -82,9 +96,7 @@ def _handle_grading_exception(
         f"Assigning 0 points for affected questions."
     )
     result = {
-        question_id: ManualQuestionRule(question_id=question_id).process_submission(
-            submission.answer_map, max_points_map
-        )[question_id]
+        question_id: _ungraded_result(max_points=max_points_map.get(question_id, 0.0))
         for question_id in rule.get_target_question_ids()
     }
     return result
@@ -117,7 +129,7 @@ def grade_submission(
     grade_questions_without_rule:
         When True (default), every question in ``question_map`` that is **not**
         targeted by any rule and has **no** existing result receives a
-        zero-point ``QuestionResult`` with ``rule="NoRule"``.  When False,
+        zero-point ``QuestionResult`` with ``rule="No Rule"``.  When False,
         uncovered questions are left out of ``result_map`` entirely.
     """
     max_points_map: dict[QuestionId, float] = {qid: q.max_points for qid, q in question_map.items()}

@@ -1,12 +1,13 @@
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from ...questions.types import Answer, QuestionType
 from ..aggregations.completeness import output_fn, passed_fn, points_fn
 from ..executors import python
 from ..result import Result
+from ..schema import CODE_INPUT, gradeflow_schema_extra
 from ..types import CompletenessAggregation
 from .base import (
     BaseRule,
@@ -20,6 +21,8 @@ ProgrammingLanguage = Literal["python"]  # Extendable to other languages in the 
 
 
 class ProgrammingTestCase(BaseModel):
+    model_config = ConfigDict(title="Test Case")
+
     expression: str = Field(..., description="Input for the test case")
     expected: str = Field(..., description="Expected output for the test case")
 
@@ -32,13 +35,17 @@ class ProgrammingTestCaseResult:
 
 
 class ProgrammingConfig(BaseModel):
+    model_config = ConfigDict(title="Programming Configuration")
+
     prepend_code: str = Field(
         default="",
         description="Code to prepend to the student's answer",
+        json_schema_extra=gradeflow_schema_extra(CODE_INPUT),
     )
     append_code: str = Field(
         default="",
         description="Code to append to the student's answer",
+        json_schema_extra=gradeflow_schema_extra(CODE_INPUT),
     )
     indent: int = Field(
         default=0,
@@ -159,7 +166,7 @@ class ProgrammingRule(BaseRule):
             output=output,
             passed=passed,
             feedback=feedback,
-            rule=self.__class__.__name__,
+            rule=self.display_name,
         )
 
 

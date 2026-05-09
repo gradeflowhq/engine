@@ -1,10 +1,13 @@
-from typing import Literal
+import re
+from typing import TYPE_CHECKING, Literal, cast
 
 from pydantic import Field, computed_field
+from pydantic.fields import FieldInfo
 
 from ...questions.types import Answer, QuestionType
 from ..aggregations.completeness import output_fn, passed_fn, points_fn
 from ..result import Result
+from ..schema import STRING_LIST_INPUT, gradeflow_schema_extra
 from ..types import CompletenessAggregation
 from .base import (
     BaseRule,
@@ -13,6 +16,18 @@ from .base import (
     rule_question_types_field,
     rule_type_field,
 )
+
+if TYPE_CHECKING:
+    from ..context import RuleContext
+
+
+def _keyword_suggestions(answer_suggestions: list[str]) -> list[str]:
+    keywords: list[str] = []
+    for answer in answer_suggestions:
+        for word in re.findall(r"\w+", answer):
+            if word not in keywords:
+                keywords.append(word)
+    return keywords
 
 
 class KeywordsRule(BaseRule):
@@ -33,6 +48,31 @@ class KeywordsRule(BaseRule):
             "'PARTIAL' gives credit for each keyword present."
         ),
     )
+
+    @classmethod
+    def field_overrides(
+        cls,
+        context: "RuleContext",
+    ) -> dict[str, tuple[object, FieldInfo]]:
+        overrides = super().field_overrides(context)
+        return {
+            **overrides,
+            "keywords": (
+                list[str],
+                cast(
+                    FieldInfo,
+                    Field(
+                        ...,
+                        min_length=1,
+                        description="List of keywords that must be present in the answer",
+                        json_schema_extra=gradeflow_schema_extra(
+                            STRING_LIST_INPUT,
+                            suggestions=_keyword_suggestions(context.answer_suggestions()),
+                        ),
+                    ),
+                ),
+            ),
+        }
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -59,7 +99,7 @@ class KeywordsRule(BaseRule):
             output=output,
             passed=passed,
             feedback=feedback,
-            rule=self.__class__.__name__,
+            rule=self.display_name,
         )
 
 

@@ -1,11 +1,14 @@
-from typing import TYPE_CHECKING, Literal
+from types import GenericAlias
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from pydantic import Field, computed_field
+from pydantic.fields import FieldInfo
 
 from ...questions.models import MultiValuedQuestion, NumericQuestion, Question, TextQuestion
 from ...questions.types import Answer, QuestionType
 from ..aggregations.completeness import output_fn, passed_fn, points_fn
 from ..result import Result
+from ..schema import RULE_LIST_INPUT, gradeflow_schema_extra, value_rule_union_for_question_types
 from ..types import CompletenessAggregation, RuleValidationError
 from .base import (
     BaseRule,
@@ -16,6 +19,7 @@ from .base import (
 )
 
 if TYPE_CHECKING:
+    from ..context import RuleContext, RulePath
     from . import SingleTargetRule
 
 
@@ -39,6 +43,60 @@ class MultiValuedRule(BaseRule):
         default="ALL",
         description="Aggregation method",
     )
+
+    @classmethod
+    def field_overrides(
+        cls,
+        context: "RuleContext",
+    ) -> dict[str, tuple[object, FieldInfo]]:
+        overrides = super().field_overrides(context)
+        if not isinstance(context.question, MultiValuedQuestion):
+            return overrides
+        value_types = [
+            cast(QuestionType, value_type) for value_type in context.question.value_types
+        ]
+        return {
+            **overrides,
+            "rules": (
+                GenericAlias(list, value_rule_union_for_question_types(value_types)),
+                cast(
+                    FieldInfo,
+                    Field(
+                        ...,
+                        min_length=len(value_types),
+                        max_length=len(value_types),
+                        description=(
+                            "One rule per parsed value, fixed by the multi-valued question."
+                        ),
+                        json_schema_extra=gradeflow_schema_extra(RULE_LIST_INPUT),
+                    ),
+                ),
+            ),
+        }
+
+    @classmethod
+    def initial_value_overrides(
+        cls,
+        context: "RuleContext",
+    ) -> dict[str, Any]:
+        if isinstance(context.question, MultiValuedQuestion):
+            return {"rules": [{} for _ in context.question.value_types]}
+        return {}
+
+    @classmethod
+    def nested_context(
+        cls,
+        context: "RuleContext",
+        path: "RulePath",
+    ) -> "RuleContext | None":
+        if (
+            len(path) == 2
+            and path[0] == "rules"
+            and isinstance(path[1], int)
+            and isinstance(context.question, MultiValuedQuestion)
+        ):
+            return context.for_value_slot(path[1])
+        return None
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -84,10 +142,7 @@ class MultiValuedRule(BaseRule):
             output=output,
             passed=passed,
             feedback=feedback,
-            rule=(
-                f"{self.__class__.__name__}"
-                f"[{', '.join(rule.__class__.__name__ for rule in self.rules)}]"
-            ),
+            rule=self.display_name,
         )
 
 

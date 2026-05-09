@@ -13,7 +13,7 @@ def test_regex_basic_match_and_feedback() -> None:
     assert result.output is True
     assert result.passed is True
     assert "matches" in result.feedback
-    assert result.rule == "RegexRule"
+    assert result.rule == "Regex"
 
 
 def test_regex_no_match() -> None:

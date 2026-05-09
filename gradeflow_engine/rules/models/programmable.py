@@ -1,13 +1,24 @@
 from dataclasses import dataclass
-from typing import Annotated, Any, Literal
+from types import GenericAlias
+from typing import TYPE_CHECKING, Annotated, Any, Literal, cast
 
-from pydantic import BaseModel, Discriminator, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag, computed_field
+from pydantic.fields import FieldInfo
 
 from ...exceptions import MissingAnswerError
+from ...question_sets.model import QuestionSet
 from ...questions.models import Question
+from ...questions.models.multi_valued import MultiValuedQuestion
 from ...questions.types import Answer, QuestionId, QuestionType
 from ..executors import python
 from ..result import QuestionResult, Result
+from ..schema import (
+    CODE_INPUT,
+    STRING_LIST_INPUT,
+    gradeflow_schema_extra,
+    literal_type,
+    rule_question_types,
+)
 from ..types import RuleValidationError
 from .base import (
     DEFAULT_MAX_POINTS,
@@ -18,6 +29,9 @@ from .base import (
     rule_question_types_field,
     rule_type_field,
 )
+
+if TYPE_CHECKING:
+    from ..context import RuleContext
 
 ProgrammableMode = Literal["PASS_FAIL", "OUTPUT"]
 
@@ -57,12 +71,79 @@ for qid, answer in answer_map.items():
 """
 
 
+def _single_programmable_code(context: "RuleContext") -> str:
+    question_note = f" for question {context.question_id}" if context.question_id else ""
+    return f"""# You have access to:
+# - answer: student's parsed answer{question_note} ({_answer_type(context)})
+# - any additional variables defined in parameters
+# Set output/passed/feedback for this answer.
+passed = False
+output = 0.0
+feedback = str(answer)
+"""
+
+
+def _multi_programmable_code(question_set: QuestionSet) -> str:
+    answer_types = "\n".join(
+        f"# - {question_id}: {_answer_type_for_question(question)}"
+        for question_id, question in question_set.question_map.items()
+    )
+    return f"""# You have access to:
+# - answer_map: dict mapping question_id to parsed student answer
+{answer_types}
+# Set results[question_id] = {{"output": float, "passed": bool, "feedback": str}}.
+results = {{}}
+for qid, answer in answer_map.items():
+    results[qid] = {{
+        "output": 0.0,
+        "passed": False,
+        "feedback": str(answer),
+    }}
+"""
+
+
+def _answer_type(context: "RuleContext") -> str:
+    question_type = context.question_type
+    if question_type is None:
+        return "unknown"
+    if isinstance(context.question, MultiValuedQuestion) and context.slot_index is None:
+        slots = ", ".join(
+            f"{index}: {_answer_type_for_question_type(cast(QuestionType, value_type))}"
+            for index, value_type in enumerate(context.question.value_types)
+        )
+        return f"list with slots [{slots}]"
+    return _answer_type_for_question_type(question_type)
+
+
+def _answer_type_for_question(question: Question) -> str:
+    if isinstance(question, MultiValuedQuestion):
+        slots = ", ".join(
+            f"{index}: {_answer_type_for_question_type(cast(QuestionType, value_type))}"
+            for index, value_type in enumerate(question.value_types)
+        )
+        return f"list with slots [{slots}]"
+    return _answer_type_for_question_type(question.type)
+
+
+def _answer_type_for_question_type(question_type: QuestionType) -> str:
+    return {
+        "TEXT": "str | None",
+        "CHOICE": "set[str]",
+        "NUMERIC": "int | float | None",
+        "MULTI_VALUED": "list[str | int | float | None]",
+    }[question_type]
+
+
 class IntParameter(BaseModel):
+    model_config = ConfigDict(title="Integer")
+
     dtype: Literal["Int"] = Field(default="Int", frozen=True, json_schema_extra={"readOnly": True})
     value: int
 
 
 class FloatParameter(BaseModel):
+    model_config = ConfigDict(title="Float")
+
     dtype: Literal["Float"] = Field(
         default="Float", frozen=True, json_schema_extra={"readOnly": True}
     )
@@ -70,6 +151,8 @@ class FloatParameter(BaseModel):
 
 
 class StringParameter(BaseModel):
+    model_config = ConfigDict(title="String")
+
     dtype: Literal["String"] = Field(
         default="String", frozen=True, json_schema_extra={"readOnly": True}
     )
@@ -77,6 +160,8 @@ class StringParameter(BaseModel):
 
 
 class BooleanParameter(BaseModel):
+    model_config = ConfigDict(title="Boolean")
+
     dtype: Literal["Boolean"] = Field(
         default="Boolean", frozen=True, json_schema_extra={"readOnly": True}
     )
@@ -84,6 +169,8 @@ class BooleanParameter(BaseModel):
 
 
 class ListParameter(BaseModel):
+    model_config = ConfigDict(title="List")
+
     dtype: Literal["List"] = Field(
         default="List", frozen=True, json_schema_extra={"readOnly": True}
     )
@@ -91,20 +178,48 @@ class ListParameter(BaseModel):
 
 
 class DictParameter(BaseModel):
+    model_config = ConfigDict(title="Dictionary")
+
     dtype: Literal["Dict"] = Field(
         default="Dict", frozen=True, json_schema_extra={"readOnly": True}
     )
     value: dict[str, "Parameter"]
 
 
+def _parameter_dtype(value: Any) -> str | None:
+    if isinstance(value, dict):
+        dtype = value.get("dtype")
+        if isinstance(dtype, str):
+            return dtype
+        if "value" in value:
+            return _parameter_value_dtype(value["value"])
+    return getattr(value, "dtype", None)
+
+
+def _parameter_value_dtype(value: Any) -> str | None:
+    if isinstance(value, bool):
+        return "Boolean"
+    if isinstance(value, int):
+        return "Int"
+    if isinstance(value, float):
+        return "Float"
+    if isinstance(value, str):
+        return "String"
+    if isinstance(value, list):
+        return "List"
+    if isinstance(value, dict):
+        return "Dict"
+    return None
+
+
 Parameter = Annotated[
-    IntParameter
-    | FloatParameter
-    | StringParameter
-    | BooleanParameter
-    | ListParameter
-    | DictParameter,
-    Discriminator("dtype"),
+    Annotated[IntParameter, Tag("Int")]
+    | Annotated[FloatParameter, Tag("Float")]
+    | Annotated[StringParameter, Tag("String")]
+    | Annotated[BooleanParameter, Tag("Boolean")]
+    | Annotated[ListParameter, Tag("List")]
+    | Annotated[DictParameter, Tag("Dict")],
+    Discriminator(_parameter_dtype),
 ]
 
 ListParameter.model_rebuild()
@@ -231,6 +346,7 @@ class ProgrammableRule(BaseRule):
         description="Code to evaluate the answer. "
         "Required variables: 'output', 'passed'. "
         "Optional variable: 'feedback'.",
+        json_schema_extra=gradeflow_schema_extra(CODE_INPUT),
     )
     parameters: dict[str, Parameter] = Field(
         default_factory=dict,
@@ -244,6 +360,32 @@ class ProgrammableRule(BaseRule):
             "'OUTPUT' uses the 'output' variable (0-1) for scoring."
         ),
     )
+
+    @classmethod
+    def field_overrides(
+        cls,
+        context: "RuleContext",
+    ) -> dict[str, tuple[object, FieldInfo]]:
+        return {
+            **super().field_overrides(context),
+            "code": (
+                str,
+                cast(
+                    FieldInfo,
+                    Field(
+                        default=_single_programmable_code(context),
+                        json_schema_extra=gradeflow_schema_extra(CODE_INPUT),
+                    ),
+                ),
+            ),
+        }
+
+    @classmethod
+    def initial_value_overrides(
+        cls,
+        context: "RuleContext",
+    ) -> dict[str, Any]:
+        return {"code": _single_programmable_code(context)}
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -259,7 +401,7 @@ class ProgrammableRule(BaseRule):
             output=result.output,
             passed=result.passed,
             feedback=result.feedback,
-            rule=self.__class__.__name__,
+            rule=self.display_name,
         )
 
 
@@ -292,6 +434,7 @@ class ProgrammableMultiQuestionRule(BaseMultiQuestionRule):
         description="Code to evaluate the answer_map. "
         "Required variable: 'results' (dict mapping question_id -> "
         "dict with 'output', 'passed', and optionally 'feedback').",
+        json_schema_extra=gradeflow_schema_extra(CODE_INPUT),
     )
     parameters: dict[str, Parameter] = Field(
         default_factory=dict,
@@ -305,6 +448,48 @@ class ProgrammableMultiQuestionRule(BaseMultiQuestionRule):
             "'OUTPUT' uses 'output' (0-1) per question for scoring."
         ),
     )
+
+    @classmethod
+    def field_overrides(
+        cls,
+        context: "RuleContext",
+    ) -> dict[str, tuple[object, FieldInfo]]:
+        qids = [
+            question_id
+            for question_id, question in context.question_set.question_map.items()
+            if question.type in rule_question_types(cls)
+        ]
+        return {
+            **super().field_overrides(context),
+            "target_question_ids": (
+                GenericAlias(list, literal_type(qids)),
+                cast(
+                    FieldInfo,
+                    Field(
+                        ...,
+                        min_length=1,
+                        json_schema_extra=gradeflow_schema_extra(STRING_LIST_INPUT),
+                    ),
+                ),
+            ),
+            "code": (
+                str,
+                cast(
+                    FieldInfo,
+                    Field(
+                        default=_multi_programmable_code(context.question_set),
+                        json_schema_extra=gradeflow_schema_extra(CODE_INPUT),
+                    ),
+                ),
+            ),
+        }
+
+    @classmethod
+    def initial_value_overrides(
+        cls,
+        context: "RuleContext",
+    ) -> dict[str, Any]:
+        return {"code": _multi_programmable_code(context.question_set)}
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -370,7 +555,7 @@ class ProgrammableMultiQuestionRule(BaseMultiQuestionRule):
                 output=prog_result.output,
                 passed=prog_result.passed,
                 feedback=prog_result.feedback,
-                rule=self.__class__.__name__,
+                rule=self.display_name,
                 points=_compute_programmable_points(self.mode, prog_result, max_points),
                 max_points=max_points,
             )

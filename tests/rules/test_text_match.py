@@ -13,7 +13,7 @@ def test_text_match_text_answer() -> None:
 
     assert result.output is True
     assert "matches one of the correct answer" in result.feedback
-    assert result.rule == "TextMatchRule"
+    assert result.rule == "Text Match"
 
 
 def test_non_match_text_answer() -> None:

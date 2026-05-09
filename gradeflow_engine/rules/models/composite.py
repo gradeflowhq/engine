@@ -1,11 +1,14 @@
-from typing import TYPE_CHECKING, Literal
+from types import GenericAlias
+from typing import TYPE_CHECKING, Literal, cast
 
 from pydantic import Field, computed_field
+from pydantic.fields import FieldInfo
 
 from ...questions.models import Question
 from ...questions.types import Answer, QuestionId, QuestionType
 from ..aggregations.completeness import output_fn, passed_fn, points_fn
 from ..result import Result
+from ..schema import RULE_LIST_INPUT, gradeflow_schema_extra, rule_question_types, value_rule_union
 from ..types import CompletenessAggregation, RuleValidationError
 from .base import (
     BaseRule,
@@ -16,6 +19,7 @@ from .base import (
 )
 
 if TYPE_CHECKING:
+    from ..context import RuleContext, RulePath
     from . import SingleTargetRule
 
 
@@ -30,6 +34,45 @@ class CompositeRule(BaseRule):
         default="ALL",
         description="Aggregation method to combine rule results: 'ALL', 'ANY', or 'PARTIAL'",
     )
+
+    @classmethod
+    def field_overrides(
+        cls,
+        context: "RuleContext",
+    ) -> dict[str, tuple[object, FieldInfo]]:
+        overrides = super().field_overrides(context)
+        if context.question_type is None:
+            return overrides
+        return {
+            **overrides,
+            "rules": (
+                GenericAlias(list, value_rule_union(context.question_type)),
+                cast(
+                    FieldInfo,
+                    Field(
+                        ...,
+                        min_length=1,
+                        description="List of rules to apply to the answer",
+                        json_schema_extra=gradeflow_schema_extra(RULE_LIST_INPUT),
+                    ),
+                ),
+            ),
+        }
+
+    @classmethod
+    def nested_context(
+        cls,
+        context: "RuleContext",
+        path: "RulePath",
+    ) -> "RuleContext | None":
+        if (
+            len(path) == 2
+            and path[0] == "rules"
+            and isinstance(path[1], int)
+            and context.question_type in rule_question_types(cls)
+        ):
+            return context.for_value_rules()
+        return None
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -55,10 +98,7 @@ class CompositeRule(BaseRule):
             output=output,
             passed=passed,
             feedback=feedback,
-            rule=(
-                f"{self.__class__.__name__}"
-                f"[{', '.join(rule.__class__.__name__ for rule in self.rules)}]"
-            ),
+            rule=self.display_name,
         )
 
 

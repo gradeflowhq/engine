@@ -30,7 +30,7 @@ class BonusRule(BaseRule):
             output=1,
             passed=True,
             feedback="Bonus points awarded.",
-            rule=self.__class__.__name__,
+            rule=self.display_name,
         )
 
     def process_answer(self, answer: Answer) -> Result:  # override validated process_answer

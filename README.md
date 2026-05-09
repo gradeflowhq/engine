@@ -6,7 +6,7 @@ GradeFlow Engine is a modular grading engine designed to ingest submissions, inf
 
 - Pluggable adapters and serializers for submissions, question sets, and rubrics via registries
 - Automatic question type inference from raw submissions
-- Comprehensive rule-based grading system with 15+ rule types
+- Comprehensive rule-based grading system with 15+ rule types and contextual rule schemas
 - User code execution in a subprocess with configurable timeouts for programmable/programming rules — use the official Docker image for safe sandboxed execution
 - CLI for common workflows with rich terminal output
 - Python API for scripted pipelines
@@ -32,7 +32,7 @@ pip install -e .
 - `question_sets/`: Models, inference, and question type detection
 - `rubrics/`: Rubric models and validation
 - `submissions/`: Submission models and processing
-- `rules/`: Rule models, aggregations, subprocess-based Python executors, and validators
+- `rules/`: Rule models, contextual schemas, aggregations, subprocess-based Python executors, and validators
 - `questions/`: Question models, parsing utilities, and answer types
 - `mixins.py`: Shared mixins
 - `py.typed`: PEP 561 marker for type-checking support
@@ -579,14 +579,6 @@ rules:
     question_id: Q4
 ```
 
-Manual — placeholder for manual grading (returns 0 points, `graded=False`):
-
-```yaml
-rules:
-  - type: MANUAL
-    question_id: Q6
-```
-
 ### Submissions (CSV output)
 
 The CSV serializer (`CsvSubmissionsConfig`) produces columns controlled by boolean flags:
@@ -668,13 +660,30 @@ Configuration options (with defaults):
 | Rule | Supported Question Types | Key Fields |
 |---|---|---|
 | `BONUS` | TEXT, NUMERIC, CHOICE, MULTI_VALUED | — |
-| `MANUAL` | TEXT, NUMERIC, CHOICE, MULTI_VALUED | — |
 
 All rules participate in rubric validation:
 - Validate that target questions exist in the question set
 - Validate type compatibility (question type must match the rule's supported types)
 - Validate that no question is targeted by more than one rule
 - Validate rule-specific constraints (e.g., valid choice options, regex patterns)
+
+## Contextual Rule Schemas
+
+The engine owns rule compatibility, initial values, and contextual JSON Schema generation. API clients do not need to know rule internals.
+
+- `RuleContext` describes where a rule is being configured: global, question, value slot, or nested rule path.
+- `compatible_rule_classes(context)` returns the concrete rule classes valid for that context.
+- `rule_class(type)` resolves an engine rule type to its concrete model class.
+- `BaseRule.from_context(context)` returns a Pydantic model shaped for that context.
+- `BaseRule.initial_value_from_context(context)` returns the minimal initial payload for a new rule.
+- Individual rule classes customize fields with `field_overrides(context)`, `initial_value_overrides(context)`, and `nested_context(...)`.
+
+Schemas may include engine-owned JSON Schema extras under `x-gradeflow`, such as:
+
+- `input`: rendering hint for generic clients, for example `code`, `string-list`, `rule`, or `rule-list`.
+- `suggestions`: selectable values derived from the question set and observed submissions.
+
+These hints are intentionally neutral. They describe rule data, not frontend component names.
 
 ## Extensibility
 

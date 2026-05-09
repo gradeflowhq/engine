@@ -1,10 +1,13 @@
-from typing import TYPE_CHECKING, Literal
+from types import GenericAlias
+from typing import TYPE_CHECKING, Literal, cast
 
 from pydantic import Field, computed_field
+from pydantic.fields import FieldInfo
 
 from ...questions.models import Question
 from ...questions.types import Answer, QuestionId, QuestionType
 from ..result import QuestionResult
+from ..schema import RULE_LIST_INPUT, gradeflow_schema_extra, question_rule_union
 from ..types import BooleanAggregation, RuleValidationError
 from ..validators import validate_unique_target_questions_in_rules
 from .base import (
@@ -15,6 +18,7 @@ from .base import (
 )
 
 if TYPE_CHECKING:
+    from ..context import RuleContext, RulePath
     from . import SingleTargetQuestionRule
 
 
@@ -53,6 +57,65 @@ class ConditionalMultiQuestionRule(BaseMultiQuestionRule):
     else_rules: list["SingleTargetQuestionRule"] = Field(
         ..., description="List of rules to evaluate if 'if' condition is not met"
     )
+
+    @classmethod
+    def field_overrides(
+        cls,
+        context: "RuleContext",
+    ) -> dict[str, tuple[object, FieldInfo]]:
+        nested_rule = question_rule_union(context)
+        return {
+            **super().field_overrides(context),
+            "if_rules": (
+                GenericAlias(list, nested_rule),
+                cast(
+                    FieldInfo,
+                    Field(
+                        ...,
+                        min_length=1,
+                        description="List of rules to evaluate the condition",
+                        json_schema_extra=gradeflow_schema_extra(RULE_LIST_INPUT),
+                    ),
+                ),
+            ),
+            "then_rules": (
+                GenericAlias(list, nested_rule),
+                cast(
+                    FieldInfo,
+                    Field(
+                        ...,
+                        min_length=1,
+                        description="Rules to evaluate if condition is met",
+                        json_schema_extra=gradeflow_schema_extra(RULE_LIST_INPUT),
+                    ),
+                ),
+            ),
+            "else_rules": (
+                GenericAlias(list, nested_rule),
+                cast(
+                    FieldInfo,
+                    Field(
+                        ...,
+                        description="Rules to evaluate if condition is not met",
+                        json_schema_extra=gradeflow_schema_extra(RULE_LIST_INPUT),
+                    ),
+                ),
+            ),
+        }
+
+    @classmethod
+    def nested_context(
+        cls,
+        context: "RuleContext",
+        path: "RulePath",
+    ) -> "RuleContext | None":
+        if (
+            len(path) == 2
+            and path[0] in {"if_rules", "then_rules", "else_rules"}
+            and isinstance(path[1], int)
+        ):
+            return context.for_question_rules()
+        return None
 
     @computed_field  # type: ignore[prop-decorator]
     @property

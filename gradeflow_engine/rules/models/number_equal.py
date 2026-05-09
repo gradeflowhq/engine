@@ -1,9 +1,11 @@
-from typing import Literal
+from typing import TYPE_CHECKING, Literal, cast
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
+from pydantic.fields import FieldInfo
 
 from ...questions.types import Answer, QuestionType
 from ..result import Result
+from ..schema import STRING_LIST_INPUT, gradeflow_schema_extra
 from .base import (
     BaseRule,
     BaseSingleQuestionRule,
@@ -11,6 +13,9 @@ from .base import (
     rule_question_types_field,
     rule_type_field,
 )
+
+if TYPE_CHECKING:
+    from ..context import RuleContext
 
 NumericValue = int | float
 
@@ -54,6 +59,8 @@ def feedback_fn(
 
 
 class NumberEqualConfig(BaseModel):
+    model_config = ConfigDict(title="Number Equal Configuration")
+
     approximate: bool = Field(
         default=True, description="Whether to allow approximate matches within a tolerance"
     )
@@ -74,6 +81,31 @@ class NumberEqualRule(BaseRule):
         default_factory=NumberEqualConfig,
         description="Configuration for numeric equality checks",
     )
+
+    @classmethod
+    def field_overrides(
+        cls,
+        context: "RuleContext",
+    ) -> dict[str, tuple[object, FieldInfo]]:
+        overrides = super().field_overrides(context)
+        return {
+            **overrides,
+            "answers": (
+                list[str],
+                cast(
+                    FieldInfo,
+                    Field(
+                        ...,
+                        min_length=1,
+                        description="List of acceptable numeric answers",
+                        json_schema_extra=gradeflow_schema_extra(
+                            STRING_LIST_INPUT,
+                            suggestions=context.answer_suggestions(),
+                        ),
+                    ),
+                ),
+            ),
+        }
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -107,7 +139,7 @@ class NumberEqualRule(BaseRule):
             output=is_equal,
             passed=is_equal,
             feedback=feedback,
-            rule=self.__class__.__name__,
+            rule=self.display_name,
         )
 
 

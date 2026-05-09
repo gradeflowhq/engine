@@ -1,12 +1,14 @@
 import functools
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, cast
 
 from pydantic import Field, computed_field
+from pydantic.fields import FieldInfo
 from rapidfuzz.distance import JaroWinkler, Levenshtein
 
 from ...questions.types import Answer, QuestionType
 from ..result import Result
+from ..schema import STRING_LIST_INPUT, gradeflow_schema_extra
 from .base import (
     BaseRule,
     BaseSingleQuestionRule,
@@ -17,6 +19,8 @@ from .base import (
 
 if TYPE_CHECKING:
     from fastembed import TextEmbedding
+
+    from ..context import RuleContext
 
 
 TRANSFORMER_MODEL = "BAAI/bge-small-en-v1.5"
@@ -96,6 +100,30 @@ class SimilarityRule(BaseRule):
         ),
     )
 
+    @classmethod
+    def field_overrides(
+        cls,
+        context: "RuleContext",
+    ) -> dict[str, tuple[object, FieldInfo]]:
+        overrides = super().field_overrides(context)
+        return {
+            **overrides,
+            "references": (
+                list[str],
+                cast(
+                    FieldInfo,
+                    Field(
+                        ...,
+                        description="Reference answers for similarity comparison",
+                        json_schema_extra=gradeflow_schema_extra(
+                            STRING_LIST_INPUT,
+                            suggestions=context.answer_suggestions(),
+                        ),
+                    ),
+                ),
+            ),
+        }
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def description(self) -> str:
@@ -126,7 +154,7 @@ class SimilarityRule(BaseRule):
             output=closest_similarity,
             passed=passed,
             feedback=feedback,
-            rule=self.__class__.__name__,
+            rule=self.display_name,
         )
 
 

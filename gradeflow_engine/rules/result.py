@@ -5,7 +5,7 @@ class Result(BaseModel):
     output: bool | int | float = Field(description="Output generated from evaluating the answer")
     passed: bool = Field(description="Whether the answer passed the rule check")
     feedback: str = Field(description="Feedback or comments")
-    rule: str = Field(description="ID of the rule that was applied")
+    rule: str = Field(description="Display name of the rule that produced the result")
     graded: bool = Field(default=True, description="Whether the result has been graded")
 
 

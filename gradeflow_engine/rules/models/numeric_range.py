@@ -49,7 +49,7 @@ class NumericRangeRule(BaseRule):
             output=passed,
             passed=passed,
             feedback=feedback,
-            rule=self.__class__.__name__,
+            rule=self.display_name,
         )
 
 

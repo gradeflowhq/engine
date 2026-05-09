@@ -3,7 +3,7 @@ from functools import lru_cache
 from re import Pattern
 from typing import Literal
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from ...questions.types import Answer, QuestionType
 from ..result import Result
@@ -33,6 +33,8 @@ def _build_regex_flags(ignore_case: bool, multi_line: bool, dotall: bool) -> int
 
 
 class RegexConfig(BaseModel):
+    model_config = ConfigDict(title="Regex Configuration")
+
     ignore_case: bool = Field(default=False, description="Ignore case when matching")
     multi_line: bool = Field(default=False, description="Multi-line matching")
     dotall: bool = Field(default=False, description="Dot matches all characters including newlines")
@@ -77,7 +79,7 @@ class RegexRule(BaseRule):
                 f'"{answer}" {"matches" if is_match else "does not match"} '
                 f"the pattern: {self.pattern}."
             ),
-            rule=self.__class__.__name__,
+            rule=self.display_name,
         )
 
 

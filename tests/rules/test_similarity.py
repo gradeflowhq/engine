@@ -25,7 +25,7 @@ def test_similarity_levenshtein_passes_and_feedback() -> None:
     assert "Match" in result.feedback
     assert "hello world" in result.feedback
     assert "hello code" not in result.feedback
-    assert result.rule == "SimilarityRule"
+    assert result.rule == "Similarity"
 
 
 def test_similarity_levenshtein_fails_and_feedback() -> None:
@@ -36,7 +36,7 @@ def test_similarity_levenshtein_fails_and_feedback() -> None:
     assert result.passed is False
     assert "Insufficient similarity" in result.feedback
     assert "hello world" in result.feedback
-    assert result.rule == "SimilarityRule"
+    assert result.rule == "Similarity"
 
 
 def test_similarity_jaro_winkler_below_threshold() -> None:
@@ -150,7 +150,7 @@ def test_similarity_transformer_passes() -> None:
     assert 0.0 <= result.output <= 1.0
     assert result.passed is True
     assert "Match" in result.feedback
-    assert result.rule == "SimilarityRule"
+    assert result.rule == "Similarity"
 
 
 @pytest.mark.ml
