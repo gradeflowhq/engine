@@ -7,7 +7,7 @@ GradeFlow Engine is a modular grading engine designed to ingest submissions, inf
 - Pluggable adapters and serializers for submissions, question sets, and rubrics via registries
 - Automatic question type inference from raw submissions
 - Comprehensive rule-based grading system with 15+ rule types and contextual rule schemas
-- User code execution in a subprocess with configurable timeouts for programmable/programming rules — use the official Docker image for safe sandboxed execution
+- User code execution in a subprocess with configurable timeouts for custom code and code test rules — use the official Docker image for safe sandboxed execution
 - CLI for common workflows with rich terminal output
 - Python API for scripted pipelines
 - Deterministic serialization of answers and graded results
@@ -39,7 +39,7 @@ pip install -e .
 
 ## Running with Docker
 
-The official Docker image provides a sandboxed environment for safe execution of user code in programmable and programming rules:
+The official Docker image provides a sandboxed environment for safe execution of user code in custom code and code test rules:
 
 ```bash
 docker pull ghcr.io/gradeflowhq/gradeflow-engine:latest
@@ -449,11 +449,11 @@ rules:
         pattern: "^ok$"
 ```
 
-Programmable — custom Python scoring code:
+Custom Code — custom Python scoring code:
 
 ```yaml
 rules:
-  - type: PROGRAMMABLE
+  - type: CUSTOM_CODE
     question_id: Q2
     mode: OUTPUT  # PASS_FAIL or OUTPUT
     code: |
@@ -471,11 +471,11 @@ rules:
           feedback = "Out of range"
 ```
 
-Programming — execute student code against test cases:
+Code Tests — execute student code against test cases:
 
 ```yaml
 rules:
-  - type: PROGRAMMING
+  - type: CODE_TESTS
     question_id: Q5
     mode: ALL  # ALL, ANY, or PARTIAL
     testcases:
@@ -649,8 +649,8 @@ Configuration options (with defaults):
 |---|---|---|
 | `COMPOSITE` | TEXT, NUMERIC | `rules: list[SingleTargetRule]`, `aggregation: ALL\|ANY\|PARTIAL` |
 | `MULTI_VALUED` | MULTI_VALUED | `rules: list[SingleTargetRule]`, `aggregation: ALL\|ANY\|PARTIAL` |
-| `PROGRAMMABLE` | TEXT, NUMERIC, CHOICE, MULTI_VALUED | `code: str`, `mode: PASS_FAIL\|OUTPUT` |
-| `PROGRAMMING` | TEXT | `testcases`, `config: ProgrammingConfig`, `mode: ALL\|ANY\|PARTIAL` |
+| `CUSTOM_CODE` | TEXT, NUMERIC, CHOICE, MULTI_VALUED | `code: str`, `mode: PASS_FAIL\|OUTPUT` |
+| `CODE_TESTS` | TEXT | `testcases`, `config: CodeTestConfig`, `mode: ALL\|ANY\|PARTIAL` |
 | `CONDITIONAL` | TEXT, CHOICE, NUMERIC, MULTI_VALUED | `if_rules`, `if_aggregation: AND\|OR`, `then_rules`, `else_rules` |
 | `ASSUMPTION_SET` | TEXT, CHOICE, NUMERIC, MULTI_VALUED | `assumptions: list[Assumption]`, `mode: MAX\|MIN` |
 | `ASSUMPTION_SET_MULTI` | TEXT, CHOICE, NUMERIC, MULTI_VALUED | `assumptions: list[MultiQuestionAssumption]`, `mode: MAX\|MIN` |

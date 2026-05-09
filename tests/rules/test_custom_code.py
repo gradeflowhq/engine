@@ -4,15 +4,15 @@ from gradeflow_engine.exceptions import MissingAnswerError
 from gradeflow_engine.questions.models import Question
 from gradeflow_engine.questions.models.text import TextQuestion
 from gradeflow_engine.questions.types import QuestionId
-from gradeflow_engine.rules.models.programmable import (
+from gradeflow_engine.rules.models.custom_code import (
     BooleanParameter,
+    CustomCodeMultiQuestionRule,
+    CustomCodeQuestionRule,
+    CustomCodeRule,
     DictParameter,
     FloatParameter,
     IntParameter,
     ListParameter,
-    ProgrammableMultiQuestionRule,
-    ProgrammableQuestionRule,
-    ProgrammableRule,
     StringParameter,
     _unwrap_parameter,
 )
@@ -23,13 +23,13 @@ from gradeflow_engine.rules.result import Result
 # ---------------------------------------------------------------------------
 
 
-def test_programmable_pass_fail_mode_passes() -> None:
+def test_custom_code_pass_fail_mode_passes() -> None:
     code = """
 passed = True
 output = 1.0
 feedback = 'ok'
 """
-    rule = ProgrammableRule(code=code, mode="PASS_FAIL")
+    rule = CustomCodeRule(code=code, mode="PASS_FAIL")
     result = rule.process_answer("any answer")
 
     assert result.passed is True
@@ -37,13 +37,13 @@ feedback = 'ok'
     assert "ok" in result.feedback
 
 
-def test_programmable_pass_fail_mode_fails() -> None:
+def test_custom_code_pass_fail_mode_fails() -> None:
     code = """
 passed = False
 output = 0.0
 feedback = 'failed'
 """
-    rule = ProgrammableRule(code=code, mode="PASS_FAIL")
+    rule = CustomCodeRule(code=code, mode="PASS_FAIL")
     result = rule.process_answer("any answer")
 
     assert result.passed is False
@@ -56,13 +56,13 @@ feedback = 'failed'
 # ---------------------------------------------------------------------------
 
 
-def test_programmable_output_mode_scoring_uses_output_multiplier() -> None:
+def test_custom_code_output_mode_scoring_uses_output_multiplier() -> None:
     code = """
 output = 0.6
 passed = False  # should not matter for scoring in OUTPUT mode
 feedback = 'partial'
 """
-    qrule = ProgrammableQuestionRule(question_id="q", code=code, mode="OUTPUT")
+    qrule = CustomCodeQuestionRule(question_id="q", code=code, mode="OUTPUT")
     qresult = qrule.process_submission({"q": "ignored"}, {"q": 10.0})["q"]
 
     assert qresult.points == 6.0
@@ -70,13 +70,13 @@ feedback = 'partial'
     assert "partial" in qresult.feedback
 
 
-def test_programmable_pass_fail_mode_scoring_uses_passed_only() -> None:
+def test_custom_code_pass_fail_mode_scoring_uses_passed_only() -> None:
     code = """
 passed = True
 output = 0.0  # should not matter for scoring in PASS_FAIL mode
 feedback = 'good'
 """
-    qrule = ProgrammableQuestionRule(question_id="q", code=code, mode="PASS_FAIL")
+    qrule = CustomCodeQuestionRule(question_id="q", code=code, mode="PASS_FAIL")
     qresult = qrule.process_submission({"q": "ignored"}, {"q": 4.0})["q"]
 
     assert qresult.points == 4.0
@@ -88,11 +88,11 @@ feedback = 'good'
 # ---------------------------------------------------------------------------
 
 
-def test_programmable_runtime_error_returns_feedback_and_fails() -> None:
+def test_custom_code_runtime_error_returns_feedback_and_fails() -> None:
     code = """
 raise RuntimeError('boom')
 """
-    rule = ProgrammableRule(code=code)
+    rule = CustomCodeRule(code=code)
     result = rule.process_answer("ignored")
 
     assert result.passed is False
@@ -101,9 +101,9 @@ raise RuntimeError('boom')
     assert "boom" in result.feedback
 
 
-def test_programmable_syntax_error_returns_feedback_and_fails() -> None:
+def test_custom_code_syntax_error_returns_feedback_and_fails() -> None:
     code = "def ("  # deliberate syntax error
-    rule = ProgrammableRule(code=code)
+    rule = CustomCodeRule(code=code)
     result = rule.process_answer("ignored")
 
     assert result.passed is False
@@ -116,7 +116,7 @@ def test_programmable_syntax_error_returns_feedback_and_fails() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_programmable_uses_answer_variable() -> None:
+def test_custom_code_uses_answer_variable() -> None:
     code = """
 if answer == 'yes':
     passed = True
@@ -126,7 +126,7 @@ else:
     output = 0.0
 feedback = 'checked'
 """
-    rule = ProgrammableRule(code=code)
+    rule = CustomCodeRule(code=code)
     res_yes = rule.process_answer("yes")
     res_no = rule.process_answer("no")
 
@@ -136,35 +136,35 @@ feedback = 'checked'
     assert res_no.output == 0.0
 
 
-def test_programmable_uses_numeric_answer() -> None:
+def test_custom_code_uses_numeric_answer() -> None:
     code = """
 passed = answer == 42
 output = 1.0 if passed else 0.0
 feedback = 'numeric check'
 """
-    rule = ProgrammableRule(code=code)
+    rule = CustomCodeRule(code=code)
     assert rule.process_answer(42).passed is True
     assert rule.process_answer(0).passed is False
 
 
-def test_programmable_uses_list_answer() -> None:
+def test_custom_code_uses_list_answer() -> None:
     code = """
 passed = set(answer) == {1, 2, 3}
 output = 1.0 if passed else 0.0
 feedback = 'list check'
 """
-    rule = ProgrammableRule(code=code)
+    rule = CustomCodeRule(code=code)
     assert rule.process_answer([1, 2, 3]).passed is True
     assert rule.process_answer([1, 2]).passed is False
 
 
-def test_programmable_uses_set_answer() -> None:
+def test_custom_code_uses_set_answer() -> None:
     code = """
 passed = answer == {'a', 'b'}
 output = 1.0 if passed else 0.0
 feedback = 'set check'
 """
-    rule = ProgrammableRule(code=code)
+    rule = CustomCodeRule(code=code)
     assert rule.process_answer({"a", "b"}).passed is True
     assert rule.process_answer({"a"}).passed is False
 
@@ -174,11 +174,11 @@ feedback = 'set check'
 # ---------------------------------------------------------------------------
 
 
-def test_programmable_defaults_when_vars_absent() -> None:
+def test_custom_code_defaults_when_vars_absent() -> None:
     code = """
 # no vars set
 """
-    rule = ProgrammableRule(code=code)
+    rule = CustomCodeRule(code=code)
     res = rule.process_answer("anything")
 
     assert res.output == 0.0
@@ -191,13 +191,13 @@ def test_programmable_defaults_when_vars_absent() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_programmable_int_parameter_injected() -> None:
+def test_custom_code_int_parameter_injected() -> None:
     code = """
 passed = (answer == target)
 output = 1.0 if passed else 0.0
 feedback = f"answer={answer}{suffix}, target={target}"
 """
-    rule = ProgrammableRule(
+    rule = CustomCodeRule(
         code=code,
         parameters={
             "target": IntParameter(value=3),
@@ -217,13 +217,13 @@ feedback = f"answer={answer}{suffix}, target={target}"
     assert res_bad.output == 0.0
 
 
-def test_programmable_float_parameter_injected() -> None:
+def test_custom_code_float_parameter_injected() -> None:
     code = """
 passed = abs(answer - threshold) < 0.01
 output = 1.0 if passed else 0.0
 feedback = 'float check'
 """
-    rule = ProgrammableRule(
+    rule = CustomCodeRule(
         code=code,
         parameters={"threshold": FloatParameter(value=3.14)},
     )
@@ -232,7 +232,7 @@ feedback = 'float check'
     assert rule.process_answer(0.0).passed is False
 
 
-def test_programmable_boolean_parameter_injected() -> None:
+def test_custom_code_boolean_parameter_injected() -> None:
     # bool is not a valid Answer type — validate_answer_type rejects it before
     # the code runs. Use a string answer and compare it against a derived value
     # so the BooleanParameter is still meaningfully exercised.
@@ -241,7 +241,7 @@ passed = (answer == "yes") == flag
 output = 1.0 if passed else 0.0
 feedback = 'bool check'
 """
-    rule = ProgrammableRule(
+    rule = CustomCodeRule(
         code=code,
         parameters={"flag": BooleanParameter(value=True)},
     )
@@ -252,13 +252,13 @@ feedback = 'bool check'
     assert rule.process_answer("no").passed is False
 
 
-def test_programmable_list_parameter_injected() -> None:
+def test_custom_code_list_parameter_injected() -> None:
     code = """
 passed = answer in allowed
 output = 1.0 if passed else 0.0
 feedback = 'list param check'
 """
-    rule = ProgrammableRule(
+    rule = CustomCodeRule(
         code=code,
         parameters={
             "allowed": ListParameter(
@@ -271,13 +271,13 @@ feedback = 'list param check'
     assert rule.process_answer("baz").passed is False
 
 
-def test_programmable_dict_parameter_injected() -> None:
+def test_custom_code_dict_parameter_injected() -> None:
     code = """
 passed = answer == mapping['key']
 output = 1.0 if passed else 0.0
 feedback = 'dict param check'
 """
-    rule = ProgrammableRule(
+    rule = CustomCodeRule(
         code=code,
         parameters={"mapping": DictParameter(value={"key": StringParameter(value="expected")})},
     )
@@ -286,7 +286,7 @@ feedback = 'dict param check'
     assert rule.process_answer("wrong").passed is False
 
 
-def test_programmable_nested_list_and_dict_parameters_unwrap_correctly() -> None:
+def test_custom_code_nested_list_and_dict_parameters_unwrap_correctly() -> None:
     # A ListParameter whose elements are DictParameters — verifies full recursion
     # through _unwrap_parameter.
     code = """
@@ -294,7 +294,7 @@ passed = any(item['match'] == answer for item in options)
 output = 1.0 if passed else 0.0
 feedback = 'nested check'
 """
-    rule = ProgrammableRule(
+    rule = CustomCodeRule(
         code=code,
         parameters={
             "options": ListParameter(
@@ -311,7 +311,7 @@ feedback = 'nested check'
     assert rule.process_answer("gamma").passed is False
 
 
-def test_programmable_nested_dict_of_lists_unwraps_correctly() -> None:
+def test_custom_code_nested_dict_of_lists_unwraps_correctly() -> None:
     # A DictParameter whose values are ListParameters — verifies the other
     # direction of nesting through _unwrap_parameter.
     code = """
@@ -319,7 +319,7 @@ passed = answer in lookup['valid']
 output = 1.0 if passed else 0.0
 feedback = 'nested dict-of-list check'
 """
-    rule = ProgrammableRule(
+    rule = CustomCodeRule(
         code=code,
         parameters={
             "lookup": DictParameter(
@@ -340,10 +340,10 @@ feedback = 'nested dict-of-list check'
     assert rule.process_answer("z").passed is False
 
 
-def test_programmable_parameters_infer_missing_dtype_from_value() -> None:
-    rule = ProgrammableRule.model_validate(
+def test_custom_code_parameters_infer_missing_dtype_from_value() -> None:
+    rule = CustomCodeRule.model_validate(
         {
-            "type": "PROGRAMMABLE",
+            "type": "CUSTOM_CODE",
             "parameters": {
                 "target": {"value": 3},
                 "suffix": {"value": "!"},
@@ -371,7 +371,7 @@ def test_programmable_parameters_infer_missing_dtype_from_value() -> None:
 
 def test_output_mode_zero_output_yields_zero_points() -> None:
     code = "output = 0.0\npassed = True\n"
-    qrule = ProgrammableQuestionRule(question_id="q", code=code, mode="OUTPUT")
+    qrule = CustomCodeQuestionRule(question_id="q", code=code, mode="OUTPUT")
     qresult = qrule.process_submission({"q": "ignored"}, {"q": 5.0})["q"]
 
     assert qresult.points == 0.0
@@ -379,7 +379,7 @@ def test_output_mode_zero_output_yields_zero_points() -> None:
 
 def test_output_mode_full_output_yields_max_points() -> None:
     code = "output = 1.0\npassed = False\n"
-    qrule = ProgrammableQuestionRule(question_id="q", code=code, mode="OUTPUT")
+    qrule = CustomCodeQuestionRule(question_id="q", code=code, mode="OUTPUT")
     qresult = qrule.process_submission({"q": "ignored"}, {"q": 5.0})["q"]
 
     assert qresult.points == 5.0
@@ -387,7 +387,7 @@ def test_output_mode_full_output_yields_max_points() -> None:
 
 def test_output_mode_partial_output_scales_correctly() -> None:
     code = "output = 0.25\npassed = False\n"
-    qrule = ProgrammableQuestionRule(question_id="q", code=code, mode="OUTPUT")
+    qrule = CustomCodeQuestionRule(question_id="q", code=code, mode="OUTPUT")
     qresult = qrule.process_submission({"q": "ignored"}, {"q": 8.0})["q"]
 
     assert qresult.points == pytest.approx(2.0)
@@ -401,7 +401,7 @@ def test_output_mode_partial_output_scales_correctly() -> None:
     ],
 )
 def test_output_mode_points_ignore_passed(code: str, expected_points: float) -> None:
-    qrule = ProgrammableQuestionRule(question_id="q", code=code, mode="OUTPUT")
+    qrule = CustomCodeQuestionRule(question_id="q", code=code, mode="OUTPUT")
     qresult = qrule.process_submission({"q": "ignored"}, {"q": 5.0})["q"]
     assert qresult.points == expected_points
 
@@ -414,7 +414,7 @@ def test_output_mode_points_ignore_passed(code: str, expected_points: float) -> 
 def test_pass_fail_mode_high_output_still_zero_when_not_passed() -> None:
     """output is irrelevant in PASS_FAIL mode — only passed matters."""
     code = "output = 0.99\npassed = False\n"
-    qrule = ProgrammableQuestionRule(question_id="q", code=code, mode="PASS_FAIL")
+    qrule = CustomCodeQuestionRule(question_id="q", code=code, mode="PASS_FAIL")
     qresult = qrule.process_submission({"q": "ignored"}, {"q": 10.0})["q"]
 
     assert qresult.points == 0.0
@@ -422,7 +422,7 @@ def test_pass_fail_mode_high_output_still_zero_when_not_passed() -> None:
 
 def test_pass_fail_mode_zero_max_points_yields_zero() -> None:
     code = "passed = True\noutput = 1.0\n"
-    qrule = ProgrammableQuestionRule(question_id="q", code=code, mode="PASS_FAIL")
+    qrule = CustomCodeQuestionRule(question_id="q", code=code, mode="PASS_FAIL")
     qresult = qrule.process_submission({"q": "ignored"}, {"q": 0.0})["q"]
 
     assert qresult.points == 0.0
@@ -430,7 +430,7 @@ def test_pass_fail_mode_zero_max_points_yields_zero() -> None:
 
 def test_output_mode_zero_max_points_yields_zero() -> None:
     code = "output = 1.0\npassed = True\n"
-    qrule = ProgrammableQuestionRule(question_id="q", code=code, mode="OUTPUT")
+    qrule = CustomCodeQuestionRule(question_id="q", code=code, mode="OUTPUT")
     qresult = qrule.process_submission({"q": "ignored"}, {"q": 0.0})["q"]
 
     assert qresult.points == 0.0
@@ -444,7 +444,7 @@ def test_output_mode_zero_max_points_yields_zero() -> None:
 def test_non_numeric_output_variable_is_coerced_or_errors() -> None:
     """If code sets output to a string that can be cast to float, it should work."""
     code = "output = '0.5'\npassed = True\n"
-    rule = ProgrammableRule(code=code)
+    rule = CustomCodeRule(code=code)
     result = rule.process_answer("anything")
 
     # float('0.5') == 0.5, so coercion should succeed
@@ -453,7 +453,7 @@ def test_non_numeric_output_variable_is_coerced_or_errors() -> None:
 
 def test_non_castable_output_variable_returns_error() -> None:
     code = "output = 'not_a_number'\npassed = True\n"
-    rule = ProgrammableRule(code=code)
+    rule = CustomCodeRule(code=code)
     result = rule.process_answer("anything")
 
     assert result.passed is False
@@ -467,28 +467,28 @@ def test_non_castable_output_variable_returns_error() -> None:
 
 
 def test_description_pass_fail_mode() -> None:
-    rule = ProgrammableRule(mode="PASS_FAIL")
+    rule = CustomCodeRule(mode="PASS_FAIL")
     assert "`passed`" in rule.description
 
 
 def test_description_output_mode() -> None:
-    rule = ProgrammableRule(mode="OUTPUT")
+    rule = CustomCodeRule(mode="OUTPUT")
     assert "`output`" in rule.description
 
 
-def test_programmable_unwrap_parameter_rejects_unknown_value() -> None:
+def test_custom_code_unwrap_parameter_rejects_unknown_value() -> None:
     with pytest.raises(TypeError):
         _unwrap_parameter(object())  # type: ignore[arg-type]
 
 
-def test_programmable_question_rule_rejects_unknown_mode() -> None:
-    malformed = ProgrammableQuestionRule.model_construct(question_id="Q1", mode="BAD")
+def test_custom_code_question_rule_rejects_unknown_mode() -> None:
+    malformed = CustomCodeQuestionRule.model_construct(question_id="Q1", mode="BAD")
     with pytest.raises(ValueError):
         malformed.compute_points(Result(output=1, passed=True, feedback="", rule="x"), 1)
 
 
 # ===========================================================================
-# ProgrammableMultiQuestionRule
+# CustomCodeMultiQuestionRule
 # ===========================================================================
 
 
@@ -503,7 +503,7 @@ results = {}
 for qid, answer in answer_map.items():
     results[qid] = {'passed': True, 'output': 1.0, 'feedback': f'{qid} ok'}
 """
-    rule = ProgrammableMultiQuestionRule(
+    rule = CustomCodeMultiQuestionRule(
         target_question_ids=["Q1", "Q2"], code=code, mode="PASS_FAIL"
     )
     qresults = rule.process_submission({"Q1": "a", "Q2": "b"}, {"Q1": 3.0, "Q2": 5.0})
@@ -521,7 +521,7 @@ results = {
     'Q2': {'passed': False, 'output': 0.0, 'feedback': 'wrong'},
 }
 """
-    rule = ProgrammableMultiQuestionRule(
+    rule = CustomCodeMultiQuestionRule(
         target_question_ids=["Q1", "Q2"], code=code, mode="PASS_FAIL"
     )
     qresults = rule.process_submission({"Q1": "a", "Q2": "b"}, {"Q1": 2.0, "Q2": 4.0})
@@ -534,7 +534,7 @@ def test_multi_pass_fail_high_output_irrelevant_when_not_passed() -> None:
     code = """
 results = {'Q1': {'passed': False, 'output': 0.99, 'feedback': 'nope'}}
 """
-    rule = ProgrammableMultiQuestionRule(target_question_ids=["Q1"], code=code, mode="PASS_FAIL")
+    rule = CustomCodeMultiQuestionRule(target_question_ids=["Q1"], code=code, mode="PASS_FAIL")
     qresults = rule.process_submission({"Q1": "x"}, {"Q1": 10.0})
 
     assert qresults["Q1"].points == 0.0
@@ -552,7 +552,7 @@ results = {
     'Q2': {'output': 0.25, 'passed': False, 'feedback': 'quarter'},
 }
 """
-    rule = ProgrammableMultiQuestionRule(target_question_ids=["Q1", "Q2"], code=code, mode="OUTPUT")
+    rule = CustomCodeMultiQuestionRule(target_question_ids=["Q1", "Q2"], code=code, mode="OUTPUT")
     qresults = rule.process_submission({"Q1": "a", "Q2": "b"}, {"Q1": 10.0, "Q2": 8.0})
 
     assert qresults["Q1"].points == pytest.approx(5.0)
@@ -563,7 +563,7 @@ def test_multi_output_full_yields_max_points() -> None:
     code = """
 results = {qid: {'output': 1.0, 'passed': True, 'feedback': 'full'} for qid in answer_map}
 """
-    rule = ProgrammableMultiQuestionRule(target_question_ids=["Q1", "Q2"], code=code, mode="OUTPUT")
+    rule = CustomCodeMultiQuestionRule(target_question_ids=["Q1", "Q2"], code=code, mode="OUTPUT")
     qresults = rule.process_submission({"Q1": "a", "Q2": "b"}, {"Q1": 3.0, "Q2": 7.0})
 
     assert qresults["Q1"].points == 3.0
@@ -574,7 +574,7 @@ def test_multi_output_zero_yields_zero_points() -> None:
     code = """
 results = {qid: {'output': 0.0, 'passed': False, 'feedback': 'zero'} for qid in answer_map}
 """
-    rule = ProgrammableMultiQuestionRule(target_question_ids=["Q1"], code=code, mode="OUTPUT")
+    rule = CustomCodeMultiQuestionRule(target_question_ids=["Q1"], code=code, mode="OUTPUT")
     qresults = rule.process_submission({"Q1": "a"}, {"Q1": 5.0})
 
     assert qresults["Q1"].points == 0.0
@@ -591,7 +591,7 @@ results = {}
 for qid in answer_map:
     results[qid] = {'passed': True, 'output': 1.0, 'feedback': str(sorted(answer_map.keys()))}
 """
-    rule = ProgrammableMultiQuestionRule(
+    rule = CustomCodeMultiQuestionRule(
         target_question_ids=["Q1", "Q3"], code=code, mode="PASS_FAIL"
     )
     qresults = rule.process_submission({"Q1": "a", "Q2": "b", "Q3": "c"}, {"Q1": 1.0, "Q3": 1.0})
@@ -608,7 +608,7 @@ results = {}
 for qid, ans in answer_map.items():
     results[qid] = {'passed': True, 'output': 1.0, 'feedback': str(ans)}
 """
-    rule = ProgrammableMultiQuestionRule(target_question_ids=["Q1"], code=code, mode="PASS_FAIL")
+    rule = CustomCodeMultiQuestionRule(target_question_ids=["Q1"], code=code, mode="PASS_FAIL")
     qresults = rule.process_submission({"Q1": "hello"}, {"Q1": 1.0})
 
     assert qresults["Q1"].feedback == "hello"
@@ -620,7 +620,7 @@ total = sum(answer_map.values())
 results = {qid: {'output': v / total, 'passed': True, 'feedback': ''}
            for qid, v in answer_map.items()}
 """
-    rule = ProgrammableMultiQuestionRule(target_question_ids=["Q1", "Q2"], code=code, mode="OUTPUT")
+    rule = CustomCodeMultiQuestionRule(target_question_ids=["Q1", "Q2"], code=code, mode="OUTPUT")
     qresults = rule.process_submission({"Q1": 3, "Q2": 7}, {"Q1": 10.0, "Q2": 10.0})
 
     assert qresults["Q1"].points == pytest.approx(3.0)
@@ -642,7 +642,7 @@ for qid, ans in answer_map.items():
         'feedback': f'expected {expected[qid]}',
     }
 """
-    rule = ProgrammableMultiQuestionRule(
+    rule = CustomCodeMultiQuestionRule(
         target_question_ids=["Q1", "Q2"],
         code=code,
         mode="PASS_FAIL",
@@ -668,7 +668,7 @@ for qid, ans in answer_map.items():
 
 def test_multi_runtime_error_returns_error_for_all_questions() -> None:
     code = "raise RuntimeError('multi boom')"
-    rule = ProgrammableMultiQuestionRule(
+    rule = CustomCodeMultiQuestionRule(
         target_question_ids=["Q1", "Q2"], code=code, mode="PASS_FAIL"
     )
     qresults = rule.process_submission({"Q1": "a", "Q2": "b"}, {"Q1": 5.0, "Q2": 5.0})
@@ -682,7 +682,7 @@ def test_multi_runtime_error_returns_error_for_all_questions() -> None:
 
 def test_multi_syntax_error_returns_error_for_all_questions() -> None:
     code = "def ("
-    rule = ProgrammableMultiQuestionRule(target_question_ids=["Q1"], code=code, mode="PASS_FAIL")
+    rule = CustomCodeMultiQuestionRule(target_question_ids=["Q1"], code=code, mode="PASS_FAIL")
     qresults = rule.process_submission({"Q1": "a"}, {"Q1": 1.0})
 
     assert qresults["Q1"].passed is False
@@ -691,7 +691,7 @@ def test_multi_syntax_error_returns_error_for_all_questions() -> None:
 
 def test_multi_missing_answer_raises() -> None:
     code = "results = {}"
-    rule = ProgrammableMultiQuestionRule(
+    rule = CustomCodeMultiQuestionRule(
         target_question_ids=["Q1", "Q2"], code=code, mode="PASS_FAIL"
     )
     with pytest.raises(MissingAnswerError):
@@ -703,7 +703,7 @@ def test_multi_missing_question_in_results_dict_gets_defaults() -> None:
     code = """
 results = {'Q1': {'passed': True, 'output': 1.0, 'feedback': 'ok'}}
 """
-    rule = ProgrammableMultiQuestionRule(
+    rule = CustomCodeMultiQuestionRule(
         target_question_ids=["Q1", "Q2"], code=code, mode="PASS_FAIL"
     )
     qresults = rule.process_submission({"Q1": "a", "Q2": "b"}, {"Q1": 2.0, "Q2": 3.0})
@@ -719,7 +719,7 @@ def test_multi_non_dict_result_for_question_gets_defaults() -> None:
     code = """
 results = {'Q1': 'not a dict'}
 """
-    rule = ProgrammableMultiQuestionRule(target_question_ids=["Q1"], code=code, mode="PASS_FAIL")
+    rule = CustomCodeMultiQuestionRule(target_question_ids=["Q1"], code=code, mode="PASS_FAIL")
     qresults = rule.process_submission({"Q1": "a"}, {"Q1": 1.0})
 
     assert qresults["Q1"].passed is False
@@ -729,7 +729,7 @@ results = {'Q1': 'not a dict'}
 def test_multi_no_results_variable_gets_defaults() -> None:
     """Code sets no 'results' variable — all questions get defaults."""
     code = "x = 42"
-    rule = ProgrammableMultiQuestionRule(
+    rule = CustomCodeMultiQuestionRule(
         target_question_ids=["Q1", "Q2"], code=code, mode="PASS_FAIL"
     )
     qresults = rule.process_submission({"Q1": "a", "Q2": "b"}, {"Q1": 1.0, "Q2": 1.0})
@@ -748,7 +748,7 @@ def test_multi_missing_max_points_defaults_to_one() -> None:
     code = """
 results = {qid: {'passed': True, 'output': 1.0, 'feedback': ''} for qid in answer_map}
 """
-    rule = ProgrammableMultiQuestionRule(target_question_ids=["Q1"], code=code, mode="PASS_FAIL")
+    rule = CustomCodeMultiQuestionRule(target_question_ids=["Q1"], code=code, mode="PASS_FAIL")
     # max_points_map does not contain Q1
     qresults = rule.process_submission({"Q1": "a"}, {})
 
@@ -760,7 +760,7 @@ def test_multi_zero_max_points_yields_zero() -> None:
     code = """
 results = {qid: {'passed': True, 'output': 1.0, 'feedback': ''} for qid in answer_map}
 """
-    rule = ProgrammableMultiQuestionRule(target_question_ids=["Q1"], code=code, mode="OUTPUT")
+    rule = CustomCodeMultiQuestionRule(target_question_ids=["Q1"], code=code, mode="OUTPUT")
     qresults = rule.process_submission({"Q1": "a"}, {"Q1": 0.0})
 
     assert qresults["Q1"].points == 0.0
@@ -772,7 +772,7 @@ results = {qid: {'passed': True, 'output': 1.0, 'feedback': ''} for qid in answe
 
 
 def test_multi_validate_questions_exist_all_present() -> None:
-    rule = ProgrammableMultiQuestionRule(
+    rule = CustomCodeMultiQuestionRule(
         target_question_ids=["Q1", "Q2"], code="results = {}", mode="PASS_FAIL"
     )
     errors = rule.validate_questions_exist({"Q1", "Q2", "Q3"})
@@ -780,7 +780,7 @@ def test_multi_validate_questions_exist_all_present() -> None:
 
 
 def test_multi_validate_questions_exist_some_missing() -> None:
-    rule = ProgrammableMultiQuestionRule(
+    rule = CustomCodeMultiQuestionRule(
         target_question_ids=["Q1", "Q2", "Q3"], code="results = {}", mode="PASS_FAIL"
     )
     errors = rule.validate_questions_exist({"Q1"})
@@ -790,7 +790,7 @@ def test_multi_validate_questions_exist_some_missing() -> None:
 
 
 def test_multi_validate_unique_no_duplicates() -> None:
-    rule = ProgrammableMultiQuestionRule(
+    rule = CustomCodeMultiQuestionRule(
         target_question_ids=["Q1", "Q2"], code="results = {}", mode="PASS_FAIL"
     )
     errors = rule.validate_unique_target_questions()
@@ -798,12 +798,12 @@ def test_multi_validate_unique_no_duplicates() -> None:
 
 
 def test_multi_validate_unique_with_duplicates() -> None:
-    rule = ProgrammableMultiQuestionRule.model_construct(
+    rule = CustomCodeMultiQuestionRule.model_construct(
         target_question_ids=["Q1", "Q1", "Q2"],
         code="results = {}",
         mode="PASS_FAIL",
-        type="PROGRAMMABLE_MULTI",
-        display_name="Programmable (Multi)",
+        type="CUSTOM_CODE_MULTI",
+        display_name="Custom Code",
         question_types=frozenset({"TEXT", "NUMERIC", "CHOICE", "MULTI_VALUED"}),
         constraints=[],
         parameters={},
@@ -814,7 +814,7 @@ def test_multi_validate_unique_with_duplicates() -> None:
 
 
 def test_multi_validate_compatibility_all_compatible() -> None:
-    rule = ProgrammableMultiQuestionRule(
+    rule = CustomCodeMultiQuestionRule(
         target_question_ids=["Q1", "Q2"], code="results = {}", mode="PASS_FAIL"
     )
     question_map: dict[QuestionId, Question] = {"Q1": TextQuestion(), "Q2": TextQuestion()}
@@ -823,7 +823,7 @@ def test_multi_validate_compatibility_all_compatible() -> None:
 
 
 def test_multi_validate_compatibility_missing_question_skipped() -> None:
-    rule = ProgrammableMultiQuestionRule(
+    rule = CustomCodeMultiQuestionRule(
         target_question_ids=["Q1", "Q2"], code="results = {}", mode="PASS_FAIL"
     )
     question_map: dict[QuestionId, Question] = {"Q1": TextQuestion()}
@@ -833,7 +833,7 @@ def test_multi_validate_compatibility_missing_question_skipped() -> None:
 
 
 def test_multi_get_target_question_ids() -> None:
-    rule = ProgrammableMultiQuestionRule(
+    rule = CustomCodeMultiQuestionRule(
         target_question_ids=["Q1", "Q2", "Q3"], code="results = {}", mode="PASS_FAIL"
     )
     assert rule.get_target_question_ids() == {"Q1", "Q2", "Q3"}
@@ -845,7 +845,7 @@ def test_multi_get_target_question_ids() -> None:
 
 
 def test_multi_description_pass_fail_mode() -> None:
-    rule = ProgrammableMultiQuestionRule(
+    rule = CustomCodeMultiQuestionRule(
         target_question_ids=["Q1", "Q2"], code="results = {}", mode="PASS_FAIL"
     )
     assert "`passed`" in rule.description
@@ -854,7 +854,7 @@ def test_multi_description_pass_fail_mode() -> None:
 
 
 def test_multi_description_output_mode() -> None:
-    rule = ProgrammableMultiQuestionRule(
+    rule = CustomCodeMultiQuestionRule(
         target_question_ids=["Q1"], code="results = {}", mode="OUTPUT"
     )
     assert "`output`" in rule.description
@@ -866,13 +866,13 @@ def test_multi_description_output_mode() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_multi_programmable_rejects_unknown_mode() -> None:
-    rule = ProgrammableMultiQuestionRule.model_construct(
+def test_multi_custom_code_rejects_unknown_mode() -> None:
+    rule = CustomCodeMultiQuestionRule.model_construct(
         target_question_ids=["Q1"],
         code="results = {'Q1': {'passed': True, 'output': 1.0, 'feedback': ''}}",
         mode="BAD",
-        type="PROGRAMMABLE_MULTI",
-        display_name="Programmable (Multi)",
+        type="CUSTOM_CODE_MULTI",
+        display_name="Custom Code",
         question_types=frozenset({"TEXT", "NUMERIC", "CHOICE", "MULTI_VALUED"}),
         constraints=[],
         parameters={},

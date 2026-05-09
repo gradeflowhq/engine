@@ -33,13 +33,13 @@ from .base import (
 if TYPE_CHECKING:
     from ..context import RuleContext
 
-ProgrammableMode = Literal["PASS_FAIL", "OUTPUT"]
+CustomCodeMode = Literal["PASS_FAIL", "OUTPUT"]
 
 
 TIME_LIMIT_S = 5
 
 
-DEFAULT_PROGRAMMABLE_CODE = """# You have access to the following variables:
+DEFAULT_CUSTOM_CODE = """# You have access to the following variables:
 # - 'answer' variable contains the student's answer (can be str, float, list, or set)
 # - any additional variables defined in 'parameters' (e.g., 'param1', 'param2', etc.)
 # You must set the following variables:
@@ -52,7 +52,7 @@ output = 0.0
 feedback = str(answer)
 """
 
-DEFAULT_MULTI_PROGRAMMABLE_CODE = """# You have access to the following variables:
+DEFAULT_MULTI_CUSTOM_CODE = """# You have access to the following variables:
 # - 'answer_map' dict mapping question_id -> student's answer for each target question
 # - any additional variables defined in 'parameters' (e.g., 'param1', 'param2', etc.)
 # You must set the following variable:
@@ -71,7 +71,7 @@ for qid, answer in answer_map.items():
 """
 
 
-def _single_programmable_code(context: "RuleContext") -> str:
+def _single_custom_code(context: "RuleContext") -> str:
     question_note = f" for question {context.question_id}" if context.question_id else ""
     return f"""# You have access to:
 # - answer: student's parsed answer{question_note} ({_answer_type(context)})
@@ -83,7 +83,7 @@ feedback = str(answer)
 """
 
 
-def _multi_programmable_code(question_set: QuestionSet) -> str:
+def _multi_custom_code(question_set: QuestionSet) -> str:
     answer_types = "\n".join(
         f"# - {question_id}: {_answer_type_for_question(question)}"
         for question_id, question in question_set.question_map.items()
@@ -244,7 +244,7 @@ def _unwrap_parameters(parameters: dict[str, Parameter]) -> dict[str, Any]:
 
 
 @dataclass(frozen=True)
-class ProgrammableResult:
+class CustomCodeResult:
     output: float
     passed: bool
     feedback: str
@@ -256,22 +256,22 @@ def _run_code(code: str, variables: dict[str, Any]) -> dict[str, Any]:
     return variables
 
 
-def _extract_single_result(variables: dict[str, Any]) -> ProgrammableResult:
+def _extract_single_result(variables: dict[str, Any]) -> CustomCodeResult:
     """Extract output/passed/feedback from executed variables."""
-    return ProgrammableResult(
+    return CustomCodeResult(
         output=float(variables.get("output", 0.0)),
         passed=bool(variables.get("passed", False)),
         feedback=str(variables.get("feedback", "No feedback provided.")),
     )
 
 
-def _error_result(error: Exception) -> ProgrammableResult:
-    return ProgrammableResult(
+def _error_result(error: Exception) -> CustomCodeResult:
+    return CustomCodeResult(
         output=0.0, passed=False, feedback=f"Error during code execution: {error}"
     )
 
 
-def evaluate(code: str, parameters: dict[str, Parameter], answer: Answer) -> ProgrammableResult:
+def evaluate(code: str, parameters: dict[str, Parameter], answer: Answer) -> CustomCodeResult:
     variables: dict[str, Any] = {"answer": answer, **_unwrap_parameters(parameters)}
     try:
         _run_code(code, variables)
@@ -280,29 +280,29 @@ def evaluate(code: str, parameters: dict[str, Parameter], answer: Answer) -> Pro
     try:
         return _extract_single_result(variables)
     except Exception as e:
-        return ProgrammableResult(
+        return CustomCodeResult(
             output=0.0, passed=False, feedback=f"Error retrieving result variables: {e}"
         )
 
 
 def _extract_multi_results(
     variables: dict[str, Any], target_question_ids: list[QuestionId]
-) -> dict[QuestionId, ProgrammableResult]:
+) -> dict[QuestionId, CustomCodeResult]:
     """Extract per-question results from executed variables."""
     raw_results: dict[str, Any] = variables.get("results", {})
-    per_question: dict[QuestionId, ProgrammableResult] = {}
+    per_question: dict[QuestionId, CustomCodeResult] = {}
     for qid in target_question_ids:
         qid_raw = raw_results.get(qid, {})
         if not isinstance(qid_raw, dict):
             qid_raw = {}
         try:
-            per_question[qid] = ProgrammableResult(
+            per_question[qid] = CustomCodeResult(
                 output=float(qid_raw.get("output", 0.0)),
                 passed=bool(qid_raw.get("passed", False)),
                 feedback=str(qid_raw.get("feedback", "No feedback provided.")),
             )
         except Exception as e:
-            per_question[qid] = ProgrammableResult(
+            per_question[qid] = CustomCodeResult(
                 output=0.0, passed=False, feedback=f"Error retrieving result for {qid}: {e}"
             )
     return per_question
@@ -313,7 +313,7 @@ def evaluate_multi(
     parameters: dict[str, Parameter],
     answer_map: dict[QuestionId, Answer],
     target_question_ids: list[QuestionId],
-) -> dict[QuestionId, ProgrammableResult]:
+) -> dict[QuestionId, CustomCodeResult]:
     """Execute code with an answer_map and return per-question results."""
     variables: dict[str, Any] = {"answer_map": dict(answer_map), **_unwrap_parameters(parameters)}
     try:
@@ -324,8 +324,8 @@ def evaluate_multi(
     return _extract_multi_results(variables, target_question_ids)
 
 
-def _compute_programmable_points(
-    mode: ProgrammableMode, result: ProgrammableResult, max_points: float
+def _compute_custom_code_points(
+    mode: CustomCodeMode, result: CustomCodeResult, max_points: float
 ) -> float:
     if mode == "OUTPUT":
         return result.output * max_points
@@ -335,14 +335,14 @@ def _compute_programmable_points(
         raise ValueError(f"Unknown mode: {mode}")
 
 
-class ProgrammableRule(BaseRule):
-    type: Literal["PROGRAMMABLE"] = rule_type_field("PROGRAMMABLE")
-    display_name: Literal["Programmable"] = rule_display_name_field("Programmable")
+class CustomCodeRule(BaseRule):
+    type: Literal["CUSTOM_CODE"] = rule_type_field("CUSTOM_CODE")
+    display_name: Literal["Custom Code"] = rule_display_name_field("Custom Code")
     question_types: frozenset[QuestionType] = rule_question_types_field(
         {"TEXT", "NUMERIC", "CHOICE", "MULTI_VALUED"}
     )
     code: str = Field(
-        default=DEFAULT_PROGRAMMABLE_CODE,
+        default=DEFAULT_CUSTOM_CODE,
         description="Code to evaluate the answer. "
         "Required variables: 'output', 'passed'. "
         "Optional variable: 'feedback'.",
@@ -352,7 +352,7 @@ class ProgrammableRule(BaseRule):
         default_factory=dict,
         description="Parameters that can be used in the code.",
     )
-    mode: ProgrammableMode = Field(
+    mode: CustomCodeMode = Field(
         default="PASS_FAIL",
         description=(
             "Mode of evaluation: "
@@ -373,7 +373,7 @@ class ProgrammableRule(BaseRule):
                 cast(
                     FieldInfo,
                     Field(
-                        default=_single_programmable_code(context),
+                        default=_single_custom_code(context),
                         json_schema_extra=gradeflow_schema_extra(CODE_INPUT),
                     ),
                 ),
@@ -385,7 +385,7 @@ class ProgrammableRule(BaseRule):
         cls,
         context: "RuleContext",
     ) -> dict[str, Any]:
-        return {"code": _single_programmable_code(context)}
+        return {"code": _single_custom_code(context)}
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -405,11 +405,11 @@ class ProgrammableRule(BaseRule):
         )
 
 
-class ProgrammableQuestionRule(ProgrammableRule, BaseSingleQuestionRule):
+class CustomCodeQuestionRule(CustomCodeRule, BaseSingleQuestionRule):
     def compute_points(self, result: Result, max_points: float) -> float:
-        return _compute_programmable_points(
+        return _compute_custom_code_points(
             self.mode,
-            ProgrammableResult(
+            CustomCodeResult(
                 output=result.output if isinstance(result.output, float) else float(result.output),
                 passed=result.passed,
                 feedback=result.feedback,
@@ -418,9 +418,9 @@ class ProgrammableQuestionRule(ProgrammableRule, BaseSingleQuestionRule):
         )
 
 
-class ProgrammableMultiQuestionRule(BaseMultiQuestionRule):
-    type: Literal["PROGRAMMABLE_MULTI"] = rule_type_field("PROGRAMMABLE_MULTI")
-    display_name: Literal["Programmable"] = rule_display_name_field("Programmable")
+class CustomCodeMultiQuestionRule(BaseMultiQuestionRule):
+    type: Literal["CUSTOM_CODE_MULTI"] = rule_type_field("CUSTOM_CODE_MULTI")
+    display_name: Literal["Custom Code"] = rule_display_name_field("Custom Code")
     question_types: frozenset[QuestionType] = rule_question_types_field(
         {"TEXT", "NUMERIC", "CHOICE", "MULTI_VALUED"}
     )
@@ -430,7 +430,7 @@ class ProgrammableMultiQuestionRule(BaseMultiQuestionRule):
         description="List of question IDs this rule targets.",
     )
     code: str = Field(
-        default=DEFAULT_MULTI_PROGRAMMABLE_CODE,
+        default=DEFAULT_MULTI_CUSTOM_CODE,
         description="Code to evaluate the answer_map. "
         "Required variable: 'results' (dict mapping question_id -> "
         "dict with 'output', 'passed', and optionally 'feedback').",
@@ -440,7 +440,7 @@ class ProgrammableMultiQuestionRule(BaseMultiQuestionRule):
         default_factory=dict,
         description="Parameters that can be used in the code.",
     )
-    mode: ProgrammableMode = Field(
+    mode: CustomCodeMode = Field(
         default="PASS_FAIL",
         description=(
             "Mode of evaluation: "
@@ -477,7 +477,7 @@ class ProgrammableMultiQuestionRule(BaseMultiQuestionRule):
                 cast(
                     FieldInfo,
                     Field(
-                        default=_multi_programmable_code(context.question_set),
+                        default=_multi_custom_code(context.question_set),
                         json_schema_extra=gradeflow_schema_extra(CODE_INPUT),
                     ),
                 ),
@@ -489,7 +489,7 @@ class ProgrammableMultiQuestionRule(BaseMultiQuestionRule):
         cls,
         context: "RuleContext",
     ) -> dict[str, Any]:
-        return {"code": _multi_programmable_code(context.question_set)}
+        return {"code": _multi_custom_code(context.question_set)}
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -549,14 +549,14 @@ class ProgrammableMultiQuestionRule(BaseMultiQuestionRule):
 
         question_results: dict[QuestionId, QuestionResult] = {}
         for qid in self.target_question_ids:
-            prog_result = results[qid]
+            custom_result = results[qid]
             max_points = max_points_map.get(qid, DEFAULT_MAX_POINTS)
             question_results[qid] = QuestionResult(
-                output=prog_result.output,
-                passed=prog_result.passed,
-                feedback=prog_result.feedback,
+                output=custom_result.output,
+                passed=custom_result.passed,
+                feedback=custom_result.feedback,
                 rule=self.display_name,
-                points=_compute_programmable_points(self.mode, prog_result, max_points),
+                points=_compute_custom_code_points(self.mode, custom_result, max_points),
                 max_points=max_points,
             )
         return question_results

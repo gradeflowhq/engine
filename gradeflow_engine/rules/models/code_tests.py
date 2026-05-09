@@ -17,10 +17,10 @@ from .base import (
     rule_type_field,
 )
 
-ProgrammingLanguage = Literal["python"]  # Extendable to other languages in the future
+CodeTestLanguage = Literal["python"]  # Extendable to other languages in the future
 
 
-class ProgrammingTestCase(BaseModel):
+class CodeTestCase(BaseModel):
     model_config = ConfigDict(title="Test Case")
 
     expression: str = Field(..., description="Input for the test case")
@@ -28,14 +28,14 @@ class ProgrammingTestCase(BaseModel):
 
 
 @dataclass(frozen=True)
-class ProgrammingTestCaseResult:
+class CodeTestCaseResult:
     output: Any
     expected: Any
     passed: bool
 
 
-class ProgrammingConfig(BaseModel):
-    model_config = ConfigDict(title="Programming Configuration")
+class CodeTestConfig(BaseModel):
+    model_config = ConfigDict(title="Code Test Configuration")
 
     prepend_code: str = Field(
         default="",
@@ -64,7 +64,7 @@ def assemble_code(prepend: str, student_code: str, append: str, indent: int) -> 
     return f"{prepend}\n{indented_code}\n{append}"
 
 
-def evaluate_expected(testcase: ProgrammingTestCase, config: ProgrammingConfig) -> str | None:
+def evaluate_expected(testcase: CodeTestCase, config: CodeTestConfig) -> str | None:
     code_with_expected = f"""{config.prepend_code}\nTrue
 {config.append_code}
 expected = {testcase.expected}
@@ -77,9 +77,7 @@ expected = {testcase.expected}
     return str(variables.get("expected", None))
 
 
-def evaluate(
-    code: str, testcase: ProgrammingTestCase, config: ProgrammingConfig
-) -> ProgrammingTestCaseResult:
+def evaluate(code: str, testcase: CodeTestCase, config: CodeTestConfig) -> CodeTestCaseResult:
     code_with_testcase = f"""{code}
 output = {testcase.expression}
 expected = {testcase.expected}
@@ -90,29 +88,29 @@ result = {{'output': output, 'expected': expected, 'passed': passed}}
     try:
         python.run(code_with_testcase, variables, time_limit_s=config.time_limit)
     except Exception as e:
-        return ProgrammingTestCaseResult(output=str(e), expected=testcase.expected, passed=False)
+        return CodeTestCaseResult(output=str(e), expected=testcase.expected, passed=False)
 
     result: dict[str, Any] = variables.get(
         "result", {"output": None, "expected": None, "passed": False}
     )
-    return ProgrammingTestCaseResult(
+    return CodeTestCaseResult(
         output=result["output"], expected=result["expected"], passed=result["passed"]
     )
 
 
-class ProgrammingRule(BaseRule):
-    type: Literal["PROGRAMMING"] = rule_type_field("PROGRAMMING")
-    display_name: Literal["Programming"] = rule_display_name_field("Programming")
+class CodeTestRule(BaseRule):
+    type: Literal["CODE_TESTS"] = rule_type_field("CODE_TESTS")
+    display_name: Literal["Code Tests"] = rule_display_name_field("Code Tests")
     question_types: frozenset[QuestionType] = rule_question_types_field({"TEXT"})
-    testcases: list[ProgrammingTestCase] = Field(
+    testcases: list[CodeTestCase] = Field(
         ..., min_length=1, description="List of test cases to run against the code"
     )
-    language: ProgrammingLanguage = Field(
+    language: CodeTestLanguage = Field(
         default="python",
-        description="Programming language of the code to be tested",
+        description="Language of the code to be tested",
     )
-    config: ProgrammingConfig = Field(
-        default_factory=ProgrammingConfig,
+    config: CodeTestConfig = Field(
+        default_factory=CodeTestConfig,
         description="Configuration for code testing",
     )
     show_evaluated_expected: bool = Field(
@@ -170,6 +168,6 @@ class ProgrammingRule(BaseRule):
         )
 
 
-class ProgrammingQuestionRule(ProgrammingRule, BaseSingleQuestionRule):
+class CodeTestQuestionRule(CodeTestRule, BaseSingleQuestionRule):
     def compute_points(self, result: Result, max_points: float) -> float:
         return points_fn(result, mode=self.mode, max_points=max_points)

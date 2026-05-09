@@ -15,22 +15,22 @@ from gradeflow_engine.rules.models.assumption_set import (
     MultiQuestionAssumption,
 )
 from gradeflow_engine.rules.models.base import BaseRule
+from gradeflow_engine.rules.models.code_tests import (
+    CodeTestCase,
+    CodeTestConfig,
+    CodeTestRule,
+)
 from gradeflow_engine.rules.models.composite import CompositeQuestionRule
 from gradeflow_engine.rules.models.conditional import ConditionalMultiQuestionRule
+from gradeflow_engine.rules.models.custom_code import (
+    CustomCodeMultiQuestionRule,
+    CustomCodeQuestionRule,
+    CustomCodeRule,
+)
 from gradeflow_engine.rules.models.keywords import KeywordsQuestionRule
 from gradeflow_engine.rules.models.multi_valued import MultiValuedQuestionRule
 from gradeflow_engine.rules.models.multiple_choice import MultipleChoiceQuestionRule
 from gradeflow_engine.rules.models.number_equal import NumberEqualConfig, NumberEqualQuestionRule
-from gradeflow_engine.rules.models.programmable import (
-    ProgrammableMultiQuestionRule,
-    ProgrammableQuestionRule,
-    ProgrammableRule,
-)
-from gradeflow_engine.rules.models.programming import (
-    ProgrammingConfig,
-    ProgrammingRule,
-    ProgrammingTestCase,
-)
 from gradeflow_engine.rules.models.regex import RegexConfig
 from gradeflow_engine.rules.models.similarity import SimilarityQuestionRule
 from gradeflow_engine.rules.models.text_match import TextMatchQuestionRule, TextMatchRule
@@ -83,25 +83,25 @@ def test_rule_schema_titles_use_display_name_for_raw_and_contextual_models() -> 
         question=question,
     )
 
-    assert ProgrammableQuestionRule.model_json_schema()["title"] == "Programmable"
-    assert ProgrammableQuestionRule.from_context(context).model_json_schema()["title"] == (
-        "Programmable"
+    assert CustomCodeQuestionRule.model_json_schema()["title"] == "Custom Code"
+    assert CustomCodeQuestionRule.from_context(context).model_json_schema()["title"] == (
+        "Custom Code"
     )
 
 
 def test_rule_child_models_have_display_ready_schema_titles() -> None:
     assert Assumption.model_json_schema()["title"] == "Assumption"
     assert MultiQuestionAssumption.model_json_schema()["title"] == "Assumption"
-    assert ProgrammingTestCase.model_json_schema()["title"] == "Test Case"
-    assert ProgrammingConfig.model_json_schema()["title"] == "Programming Configuration"
+    assert CodeTestCase.model_json_schema()["title"] == "Test Case"
+    assert CodeTestConfig.model_json_schema()["title"] == "Code Test Configuration"
     assert RegexConfig.model_json_schema()["title"] == "Regex Configuration"
     assert NumberEqualConfig.model_json_schema()["title"] == "Number Equal Configuration"
 
-    programming_defs = ProgrammingRule.model_json_schema()["$defs"]
-    assert programming_defs["ProgrammingTestCase"]["title"] == "Test Case"
-    assert programming_defs["ProgrammingConfig"]["title"] == "Programming Configuration"
+    code_tests_defs = CodeTestRule.model_json_schema()["$defs"]
+    assert code_tests_defs["CodeTestCase"]["title"] == "Test Case"
+    assert code_tests_defs["CodeTestConfig"]["title"] == "Code Test Configuration"
 
-    parameter_defs = ProgrammableRule.model_json_schema()["$defs"]
+    parameter_defs = CustomCodeRule.model_json_schema()["$defs"]
     assert parameter_defs["IntParameter"]["title"] == "Integer"
     assert parameter_defs["FloatParameter"]["title"] == "Float"
     assert parameter_defs["StringParameter"]["title"] == "String"
@@ -277,13 +277,13 @@ def test_assumption_set_initial_value_starts_with_empty_assumptions() -> None:
     assert initial["assumptions"] == []
 
 
-def test_programmable_multi_target_question_ids_use_string_list_input() -> None:
+def test_custom_code_multi_target_question_ids_use_string_list_input() -> None:
     context = RuleContext(
         scope="global",
         question_set=QuestionSet(question_map={"q1": TextQuestion(), "q2": ChoiceQuestion()}),
     )
 
-    schema = ProgrammableMultiQuestionRule.from_context(context).model_json_schema()
+    schema = CustomCodeMultiQuestionRule.from_context(context).model_json_schema()
     target_schema = schema["properties"]["target_question_ids"]
 
     assert target_schema[GRADEFLOW_KEY] == {GRADEFLOW_INPUT_FIELD: STRING_LIST_INPUT}
@@ -292,11 +292,11 @@ def test_programmable_multi_target_question_ids_use_string_list_input() -> None:
 
 
 def test_code_fields_keep_code_input_hint_on_raw_schemas() -> None:
-    assert ProgrammableRule.model_json_schema()["properties"]["code"][GRADEFLOW_KEY] == {
+    assert CustomCodeRule.model_json_schema()["properties"]["code"][GRADEFLOW_KEY] == {
         GRADEFLOW_INPUT_FIELD: CODE_INPUT
     }
 
-    config_schema = ProgrammingConfig.model_json_schema()["properties"]
+    config_schema = CodeTestConfig.model_json_schema()["properties"]
     assert config_schema["prepend_code"][GRADEFLOW_KEY] == {GRADEFLOW_INPUT_FIELD: CODE_INPUT}
     assert config_schema["append_code"][GRADEFLOW_KEY] == {GRADEFLOW_INPUT_FIELD: CODE_INPUT}
 

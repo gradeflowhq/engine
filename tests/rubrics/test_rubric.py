@@ -7,9 +7,9 @@ from gradeflow_engine.question_sets.model import QuestionSet
 from gradeflow_engine.questions.models import ChoiceQuestion, TextQuestion
 from gradeflow_engine.rubrics.model import Rubric, RubricCoverage, grade_submission
 from gradeflow_engine.rules.models.conditional import ConditionalMultiQuestionRule
+from gradeflow_engine.rules.models.custom_code import CustomCodeMultiQuestionRule
 from gradeflow_engine.rules.models.length import LengthQuestionRule
 from gradeflow_engine.rules.models.multiple_choice import MultipleChoiceQuestionRule
-from gradeflow_engine.rules.models.programmable import ProgrammableMultiQuestionRule
 from gradeflow_engine.rules.models.text_match import TextMatchQuestionRule
 from gradeflow_engine.rules.result import QuestionResult
 from gradeflow_engine.submissions.models import Submission
@@ -172,7 +172,7 @@ def test_rubric_get_coverage_returns_rule_maps() -> None:
         }
     )
     direct = TextMatchQuestionRule(id="direct", question_id="Q1", answers=["x"])
-    global_rule = ProgrammableMultiQuestionRule(
+    global_rule = CustomCodeMultiQuestionRule(
         id="global",
         target_question_ids=["Q2", "Q3"],
     )
