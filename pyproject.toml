@@ -27,6 +27,7 @@ dependencies = [
     "typer~=0.20",
     "rich~=14.2",
     "PyYAML~=6.0",
+    "joblib~=1.5",
     "rapidfuzz~=3.14",
     "natsort~=8.4",
 ]

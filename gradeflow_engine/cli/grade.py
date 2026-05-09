@@ -1,4 +1,5 @@
 import sys
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,11 @@ from .display import (
     print_validation_errors,
 )
 from .utils import parse_kv_pairs
+
+
+class RubricGradingParallelMode(StrEnum):
+    processes = "processes"
+    threads = "threads"
 
 
 @app.command("grade")
@@ -130,6 +136,19 @@ def grade(
             "result. When disabled, such questions are omitted from result_map entirely."
         ),
     ),
+    rubric_grading_parallel_jobs: int = typer.Option(
+        1,
+        "--rubric-grading-parallel-jobs",
+        help=(
+            "Number of parallel workers to use for rubric grading. Use -1 for all CPUs "
+            "available to the process, capped by submission count."
+        ),
+    ),
+    rubric_grading_parallel_mode: RubricGradingParallelMode = typer.Option(
+        "processes",
+        "--rubric-grading-parallel-mode",
+        help="Worker mode for parallel rubric grading.",
+    ),
     graded_serializer: str = typer.Option(
         "csv",
         "--out-serializer",
@@ -187,6 +206,8 @@ def grade(
             rubric_grading_strict=rubric_grading_strict,
             rubric_override_results=rubric_override_results,
             rubric_grade_questions_without_rule=rubric_grade_questions_without_rule,
+            rubric_grading_parallel_jobs=rubric_grading_parallel_jobs,
+            rubric_grading_parallel_mode=rubric_grading_parallel_mode.value,
             graded_output_serializer_name=graded_serializer if has_rubric_source else None,
             graded_output_serializer_kwargs=out_ser_kwargs,
             graded_output_sink=output_sink,

@@ -18,7 +18,7 @@ from gradeflow_engine.core import (
 from gradeflow_engine.exceptions import ConfigurationError
 from gradeflow_engine.io.sources import StringSource
 from gradeflow_engine.question_sets.model import QuestionSet
-from gradeflow_engine.rubrics.model import Rubric
+from gradeflow_engine.rubrics.model import Rubric, RubricGradingParallelMode
 from gradeflow_engine.rules.models.length import LengthQuestionRule
 from gradeflow_engine.serializations.base import DataBlob
 from gradeflow_engine.submissions.models import RawSubmission, Submission
@@ -174,6 +174,53 @@ def test_run_pipeline_with_explicit_qset_and_rubric_and_output() -> None:
     assert result.output is not None
     assert result.output.extension == "csv"
     assert "total_points" in result.output.data.decode("utf-8")
+
+
+def test_run_pipeline_parallel_grading_matches_serial() -> None:
+    raw_submissions = [
+        RawSubmission(student_id=f"s{i}", raw_answer_map={"Q1": "yes" if i % 2 == 0 else "no"})
+        for i in range(6)
+    ]
+    qset_yaml = textwrap.dedent(
+        """\
+        question_map:
+          Q1: {type: TEXT}
+        """
+    )
+    rubric_yaml = textwrap.dedent(
+        """\
+        rules:
+          - type: TEXT_MATCH
+            question_id: Q1
+            answers: ["yes"]
+        """
+    )
+
+    def run(
+        parallel_jobs: int,
+        parallel_mode: RubricGradingParallelMode = "processes",
+    ) -> PipelineResult:
+        return run_pipeline(
+            raw_submissions=raw_submissions,
+            question_set_source=StringSource(
+                qset_yaml, media_type="application/yaml", extension="yaml"
+            ),
+            question_set_serializer_name="yaml",
+            rubric_source=StringSource(
+                rubric_yaml, media_type="application/yaml", extension="yaml"
+            ),
+            rubric_serializer_name="yaml",
+            graded_output_serializer_name=None,
+            rubric_grading_parallel_jobs=parallel_jobs,
+            rubric_grading_parallel_mode=parallel_mode,
+        )
+
+    serial = run(1)
+    parallel = run(2, "threads")
+
+    assert [submission.model_dump() for submission in parallel.submissions] == [
+        submission.model_dump() for submission in serial.submissions
+    ]
 
 
 def test_run_pipeline_errors_when_no_submissions_source() -> None:

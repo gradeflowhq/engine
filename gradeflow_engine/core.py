@@ -27,7 +27,7 @@ from .question_sets.inference import (
     DEFAULT_MULTI_VALUE_DELIMITER,
 )
 from .question_sets.model import QuestionSet
-from .rubrics.model import Rubric, RubricCoverage
+from .rubrics.model import Rubric, RubricCoverage, RubricGradingParallelMode
 from .rules.types import RuleValidationError
 
 # Serializers (registries and types)
@@ -247,6 +247,8 @@ def run_pipeline(
     rubric_grading_strict: bool = False,
     rubric_override_results: bool = True,
     rubric_grade_questions_without_rule: bool = True,
+    rubric_grading_parallel_jobs: int = 1,
+    rubric_grading_parallel_mode: RubricGradingParallelMode = "processes",
     # Optional graded output:
     graded_output_serializer_name: str | None = "csv",
     graded_output_serializer_kwargs: dict[str, Any] | None = None,
@@ -322,6 +324,8 @@ def run_pipeline(
             strict=rubric_grading_strict,
             override_results=rubric_override_results,
             grade_questions_without_rule=rubric_grade_questions_without_rule,
+            parallel_jobs=rubric_grading_parallel_jobs,
+            parallel_mode=rubric_grading_parallel_mode,
         )
         coverage = used_rubric.get_coverage(qset)
 

@@ -158,6 +158,41 @@ def test_grade_command_with_rubric_and_save(tmp_path: Path) -> None:
     assert "s2" in out_csv
 
 
+def test_grade_command_forwards_rubric_grading_parallel_jobs(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    submissions_path = tmp_path / "subs.csv"
+    submissions_path.write_text("student_id,Q1\ns1,yes\n", encoding="utf-8")
+    captured: dict[str, object] = {}
+
+    def fake_pipeline(**kwargs: object) -> PipelineResult:
+        captured.update(kwargs)
+        return PipelineResult(
+            raw_submissions=[],
+            question_set=QuestionSet(question_map={}),
+            submissions=[],
+        )
+
+    monkeypatch.setattr(grade, "run_pipeline", fake_pipeline)
+
+    result = runner.invoke(
+        cli.app,
+        [
+            "grade",
+            "--submissions",
+            str(submissions_path),
+            "--rubric-grading-parallel-jobs",
+            "3",
+            "--rubric-grading-parallel-mode",
+            "threads",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert captured["rubric_grading_parallel_jobs"] == 3
+    assert captured["rubric_grading_parallel_mode"] == "threads"
+
+
 def test_cli_grade_prints_rubric_coverage(tmp_path: Path) -> None:
     # Prepare submissions CSV (two rows, one question Q1)
     submissions_csv = textwrap.dedent(

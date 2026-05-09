@@ -45,6 +45,32 @@ def test_length_rule_grading_and_points() -> None:
     assert res2.points == 2.0
 
 
+def test_rubric_parallel_grading_matches_serial() -> None:
+    rubric = Rubric(rules=[TextMatchQuestionRule(question_id="q1", answers=["yes"])])
+    question_map = {"q1": TextQuestion(max_points=2.0)}
+    submissions = [
+        Submission(student_id=f"s{i}", answer_map={"q1": "yes" if i % 2 == 0 else "no"})
+        for i in range(6)
+    ]
+
+    serial = rubric.grade(submissions, question_map, parallel_jobs=1)
+    parallel = rubric.grade(submissions, question_map, parallel_jobs=2, parallel_mode="threads")
+
+    assert [submission.student_id for submission in parallel] == [
+        submission.student_id for submission in serial
+    ]
+    assert [submission.model_dump() for submission in parallel] == [
+        submission.model_dump() for submission in serial
+    ]
+
+
+def test_rubric_grade_rejects_zero_parallel_jobs() -> None:
+    rubric = Rubric(rules=[TextMatchQuestionRule(question_id="q1", answers=["yes"])])
+
+    with pytest.raises(ValueError, match="parallel_jobs"):
+        rubric.grade([Submission(student_id="s1", answer_map={"q1": "yes"})], {}, parallel_jobs=0)
+
+
 def test_multiple_choice_modes_and_combined_rules() -> None:
     # q2 choices correct are 'a' and 'b'
     mc_all = MultipleChoiceQuestionRule(question_id="q2", answer={"a", "b"}, mode="ALL")

@@ -1,6 +1,8 @@
 import logging
 from collections.abc import Mapping, Sequence
+from typing import Literal, TypeAlias
 
+from joblib import Parallel, delayed, effective_n_jobs
 from pydantic import BaseModel, ConfigDict
 
 from ..exceptions import GradingError, MissingAnswerError
@@ -13,6 +15,8 @@ from ..rules.result import QuestionResult
 from ..rules.types import RuleId, RuleValidationError
 from ..rules.validators import validate_unique_target_questions_in_rules
 from ..submissions.models import Submission
+
+RubricGradingParallelMode: TypeAlias = Literal["processes", "threads"]
 
 
 def _missing_answer_result(max_points: float) -> QuestionResult:
@@ -170,6 +174,62 @@ def grade_submission(
     return submission.model_copy(update={"result_map": result_map})
 
 
+def _submission_chunks(
+    submissions: Sequence[Submission], chunk_count: int
+) -> list[Sequence[Submission]]:
+    chunk_size = max(1, (len(submissions) + chunk_count - 1) // chunk_count)
+    return [
+        submissions[index : index + chunk_size] for index in range(0, len(submissions), chunk_size)
+    ]
+
+
+def _grade_submissions(
+    rules: Sequence[QuestionRule],
+    submissions: Sequence[Submission],
+    question_map: Mapping[QuestionId, Question],
+    strict: bool,
+    override_results: bool,
+    grade_questions_without_rule: bool,
+) -> list[Submission]:
+    return [
+        grade_submission(
+            rules,
+            submission,
+            question_map,
+            strict=strict,
+            override_results=override_results,
+            grade_questions_without_rule=grade_questions_without_rule,
+        )
+        for submission in submissions
+    ]
+
+
+def _grade_parallel_submissions(
+    rules: Sequence[QuestionRule],
+    submissions: Sequence[Submission],
+    question_map: Mapping[QuestionId, Question],
+    strict: bool,
+    override_results: bool,
+    grade_questions_without_rule: bool,
+    parallel_jobs: int,
+    parallel_mode: RubricGradingParallelMode,
+) -> list[Submission]:
+    worker_count = min(len(submissions), effective_n_jobs(parallel_jobs))
+    chunks = _submission_chunks(submissions, worker_count)
+    graded_chunks = Parallel(n_jobs=worker_count, prefer=parallel_mode)(
+        delayed(_grade_submissions)(
+            rules,
+            chunk,
+            question_map,
+            strict,
+            override_results,
+            grade_questions_without_rule,
+        )
+        for chunk in chunks
+    )
+    return [submission for chunk in graded_chunks for submission in chunk]
+
+
 class RubricCoverage(BaseModel):
     model_config = ConfigDict(json_schema_serialization_defaults_required=True)
 
@@ -201,18 +261,30 @@ class Rubric(BaseModel):
         strict: bool = False,
         override_results: bool = True,
         grade_questions_without_rule: bool = True,
+        parallel_jobs: int = 1,
+        parallel_mode: RubricGradingParallelMode = "processes",
     ) -> list[Submission]:
-        return [
-            grade_submission(
+        if parallel_jobs == 0:
+            raise ValueError("parallel_jobs must not be 0")
+        if parallel_jobs == 1 or len(submissions) <= 1:
+            return _grade_submissions(
                 self.rules,
-                submission,
+                submissions,
                 question_map,
-                strict=strict,
-                override_results=override_results,
-                grade_questions_without_rule=grade_questions_without_rule,
+                strict,
+                override_results,
+                grade_questions_without_rule,
             )
-            for submission in submissions
-        ]
+        return _grade_parallel_submissions(
+            self.rules,
+            submissions,
+            question_map,
+            strict,
+            override_results,
+            grade_questions_without_rule,
+            parallel_jobs,
+            parallel_mode,
+        )
 
     def validate_questions_exist(self, question_ids: set[QuestionId]) -> list[RuleValidationError]:
         return [
