@@ -230,6 +230,7 @@ def test_string_list_context_fields_keep_input_hint_without_examples(
 
     field_schema = rule.from_context(context).model_json_schema()["properties"][field_name]
 
+    assert field_schema["minItems"] == 1
     assert field_schema[GRADEFLOW_KEY] == {GRADEFLOW_INPUT_FIELD: STRING_LIST_INPUT}
     assert "examples" not in field_schema
 

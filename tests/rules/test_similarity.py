@@ -4,6 +4,7 @@ import types
 from typing import Any, cast
 
 import pytest
+from pydantic import ValidationError
 
 from gradeflow_engine.questions.types import Answer, QuestionId
 from gradeflow_engine.rules.models import similarity
@@ -11,6 +12,11 @@ from gradeflow_engine.rules.models.similarity import (
     SimilarityQuestionRule,
     SimilarityRule,
 )
+
+
+def test_similarity_rejects_empty_references() -> None:
+    with pytest.raises(ValidationError, match="at least 1 item"):
+        SimilarityRule(references=[])
 
 
 def test_similarity_levenshtein_passes_and_feedback() -> None:

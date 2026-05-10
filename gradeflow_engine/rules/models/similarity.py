@@ -87,7 +87,9 @@ class SimilarityRule(BaseRule):
     type: Literal["SIMILARITY"] = rule_type_field("SIMILARITY")
     display_name: Literal["Similarity"] = rule_display_name_field("Similarity")
     question_types: frozenset[QuestionType] = rule_question_types_field({"TEXT"})
-    references: list[str] = Field(..., description="Reference answers for similarity comparison")
+    references: list[str] = Field(
+        ..., min_length=1, description="Reference answers for similarity comparison"
+    )
     threshold: float = Field(
         default=0.8, description="Similarity threshold for passing the rule (0 to 1)"
     )
@@ -114,6 +116,7 @@ class SimilarityRule(BaseRule):
                     FieldInfo,
                     Field(
                         ...,
+                        min_length=1,
                         description="Reference answers for similarity comparison",
                         json_schema_extra=gradeflow_schema_extra(
                             STRING_LIST_INPUT,
