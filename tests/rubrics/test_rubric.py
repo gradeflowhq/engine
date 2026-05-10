@@ -293,6 +293,16 @@ def test_rubric_stale_rule_references_and_pruning_are_top_level() -> None:
     assert [rule.id for rule in pruned.rules] == ["keep"]
 
 
+def test_rubric_referenced_question_ids_include_nested_rule_references() -> None:
+    rule = ConditionalMultiQuestionRule(
+        if_rules=[TextMatchQuestionRule(question_id="q1", answers=["yes"])],
+        then_rules=[TextMatchQuestionRule(question_id="q2", answers=["ok"])],
+        else_rules=[TextMatchQuestionRule(question_id="q3", answers=["no"])],
+    )
+
+    assert Rubric(rules=[rule]).get_referenced_question_ids() == {"q1", "q2", "q3"}
+
+
 def test_rubric_no_rules_no_answer() -> None:
     qset = QuestionSet(
         question_map={"Q1": TextQuestion(max_points=10.0), "Q2": ChoiceQuestion(max_points=5.0)}

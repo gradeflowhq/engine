@@ -314,6 +314,11 @@ class Rubric(BaseModel):
             question_id for rule in self.rules for question_id in rule.get_target_question_ids()
         }
 
+    def get_referenced_question_ids(self) -> set[QuestionId]:
+        return {
+            question_id for rule in self.rules for question_id in rule.get_referenced_question_ids()
+        }
+
     def get_coverage(self, question_set: QuestionSet) -> RubricCoverage:
         question_ids = set(question_set.question_map.keys())
         question_rules: dict[QuestionId, RuleId] = {}
