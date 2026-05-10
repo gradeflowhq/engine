@@ -51,6 +51,14 @@ def test_roundtrip_equal() -> None:
     assert qset2.model_dump() == qset.model_dump()
 
 
+def test_non_strict_question_set_load_is_not_supported() -> None:
+    with pytest.raises(NotImplementedError):
+        qset_yaml.YamlQuestionSetSerializer().loads(
+            DataBlob(data=b"question_map: {}", media_type="application/yaml", extension="yaml"),
+            strict=False,
+        )
+
+
 def test_question_set_yaml_error_and_validation_edges(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         qset_yaml.yaml,

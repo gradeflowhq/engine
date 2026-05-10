@@ -62,6 +62,33 @@ def test_missing_required_fields_raises_rubric_validation_error() -> None:
     )
 
 
+def test_non_strict_load_skips_invalid_rules() -> None:
+    yaml_str = """
+    rules:
+      - id: valid-q1
+        type: TEXT_MATCH
+        question_id: q1
+        answers:
+          - Alice
+      - id: broken-q2
+        type: LENGTH
+        question_id: q2
+        min_length: not-a-number
+    """
+    blob = DataBlob(
+        data=yaml_str.encode("utf-8"),
+        media_type="application/yaml",
+        extension="yaml",
+    )
+
+    with pytest.raises(RubricValidationError):
+        load_rubric_from_blob(blob, serializer_name="yaml")
+
+    rubric = load_rubric_from_blob(blob, serializer_name="yaml", strict=False)
+
+    assert [rule.id for rule in rubric.rules] == ["valid-q1"]
+
+
 def test_dump_roundtrip_strips_engine_fields() -> None:
     rubric = Rubric(rules=[LengthQuestionRule(question_id="q1", min_length=1)])
 

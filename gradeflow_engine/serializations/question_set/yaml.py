@@ -25,7 +25,9 @@ class YamlQuestionSetSerializer(ConfigurableMixin[YamlQuestionSetConfig], Serial
             raise DumpError("yaml", str(e)) from e
         return DataBlob(data=text.encode("utf-8"), media_type=self.media_type, extension="yaml")
 
-    def loads(self, blob: DataBlob) -> QuestionSet:
+    def loads(self, blob: DataBlob, *, strict: bool = True) -> QuestionSet:
+        if not strict:
+            raise NotImplementedError("Non-strict question set loading is not supported.")
         try:
             data = yaml.safe_load(blob.data.decode("utf-8")) or {}
             return QuestionSet.model_validate(data)

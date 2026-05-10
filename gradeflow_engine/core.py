@@ -142,10 +142,11 @@ def load_rubric_from_blob(
     *,
     serializer_name: str = "yaml",
     serializer_kwargs: dict[str, Any] | None = None,
+    strict: bool = True,
 ) -> Rubric:
     cls = get_rubric_serializer_class(serializer_name)
     serializer = cls(**(serializer_kwargs or {}))
-    return serializer.loads(blob)
+    return serializer.loads(blob, strict=strict)
 
 
 def dump_submissions_to_blob(

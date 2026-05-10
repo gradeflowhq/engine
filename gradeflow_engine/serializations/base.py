@@ -31,7 +31,7 @@ class Loader(Protocol[LoadT]):
     format: str  # canonical key (e.g., 'yaml', 'json', 'csv')
     media_type: str  # e.g., 'application/yaml'
 
-    def loads(self, blob: DataBlob) -> LoadT: ...
+    def loads(self, blob: DataBlob, *, strict: bool = True) -> LoadT: ...
 
 
 class Serializer(Dumper[T], Loader[T], Protocol[T]):
