@@ -56,9 +56,9 @@ class CsvRawSubmissionsAdapter(
 
         submissions: list[RawSubmission] = []
 
-        for line_number, row in enumerate(reader):
+        for row in reader:
             # 1. Integrity Check: Ensure the row wasn't split by embedded newlines
-            self._validate_row_integrity(line_number, row)
+            self._validate_row_integrity(reader.line_num, row)
 
             # 2. Extract Student ID
             sid = row.get(self.config.student_id_column)

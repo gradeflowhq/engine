@@ -2,7 +2,7 @@ import pytest
 
 from gradeflow_engine.adapters.raw_submissions.csv import ORIGINAL_POINTS_RULE_NAME
 from gradeflow_engine.core import load_raw_submissions_via_adapter
-from gradeflow_engine.exceptions import MissingStudentIdError
+from gradeflow_engine.exceptions import MalformedCsvRowError, MissingStudentIdError
 from gradeflow_engine.io.sources import StringSource
 from gradeflow_engine.submissions.models import RawSubmission
 
@@ -46,8 +46,19 @@ def test_csv_adapter_missing_student_id_raises() -> None:
     assert exc_info.value.column == "student_id"
 
 
-def test_csv_adapter_preserves_empty_strings_and_none_as_empty() -> None:
-    # DictReader gives None for missing cells; adapter should map None -> ""
+def test_csv_adapter_malformed_row_reports_csv_line_number() -> None:
+    csv_text: str = "student_id,q1,q2\ns1,answer\n"
+    with pytest.raises(MalformedCsvRowError) as exc_info:
+        load_raw_submissions_via_adapter(
+            StringSource(csv_text, media_type="text/csv", extension="csv"),
+            adapter_name="csv",
+        )
+
+    assert exc_info.value.line_number == 2
+    assert str(exc_info.value).startswith("CSV row 2 is malformed.")
+
+
+def test_csv_adapter_preserves_empty_strings() -> None:
     csv_text: str = "student_id,a,b\ns1,,val\ns2,val2,\n"
     subs: list[RawSubmission] = load_raw_submissions_via_adapter(
         StringSource(csv_text, media_type="text/csv", extension="csv"),

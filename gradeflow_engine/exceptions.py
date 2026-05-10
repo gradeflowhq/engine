@@ -33,6 +33,13 @@ from typing import Any
 from pydantic import ValidationError
 from pydantic_core import ErrorDetails
 
+from .error_formatting import (
+    format_reason,
+    format_traceback_reason,
+    format_validation_error_details,
+    format_validation_messages,
+)
+
 # ---------------------------------------------------------------------------
 # Base
 # ---------------------------------------------------------------------------
@@ -63,9 +70,12 @@ class ConfigurationError(GradeFlowError):
 class GradeFlowValidationError(GradeFlowError):
     """Base class for validation errors in the GradeFlow engine."""
 
+    subject = "Input"
+
     def __init__(self, validation_error: ValidationError) -> None:
         self.validation_error = validation_error
-        super().__init__(str(validation_error))
+        self.messages: list[str] = format_validation_error_details(validation_error.errors())
+        super().__init__(format_validation_messages(self.subject, self.messages))
 
     @property
     def title(self) -> str:
@@ -112,7 +122,7 @@ class DumpError(SerializationError):
     def __init__(self, serializer: str, reason: str) -> None:
         self.serializer = serializer
         self.reason = reason
-        super().__init__(f"Serializer '{serializer}' failed to dump: {reason}")
+        super().__init__(f"Could not save {serializer} data: {format_reason(reason)}")
 
 
 class LoadError(SerializationError):
@@ -121,7 +131,7 @@ class LoadError(SerializationError):
     def __init__(self, serializer: str, reason: str) -> None:
         self.serializer = serializer
         self.reason = reason
-        super().__init__(f"Serializer '{serializer}' failed to load: {reason}")
+        super().__init__(f"Could not load {serializer} data: {format_reason(reason)}")
 
 
 # ---------------------------------------------------------------------------
@@ -152,7 +162,9 @@ class AdapterLoadError(AdapterError):
     def __init__(self, adapter: str, reason: str) -> None:
         self.adapter = adapter
         self.reason = reason
-        super().__init__(f"Adapter '{adapter}' failed to load: {reason}")
+        super().__init__(
+            f"Could not load data with the {adapter} adapter: {format_reason(reason)}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -171,17 +183,13 @@ class MalformedCsvRowError(SubmissionError):
     """
 
     def __init__(self, line_number: int, row_data: dict[str, Any], missing_cols: list[str]) -> None:
-        # Create a concise preview of the row data for debugging context
-        preview_items = list(row_data.items())[:6]
-        preview_str = ", ".join(f"{k}={v!r}" for k, v in preview_items)
-        if len(row_data) > 6:
-            preview_str += ", ..."
-
+        self.line_number = line_number
+        self.row_data = row_data
+        self.missing_cols = missing_cols
+        columns = ", ".join(missing_cols) or "<unknown>"
         super().__init__(
-            f"Malformed CSV data detected around line {line_number}. "
-            f"The following columns contain missing values (None), likely due to an unquoted "
-            f"newline splitting the row: {missing_cols}. "
-            f"Row preview: {{{preview_str}}}"
+            f"CSV row {line_number} is malformed. Columns with missing values: {columns}. "
+            "This usually means the row has too few cells or contains an unquoted newline."
         )
 
 
@@ -191,7 +199,7 @@ class MissingStudentIdError(SubmissionError):
     def __init__(self, column: str, row: dict[str, Any]) -> None:
         self.column = column
         self.row = row
-        super().__init__(f"Student ID column '{column}' not found in row: {row}")
+        super().__init__(f"CSV row is missing a value in the student ID column '{column}'.")
 
 
 class AnswerParseError(SubmissionError):
@@ -203,7 +211,7 @@ class AnswerParseError(SubmissionError):
         self.reason = reason
         super().__init__(
             f"Failed to parse answer for question '{question_id}' "
-            f"(raw value: {raw_answer!r}): {reason}"
+            f"(raw value: {raw_answer!r}): {format_reason(reason)}"
         )
 
 
@@ -237,6 +245,8 @@ class RubricError(GradeFlowError):
 class RubricValidationError(GradeFlowValidationError):
     """Raised when a rubric fails validation."""
 
+    subject = "Rubric"
+
 
 class GradingError(RubricError):
     """Raised when an error occurs while grading a submission."""
@@ -246,7 +256,8 @@ class GradingError(RubricError):
         self.question_id = question_id
         self.reason = reason
         super().__init__(
-            f"Grading failed for student '{student_id}', question '{question_id}': {reason}"
+            f"Grading failed for student '{student_id}', question '{question_id}': "
+            f"{format_traceback_reason(reason)}"
         )
 
 
@@ -261,11 +272,15 @@ class QuestionInferenceError(GradeFlowError):
     def __init__(self, question_id: str, reason: str) -> None:
         self.question_id = question_id
         self.reason = reason
-        super().__init__(f"Question inference failed for question '{question_id}': {reason}")
+        super().__init__(
+            f"Question inference failed for question '{question_id}': {format_reason(reason)}"
+        )
 
 
 class QuestionSetValidationError(GradeFlowValidationError):
     """Raised when a question set fails validation."""
+
+    subject = "Question set"
 
 
 # ---------------------------------------------------------------------------
@@ -290,4 +305,4 @@ class ExecutorRuntimeError(ExecutorError):
 
     def __init__(self, reason: str) -> None:
         self.reason = reason
-        super().__init__(f"Code execution failed: {reason}")
+        super().__init__(f"Code execution failed: {format_traceback_reason(reason)}")

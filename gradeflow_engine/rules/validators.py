@@ -84,6 +84,6 @@ def validate_unique_target_questions_in_rules(
     # Check for duplicate targeting
     for qid, rules in rule_map.items():
         if len(rules) > 1:
-            rule_types = [rule.type for rule in rules]
-            errors.append(f"Question ID {qid} is targeted by multiple rules: {rule_types}")
+            rule_names = ", ".join(rule.display_name for rule in rules)
+            errors.append(f"Question {qid} is targeted by multiple rules: {rule_names}.")
     return errors

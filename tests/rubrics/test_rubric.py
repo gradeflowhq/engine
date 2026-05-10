@@ -6,6 +6,11 @@ from gradeflow_engine.exceptions import GradingError
 from gradeflow_engine.question_sets.model import QuestionSet
 from gradeflow_engine.questions.models import ChoiceQuestion, TextQuestion
 from gradeflow_engine.rubrics.model import Rubric, RubricCoverage, grade_submission
+from gradeflow_engine.rules.models.assumption_set import (
+    AssumptionSetMultiQuestionRule,
+    AssumptionSetQuestionRule,
+    MultiQuestionAssumption,
+)
 from gradeflow_engine.rules.models.conditional import ConditionalMultiQuestionRule
 from gradeflow_engine.rules.models.custom_code import CustomCodeMultiQuestionRule
 from gradeflow_engine.rules.models.length import LengthQuestionRule
@@ -140,12 +145,31 @@ def test_validate_questions_exist_and_compatibility_and_unique() -> None:
     mc2 = MultipleChoiceQuestionRule(question_id="q2", answer={"b"})
     rubric_dup = Rubric(rules=[mc1, mc2])
     unique_errors = rubric_dup.validate_unique_target_questions()
-    assert any("targeted by multiple rules" in e for e in unique_errors)
+    assert unique_errors == [
+        "Question q2 is targeted by multiple rules: Multiple Choice, Multiple Choice."
+    ]
 
     # validate_rubric aggregates all checks
     agg_errors = rubric_dup.validate_rubric(qs)
     # should include compatibility (none here for mc against choice), and unique target error
     assert any("targeted by multiple rules" in e for e in agg_errors)
+
+
+def test_duplicate_target_error_uses_rule_display_names() -> None:
+    q1_rule = AssumptionSetQuestionRule(question_id="Q1", assumptions=[], mode="MAX")
+    global_rule = AssumptionSetMultiQuestionRule(
+        assumptions=[
+            MultiQuestionAssumption(
+                rules=[TextMatchQuestionRule(question_id="Q1", answers=["yes"])]
+            )
+        ],
+        mode="MAX",
+    )
+    rubric = Rubric(rules=[q1_rule, global_rule])
+
+    assert rubric.validate_unique_target_questions() == [
+        "Question Q1 is targeted by multiple rules: Assumption Set, Assumption Set."
+    ]
 
 
 def test_rubric_get_coverage_basic() -> None:
