@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from functools import reduce
 from operator import or_
 from typing import Annotated, Any, Literal, cast
@@ -24,11 +24,11 @@ CODE_INPUT = "code"
 def gradeflow_schema_extra(
     input_type: str,
     *,
-    suggestions: Sequence[str] | None = None,
+    suggestions: Mapping[str, int] | None = None,
 ) -> JsonDict:
     metadata: JsonDict = {GRADEFLOW_INPUT_FIELD: input_type}
     if suggestions:
-        metadata[GRADEFLOW_SUGGESTIONS_FIELD] = list(suggestions)
+        metadata[GRADEFLOW_SUGGESTIONS_FIELD] = dict(suggestions)
     return {GRADEFLOW_KEY: metadata}
 
 

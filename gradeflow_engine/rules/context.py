@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from typing import Literal, TypeAlias, cast
@@ -48,19 +49,22 @@ class RuleContext:
             )
         return replace(self, scope="value", slot_index=index)
 
-    def answer_suggestions(self) -> list[str]:
+    def answer_values(self) -> list[str]:
         if not self.question_id or not self.question:
             return []
 
-        suggestions: list[str] = []
+        values: list[str] = []
         for submission in self.submissions:
             answer = submission.answer_map.get(self.question_id)
             if answer is None:
                 continue
             suggestion = self._answer_suggestion(answer)
-            if suggestion and suggestion not in suggestions:
-                suggestions.append(suggestion)
-        return suggestions
+            if suggestion:
+                values.append(suggestion)
+        return values
+
+    def answer_suggestions(self) -> dict[str, int]:
+        return dict(Counter(self.answer_values()))
 
     def _answer_suggestion(self, answer: object) -> str | None:
         if isinstance(self.question, MultiValuedQuestion) and self.slot_index is not None:

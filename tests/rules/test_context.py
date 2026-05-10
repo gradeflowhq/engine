@@ -133,13 +133,15 @@ def test_rule_id_is_read_only_in_raw_rule_schemas() -> None:
     assert schema["properties"]["id"]["readOnly"] is True
 
 
-def test_text_match_context_embeds_answer_suggestions() -> None:
+def test_text_match_context_embeds_answer_suggestion_counts() -> None:
     question = TextQuestion()
     context = RuleContext(
         scope="question",
         question_set=QuestionSet(question_map={"q1": question}),
         submissions=[
-            Submission(student_id=f"s{i}", answer_map={"q1": f"answer {i}"}) for i in range(25)
+            Submission(student_id="s1", answer_map={"q1": "Alice"}),
+            Submission(student_id="s2", answer_map={"q1": "Bob"}),
+            Submission(student_id="s3", answer_map={"q1": "Alice"}),
         ],
         question_id="q1",
         question=question,
@@ -150,7 +152,7 @@ def test_text_match_context_embeds_answer_suggestions() -> None:
     answers_schema = schema["properties"]["answers"]
     assert answers_schema[GRADEFLOW_KEY] == {
         GRADEFLOW_INPUT_FIELD: STRING_LIST_INPUT,
-        GRADEFLOW_SUGGESTIONS_FIELD: [f"answer {i}" for i in range(25)],
+        GRADEFLOW_SUGGESTIONS_FIELD: {"Alice": 2, "Bob": 1},
     }
     assert "examples" not in answers_schema
 
@@ -163,6 +165,7 @@ def test_number_equal_context_uses_string_list_with_numeric_suggestions() -> Non
         submissions=[
             Submission(student_id="s1", answer_map={"q1": 90}),
             Submission(student_id="s2", answer_map={"q1": 76.5}),
+            Submission(student_id="s3", answer_map={"q1": 90}),
         ],
         question_id="q1",
         question=question,
@@ -174,7 +177,7 @@ def test_number_equal_context_uses_string_list_with_numeric_suggestions() -> Non
     assert answers_schema["items"]["type"] == "string"
     assert answers_schema[GRADEFLOW_KEY] == {
         GRADEFLOW_INPUT_FIELD: STRING_LIST_INPUT,
-        GRADEFLOW_SUGGESTIONS_FIELD: ["90", "76.5"],
+        GRADEFLOW_SUGGESTIONS_FIELD: {"90": 2, "76.5": 1},
     }
     assert "examples" not in answers_schema
     assert NumberEqualQuestionRule.model_validate(
@@ -182,15 +185,33 @@ def test_number_equal_context_uses_string_list_with_numeric_suggestions() -> Non
     ).answers == [90, 76.5]
 
 
-def test_keywords_context_suggests_distinct_words_from_answers() -> None:
+def test_multi_value_slot_answer_suggestions_count_selected_slot() -> None:
+    question = MultiValuedQuestion(value_types=["TEXT", "NUMERIC"])
+    context = RuleContext(
+        scope="value",
+        question_set=QuestionSet(question_map={"q1": question}),
+        submissions=[
+            Submission(student_id="s1", answer_map={"q1": ["left", 1]}),
+            Submission(student_id="s2", answer_map={"q1": ["right", 2]}),
+            Submission(student_id="s3", answer_map={"q1": ["again", 1]}),
+        ],
+        question_id="q1",
+        question=question,
+        slot_index=1,
+    )
+
+    assert context.answer_suggestions() == {"1": 2, "2": 1}
+
+
+def test_keywords_context_counts_words_per_answer_from_raw_answers() -> None:
     question = TextQuestion()
     context = RuleContext(
         scope="question",
         question_set=QuestionSet(question_map={"q1": question}),
         submissions=[
-            Submission(student_id="s1", answer_map={"q1": "buy house"}),
-            Submission(student_id="s2", answer_map={"q1": "pay"}),
-            Submission(student_id="s3", answer_map={"q1": "house"}),
+            Submission(student_id="s1", answer_map={"q1": "buy buy house"}),
+            Submission(student_id="s2", answer_map={"q1": "buy house"}),
+            Submission(student_id="s3", answer_map={"q1": "pay"}),
             Submission(student_id="s4", answer_map={"q1": "AI, buy."}),
         ],
         question_id="q1",
@@ -203,7 +224,7 @@ def test_keywords_context_suggests_distinct_words_from_answers() -> None:
 
     assert keywords_schema[GRADEFLOW_KEY] == {
         GRADEFLOW_INPUT_FIELD: STRING_LIST_INPUT,
-        GRADEFLOW_SUGGESTIONS_FIELD: ["buy", "house", "pay", "AI"],
+        GRADEFLOW_SUGGESTIONS_FIELD: {"buy": 3, "house": 2, "pay": 1, "AI": 1},
     }
     assert "examples" not in keywords_schema
 

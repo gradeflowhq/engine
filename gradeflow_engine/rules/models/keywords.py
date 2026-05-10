@@ -1,4 +1,6 @@
 import re
+from collections import Counter
+from collections.abc import Iterable
 from typing import TYPE_CHECKING, Literal, cast
 
 from pydantic import Field, computed_field
@@ -21,13 +23,11 @@ if TYPE_CHECKING:
     from ..context import RuleContext
 
 
-def _keyword_suggestions(answer_suggestions: list[str]) -> list[str]:
-    keywords: list[str] = []
-    for answer in answer_suggestions:
-        for word in re.findall(r"\w+", answer):
-            if word not in keywords:
-                keywords.append(word)
-    return keywords
+def _keyword_suggestions(answers: Iterable[str]) -> dict[str, int]:
+    counts: Counter[str] = Counter()
+    for answer in answers:
+        counts.update(set(re.findall(r"\w+", answer)))
+    return dict(counts)
 
 
 class KeywordsRule(BaseRule):
@@ -67,7 +67,7 @@ class KeywordsRule(BaseRule):
                         description="List of keywords that must be present in the answer",
                         json_schema_extra=gradeflow_schema_extra(
                             STRING_LIST_INPUT,
-                            suggestions=_keyword_suggestions(context.answer_suggestions()),
+                            suggestions=_keyword_suggestions(context.answer_values()),
                         ),
                     ),
                 ),

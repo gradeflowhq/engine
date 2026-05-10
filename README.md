@@ -681,7 +681,7 @@ The engine owns rule compatibility, initial values, and contextual JSON Schema g
 Schemas may include engine-owned JSON Schema extras under `x-gradeflow`, such as:
 
 - `input`: rendering hint for generic clients, for example `code`, `string-list`, `rule`, or `rule-list`.
-- `suggestions`: selectable values derived from the question set and observed submissions.
+- `suggestions`: selectable values mapped to observed counts, derived from submissions.
 
 These hints are intentionally neutral. They describe rule data, not frontend component names.
 
