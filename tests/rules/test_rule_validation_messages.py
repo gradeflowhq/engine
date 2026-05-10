@@ -154,9 +154,7 @@ def test_rule_validation_errors_are_user_friendly(
 
 
 def test_rule_validation_details_are_user_friendly() -> None:
-    messages = _question_rule_messages(
-        {"type": "LENGTH", "question_id": "q1", "min_length": "bad"}
-    )
+    messages = _question_rule_messages({"type": "LENGTH", "question_id": "q1", "min_length": "bad"})
 
     assert messages == ["Length > min length must be a whole number."]
     assert not any(fragment in str(messages) for fragment in RAW_PYDANTIC_FRAGMENTS)
@@ -167,9 +165,7 @@ def test_assumption_rule_item_locations_are_named() -> None:
         {
             "type": "ASSUMPTION_SET",
             "question_id": "q1",
-            "assumptions": [
-                {"weight": 1, "rule": {"type": "MULTIPLE_CHOICE", "answer": [1]}}
-            ],
+            "assumptions": [{"weight": 1, "rule": {"type": "MULTIPLE_CHOICE", "answer": [1]}}],
         }
     )
 
@@ -231,9 +227,7 @@ def test_uppercase_mapping_keys_are_not_treated_as_type_tags() -> None:
         }
     )
 
-    assert messages == [
-        "Custom Code > parameters > MY PARAM > Int > value must be a whole number."
-    ]
+    assert messages == ["Custom Code > parameters > MY PARAM > Int > value must be a whole number."]
 
 
 def test_nested_question_rule_locations_use_rule_labels() -> None:

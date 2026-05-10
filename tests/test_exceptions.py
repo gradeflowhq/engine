@@ -79,9 +79,7 @@ def test_rubric_validation_error_message_is_user_friendly() -> None:
 
 
 def test_rubric_validation_error_explains_missing_and_unknown_rule_types() -> None:
-    error = _rubric_validation_error(
-        {"rules": [{}, {"type": "NOT_A_RULE", "question_id": "q1"}]}
-    )
+    error = _rubric_validation_error({"rules": [{}, {"type": "NOT_A_RULE", "question_id": "q1"}]})
     message = str(error)
 
     assert message == (

@@ -112,11 +112,7 @@ def _format_validation_error(error: ErrorDetails) -> str:
 
 
 def _strip_numeric_union_branch(loc: object) -> tuple[object, bool]:
-    if (
-        isinstance(loc, tuple | list)
-        and loc
-        and loc[-1] in _NUMERIC_UNION_BRANCH_LOC_PARTS
-    ):
+    if isinstance(loc, tuple | list) and loc and loc[-1] in _NUMERIC_UNION_BRANCH_LOC_PARTS:
         return loc[:-1], True
     return loc, False
 

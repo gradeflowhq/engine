@@ -162,9 +162,7 @@ class AdapterLoadError(AdapterError):
     def __init__(self, adapter: str, reason: str) -> None:
         self.adapter = adapter
         self.reason = reason
-        super().__init__(
-            f"Could not load data with the {adapter} adapter: {format_reason(reason)}"
-        )
+        super().__init__(f"Could not load data with the {adapter} adapter: {format_reason(reason)}")
 
 
 # ---------------------------------------------------------------------------
