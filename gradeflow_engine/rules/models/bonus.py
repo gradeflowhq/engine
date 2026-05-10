@@ -23,7 +23,7 @@ class BonusRule(BaseRule):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def description(self) -> str:
-        return "Bonus (anything is correct)."
+        return "**Bonus:** anything is correct."
 
     def _process_answer(self, answer: Answer) -> Result:
         return Result(

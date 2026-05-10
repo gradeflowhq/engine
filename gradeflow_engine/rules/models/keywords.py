@@ -8,6 +8,7 @@ from pydantic.fields import FieldInfo
 
 from ...questions.types import Answer, QuestionType
 from ..aggregations.completeness import output_fn, passed_fn, points_fn
+from ..markdown import markdown_join
 from ..result import Result
 from ..schema import STRING_LIST_INPUT, gradeflow_schema_extra
 from ..types import CompletenessAggregation
@@ -78,11 +79,18 @@ class KeywordsRule(BaseRule):
     @property
     def description(self) -> str:
         if self.mode == "ALL":
-            return f"Contain all of the these keywords: {', '.join(self.keywords)}."
+            return (
+                f"Contain all of these keywords: {markdown_join(self.keywords, conjunction='and')}."
+            )
         elif self.mode == "ANY":
-            return f"Contain at least one of these keywords: {', '.join(self.keywords)}."
+            return (
+                "Contain at least one of these keywords: "
+                f"{markdown_join(self.keywords, conjunction='or')}."
+            )
         elif self.mode == "PARTIAL":
-            return f"Partial credit for keywords: {', '.join(self.keywords)}."
+            return (
+                f"Partial credit for keywords: {markdown_join(self.keywords, conjunction='and')}."
+            )
         else:
             raise ValueError(f"Unknown mode: {self.mode}")
 

@@ -162,7 +162,7 @@ def test_conditional_validation_edges() -> None:
         else_rules=[TextMatchQuestionRule(question_id="Q3", answers=["no"])],
     )
 
-    assert "IF [Q1]" in conditional.description
+    assert "**IF** `Q1`:" in conditional.description
     assert (
         conditional.validate_compatibility(
             {"Q1": TextQuestion(), "Q2": TextQuestion(), "Q3": TextQuestion()}

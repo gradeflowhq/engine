@@ -6,6 +6,7 @@ from pydantic.fields import FieldInfo
 
 from ...questions.models import Question
 from ...questions.types import Answer, QuestionId, QuestionType
+from ..markdown import markdown_code
 from ..result import QuestionResult
 from ..schema import RULE_LIST_INPUT, gradeflow_schema_extra, question_rule_union
 from ..types import BooleanAggregation, RuleValidationError
@@ -121,13 +122,16 @@ class ConditionalMultiQuestionRule(BaseMultiQuestionRule):
     @property
     def description(self) -> str:
         if_condition = f"\n{self.if_aggregation}\n".join(
-            f"IF [{rule.question_id}]:\n{rule.description}" for rule in self.if_rules
+            f"**IF** {markdown_code(rule.question_id)}:\n{rule.description}"
+            for rule in self.if_rules
         )
         then_condition = "\n\n".join(
-            f"THEN [{rule.question_id}]:\n{rule.description}" for rule in self.then_rules
+            f"**THEN** {markdown_code(rule.question_id)}:\n{rule.description}"
+            for rule in self.then_rules
         )
         else_condition = "\n\n".join(
-            f"ELSE [{rule.question_id}]:\n{rule.description}" for rule in self.else_rules
+            f"**ELSE** {markdown_code(rule.question_id)}:\n{rule.description}"
+            for rule in self.else_rules
         )
         return f"{if_condition}\n\n{then_condition}\n\n{else_condition}"
 

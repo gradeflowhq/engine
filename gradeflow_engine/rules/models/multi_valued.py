@@ -102,7 +102,7 @@ class MultiValuedRule(BaseRule):
     @property
     def description(self) -> str:
         return "\n\n".join(
-            f"Value {i + 1}:\n{rule.description}" for i, rule in enumerate(self.rules)
+            f"**Value {i + 1}:**\n{rule.description}" for i, rule in enumerate(self.rules)
         )
 
     def validate_question_compatibility(self, question: Question) -> list[RuleValidationError]:

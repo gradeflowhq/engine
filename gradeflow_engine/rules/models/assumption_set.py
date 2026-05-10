@@ -8,6 +8,7 @@ from rapidfuzz.distance import JaroWinkler
 
 from ...questions.models import Question
 from ...questions.types import Answer, QuestionId, QuestionType
+from ..markdown import markdown_code
 from ..result import QuestionResult, Result
 from ..schema import (
     RULE_INPUT,
@@ -194,7 +195,8 @@ class AssumptionSetQuestionRule(AssumptionSetBaseRule, BaseSingleQuestionRule):
     @property
     def description(self) -> str:
         return "\n\n".join(
-            f"Assumption {i + 1} ({assumption.name or 'Unnamed'}):\n{assumption.rule.description}"
+            f"**Assumption {i + 1} ({markdown_code(assumption.name or 'Unnamed')}):**\n"
+            f"{assumption.rule.description}"
             for i, assumption in enumerate(self.assumptions)
         )
 
@@ -286,8 +288,11 @@ class AssumptionSetMultiQuestionRule(AssumptionSetBaseRule, BaseMultiQuestionRul
     @property
     def description(self) -> str:
         return "\n\n".join(
-            f"Assumption {i + 1} ({assumption.name or 'Unnamed'}):\n"
-            + "\n".join(f"[{rule.question_id}]:\n{rule.description}" for rule in assumption.rules)
+            f"**Assumption {i + 1} ({markdown_code(assumption.name or 'Unnamed')}):**\n"
+            + "\n".join(
+                f"{markdown_code(rule.question_id)}:\n{rule.description}"
+                for rule in assumption.rules
+            )
             for i, assumption in enumerate(self.assumptions)
         )
 

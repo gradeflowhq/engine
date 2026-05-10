@@ -3,6 +3,7 @@ from typing import Literal
 from pydantic import Field, computed_field
 
 from ...questions.types import Answer, QuestionType
+from ..markdown import markdown_code
 from ..result import Result
 from .base import (
     BaseRule,
@@ -24,11 +25,11 @@ class NumericRangeRule(BaseRule):
     @property
     def description(self) -> str:
         if self.min_value is not None and self.max_value is not None:
-            return f"Between {self.min_value} and {self.max_value}."
+            return f"Between {markdown_code(self.min_value)} and {markdown_code(self.max_value)}."
         elif self.min_value is not None:
-            return f"Greater than or equal to {self.min_value}."
+            return f"Greater than or equal to {markdown_code(self.min_value)}."
         elif self.max_value is not None:
-            return f"Less than or equal to {self.max_value}."
+            return f"Less than or equal to {markdown_code(self.max_value)}."
         else:
             return "No numeric range specified."
 

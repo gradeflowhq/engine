@@ -7,6 +7,7 @@ from pydantic.fields import FieldInfo
 from rapidfuzz.distance import JaroWinkler, Levenshtein
 
 from ...questions.types import Answer, QuestionType
+from ..markdown import markdown_code, markdown_join
 from ..result import Result
 from ..schema import STRING_LIST_INPUT, gradeflow_schema_extra
 from .base import (
@@ -131,10 +132,9 @@ class SimilarityRule(BaseRule):
     @property
     def description(self) -> str:
         return (
-            f"Similarity to one of the reference answers "
-            f"{', '.join([f'`{ref}`' for ref in self.references])} "
-            f"is at least {self.threshold:.0%} "
-            f"using {self.algorithm.replace('_', ' ').title()} similarity."
+            f"Accept answers at least {markdown_code(f'{self.threshold:.0%}')} similar to "
+            f"{markdown_join(self.references, conjunction='or')} "
+            f"using {self.algorithm.replace('_', ' ').title()}."
         )
 
     def _process_answer(self, answer: Answer) -> Result:

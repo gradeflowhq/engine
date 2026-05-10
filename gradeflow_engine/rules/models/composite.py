@@ -7,6 +7,7 @@ from pydantic.fields import FieldInfo
 from ...questions.models import Question
 from ...questions.types import Answer, QuestionId, QuestionType
 from ..aggregations.completeness import output_fn, passed_fn, points_fn
+from ..markdown import markdown_code
 from ..result import Result
 from ..schema import RULE_LIST_INPUT, gradeflow_schema_extra, rule_question_types, value_rule_union
 from ..types import CompletenessAggregation, RuleValidationError
@@ -83,8 +84,9 @@ class CompositeRule(BaseRule):
             "PARTIAL": "Partial credit based on how many are true",
         }
         return (
-            desc_aggregation.get(self.aggregation, "Unknown aggregation")
-            + ":\n"
+            f"**{desc_aggregation.get(self.aggregation, 'Unknown aggregation')}** "
+            f"({markdown_code(self.aggregation)}):"
+            + "\n"
             + "\n".join(rule.description for rule in self.rules)
         )
 

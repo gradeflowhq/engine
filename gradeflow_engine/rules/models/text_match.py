@@ -4,6 +4,7 @@ from pydantic import Field, computed_field
 from pydantic.fields import FieldInfo
 
 from ...questions.types import Answer, QuestionType
+from ..markdown import markdown_join
 from ..result import Result
 from ..schema import STRING_LIST_INPUT, gradeflow_schema_extra
 from .base import (
@@ -52,7 +53,7 @@ class TextMatchRule(BaseRule):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def description(self) -> str:
-        return f"Match one of these answers: {', '.join(self.answers)}."
+        return f"Match one of these answers: {markdown_join(self.answers, conjunction='or')}."
 
     def _process_answer(self, answer: Answer) -> Result:
         answer_str = str(answer)

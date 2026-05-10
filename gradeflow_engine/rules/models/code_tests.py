@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field
 from ...questions.types import Answer, QuestionType
 from ..aggregations.completeness import output_fn, passed_fn, points_fn
 from ..executors import python
+from ..markdown import markdown_code
 from ..result import Result
 from ..schema import CODE_INPUT, gradeflow_schema_extra
 from ..types import CompletenessAggregation
@@ -130,9 +131,9 @@ class CodeTestRule(BaseRule):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def description(self) -> str:
-        return "Code must pass:\n" + "\n".join(
-            f"Test Case {i + 1}: Expression `{testcase.expression}` "
-            f"evaluates to `{testcase.expected}`."
+        return "**Code must pass:**\n" + "\n".join(
+            f"Test Case {i + 1}: Expression {markdown_code(testcase.expression)} "
+            f"evaluates to {markdown_code(testcase.expected)}."
             for i, testcase in enumerate(self.testcases)
         )
 

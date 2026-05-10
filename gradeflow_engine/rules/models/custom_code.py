@@ -11,6 +11,7 @@ from ...questions.models import Question
 from ...questions.models.multi_valued import MultiValuedQuestion
 from ...questions.types import Answer, QuestionId, QuestionType
 from ..executors import python
+from ..markdown import markdown_join
 from ..result import QuestionResult, Result
 from ..schema import (
     CODE_INPUT,
@@ -494,9 +495,10 @@ class CustomCodeMultiQuestionRule(BaseMultiQuestionRule):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def description(self) -> str:
-        qids = ", ".join(self.target_question_ids)
         return (
-            f"Custom multi-question code targeting [{qids}] that uses "
+            "Custom multi-question code targeting "
+            f"{markdown_join(self.target_question_ids, conjunction='and')} "
+            "that uses "
             f"{'`output`' if self.mode == 'OUTPUT' else '`passed`'} "
             "per question to determine scores."
         )

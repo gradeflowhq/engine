@@ -8,6 +8,7 @@ from ...questions.models import Question
 from ...questions.models.choice import ChoiceQuestion
 from ...questions.types import Answer, QuestionType
 from ..constraints import QuestionConstraint
+from ..markdown import markdown_join
 from ..result import Result
 from ..schema import literal_type
 from ..types import RuleValidationError
@@ -181,17 +182,20 @@ class MultipleChoiceRule(BaseRule):
     @property
     def description(self) -> str:
         if self.mode == "ALL":
-            return f"Include all of these choices: {', '.join(self.answer)}."
+            choices = markdown_join(sorted(self.answer), conjunction="and")
+            return f"Include all of these choices: {choices}."
         elif self.mode == "ANY":
-            return f"Include at least one of these choices: {', '.join(self.answer)}."
+            choices = markdown_join(sorted(self.answer), conjunction="or")
+            return f"Include at least one of these choices: {choices}."
         elif self.mode == "CONTAIN":
-            return (
-                f"Include all of these choices (but may include others): {', '.join(self.answer)}."
-            )
+            choices = markdown_join(sorted(self.answer), conjunction="and")
+            return f"Include all of these choices (but may include others): {choices}."
         elif self.mode == "NOT_CONTAIN":
-            return f"Do not include any of these choices: {', '.join(self.answer)}."
+            choices = markdown_join(sorted(self.answer), conjunction="or")
+            return f"Do not include any of these choices: {choices}."
         elif self.mode == "PARTIAL":
-            return f"Partial credit for correct choices: {', '.join(self.answer)}."
+            choices = markdown_join(sorted(self.answer), conjunction="and")
+            return f"Partial credit for correct choices: {choices}."
         else:
             raise ValueError(f"Unknown mode: {self.mode}")
 

@@ -3,6 +3,7 @@ from typing import Literal
 from pydantic import Field, computed_field
 
 from ...questions.types import Answer, QuestionType
+from ..markdown import markdown_code
 from ..result import Result
 from .base import (
     BaseRule,
@@ -28,11 +29,14 @@ class LengthRule(BaseRule):
     def description(self) -> str:
         length_desc = "characters" if self.mode == "characters" else "words"
         if self.min_length is not None and self.max_length is not None:
-            return f"Between {self.min_length} and {self.max_length} {length_desc}."
+            return (
+                f"Between {markdown_code(self.min_length)} and "
+                f"{markdown_code(self.max_length)} {length_desc}."
+            )
         elif self.min_length is not None:
-            return f"At least {self.min_length} {length_desc}."
+            return f"At least {markdown_code(self.min_length)} {length_desc}."
         elif self.max_length is not None:
-            return f"At most {self.max_length} {length_desc}."
+            return f"At most {markdown_code(self.max_length)} {length_desc}."
         else:
             return "No length constraints."
 

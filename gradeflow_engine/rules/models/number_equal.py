@@ -4,6 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field
 from pydantic.fields import FieldInfo
 
 from ...questions.types import Answer, QuestionType
+from ..markdown import markdown_code, markdown_join
 from ..result import Result
 from ..schema import STRING_LIST_INPUT, gradeflow_schema_extra
 from .base import (
@@ -113,11 +114,11 @@ class NumberEqualRule(BaseRule):
         if self.config.approximate:
             return (
                 f"Approximately equal to: "
-                f"{', '.join(str(ans) for ans in self.answers)} "
-                f"within a tolerance of {self.config.tolerance}."
+                f"{markdown_join(self.answers, conjunction='or')} "
+                f"within a tolerance of {markdown_code(self.config.tolerance)}."
             )
         else:
-            return f"Equal to: {', '.join(str(ans) for ans in self.answers)}."
+            return f"Equal to: {markdown_join(self.answers, conjunction='or')}."
 
     def _process_answer(self, answer: Answer) -> Result:
         if not isinstance(answer, (int, float)) or isinstance(answer, bool):

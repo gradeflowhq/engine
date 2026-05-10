@@ -6,6 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from ...questions.types import Answer, QuestionType
+from ..markdown import markdown_code
 from ..result import Result
 from .base import (
     BaseRule,
@@ -61,7 +62,7 @@ class RegexRule(BaseRule):
         if self.config.dotall:
             config_desc.append("dot matches newlines")
         config_str = ", ".join(config_desc) if config_desc else "default regex behavior"
-        return f"Match the regex pattern: {self.pattern} ({config_str})."
+        return f"Match the regex pattern: {markdown_code(self.pattern)} ({config_str})."
 
     def _process_answer(self, answer: Answer) -> Result:
         flags = _build_regex_flags(
