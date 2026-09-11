@@ -167,7 +167,7 @@ def _infer_question_for_qid(
     # 3) Choice: limited distinct values
     if 0 < len(observed_values) <= choice_option_limit:
         return ChoiceQuestion(
-            options=observed_values,
+            options=dict.fromkeys(sorted(observed_values, key=str.lower)),
             allow_multiple=choice_counts != {1},  # allow multiple if not all single-token
             config=choice_config,
         )
