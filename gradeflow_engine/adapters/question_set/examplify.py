@@ -121,7 +121,7 @@ class ExamplifyQuestionSetAdapter(
         return ChoiceQuestion(
             description=description,
             config=choice_cfg,
-            options=opts,
+            options=dict.fromkeys(sorted(opts)),
             allow_multiple=allow_multiple,
             max_points=max_points,
         )

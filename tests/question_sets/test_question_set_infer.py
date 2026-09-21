@@ -42,7 +42,13 @@ def test_infer_choice_when_distinct_values_leq_6_options_autopopulated() -> None
     qs = QuestionSet.infer(subs)  # default choice_delimiter=","
     q = qs.question_map["q1"]
     assert isinstance(q, ChoiceQuestion)
-    assert q.options == {"red", "blue", "green", "yellow", "purple"}
+    assert q.options == {
+        "blue": None,
+        "green": None,
+        "purple": None,
+        "red": None,
+        "yellow": None,
+    }
     parsed = q.parse("blue,  yellow ,  purple")
     assert parsed == {"blue", "yellow", "purple"}
 
@@ -56,7 +62,7 @@ def test_infer_choice_respects_choice_delimiter() -> None:
     qs = QuestionSet.infer(subs, choice_delimiter="|", choice_normalize_case=True)
     q = qs.question_map["q1"]
     assert isinstance(q, ChoiceQuestion)
-    assert q.options == {"a", "b", "c", "d", "e"}
+    assert q.options == {"a": None, "b": None, "c": None, "d": None, "e": None}
     assert q.parse("B|E|A") == {"b", "e", "a"}
 
 
@@ -138,7 +144,11 @@ def test_infer_handles_multiple_questions_in_same_run() -> None:
     )
 
     assert isinstance(qs.question_map["q_choice"], ChoiceQuestion)
-    assert qs.question_map["q_choice"].options == {"red", "blue", "green"}
+    assert qs.question_map["q_choice"].options == {
+        "blue": None,
+        "green": None,
+        "red": None,
+    }
 
     # Consistent pairs -> MultiValued
     assert isinstance(qs.question_map["q_multi"], MultiValuedQuestion)
