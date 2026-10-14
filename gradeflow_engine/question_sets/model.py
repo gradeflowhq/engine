@@ -50,7 +50,7 @@ def _choice_option_drift(
     raw_answers: list[str],
 ) -> ChoiceOptionDrift | None:
     missing_options = _sorted_values(
-        _observed_choice_options(question, raw_answers) - question.options
+        _observed_choice_options(question, raw_answers) - question.option_ids
     )
     if not missing_options:
         return None
@@ -64,7 +64,10 @@ def _sync_choice_question(question: ChoiceQuestion, raw_answers: list[str]) -> C
     observed_options = _observed_choice_options(question, raw_answers)
     return question.model_copy(
         update={
-            "options": question.options | observed_options,
+            "options": {
+                **question.options,
+                **dict.fromkeys(_sorted_values(observed_options - question.option_ids)),
+            },
         }
     )
 

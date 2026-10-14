@@ -173,7 +173,7 @@ class MultipleChoiceRule(BaseRule):
         return {
             **overrides,
             "answer": (
-                GenericAlias(set, literal_type(sorted(context.question.options))),
+                GenericAlias(set, literal_type(sorted(context.question.option_ids))),
                 cast(FieldInfo, Field(..., min_length=1)),
             ),
         }
@@ -206,11 +206,11 @@ class MultipleChoiceRule(BaseRule):
                 f"Rule of type {self.type} is not compatible with question type {question.type}."
             )
             return errors
-        invalid_choices = self.answer - set(question.options)
+        invalid_choices = self.answer - question.option_ids
         if invalid_choices:
             errors.append(
                 f"Invalid answer choices: {', '.join(sorted(invalid_choices))}"
-                f" for question with options: {', '.join(sorted(question.options))}"
+                f" for question with options: {', '.join(sorted(question.option_ids))}"
             )
         return errors
 

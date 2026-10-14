@@ -55,7 +55,9 @@ def test_sync_from_submissions_preserves_existing_questions_and_updates_choice_o
     question_set = QuestionSet(
         question_map={
             "Q1": TextQuestion(description="Custom prompt", max_points=2.5),
-            "Q2": ChoiceQuestion(options={"A"}, allow_multiple=False, max_points=3.0),
+            "Q2": ChoiceQuestion(
+                options={"A": "Existing answer"}, allow_multiple=False, max_points=3.0
+            ),
             "Q3": TextQuestion(description="Remove me"),
         }
     )
@@ -71,7 +73,7 @@ def test_sync_from_submissions_preserves_existing_questions_and_updates_choice_o
 
     q2 = synced.question_map["Q2"]
     assert isinstance(q2, ChoiceQuestion)
-    assert q2.options == {"A", "B", "C"}
+    assert q2.options == {"A": "Existing answer", "B": None, "C": None}
     assert q2.allow_multiple is False
     assert q2.max_points == 3.0
 

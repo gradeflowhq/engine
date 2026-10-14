@@ -916,7 +916,10 @@ from typing import ClassVar, Literal
 from pydantic import BaseModel
 
 from gradeflow_engine.adapters.base import BaseAdapter
-from gradeflow_engine.adapters.registries import RawSubmissionsAdapter, raw_submissions_adapter_registry
+from gradeflow_engine.adapters.registries import (
+    RawSubmissionsAdapter,
+    raw_submissions_adapter_registry,
+)
 from gradeflow_engine.exceptions import GradeFlowValidationError
 from gradeflow_engine.io.sources import DataSource
 from gradeflow_engine.submissions.models import RawSubmission

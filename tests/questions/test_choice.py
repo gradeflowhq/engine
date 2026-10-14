@@ -28,3 +28,24 @@ def test_choice_rejects_duplicate_normalized_options() -> None:
             options={"A", "a"},
             config=MultiValuedParserConfig(normalize_case=True),
         )
+
+
+def test_choice_stores_option_text_by_normalized_id() -> None:
+    question = ChoiceQuestion(
+        options={" A ": "  First Answer  ", "B": None},
+        config=MultiValuedParserConfig(normalize_case=True),
+    )
+
+    assert question.options == {"a": "First Answer", "b": None}
+    assert question.option_ids == {"a", "b"}
+
+
+def test_choice_accepts_legacy_option_list() -> None:
+    question = ChoiceQuestion.model_validate({"type": "CHOICE", "options": ["A", "B"]})
+
+    assert question.options == {"A": None, "B": None}
+
+
+def test_choice_rejects_empty_displayed_text() -> None:
+    with pytest.raises(ValueError, match="option text"):
+        ChoiceQuestion(options={"A": "  "})

@@ -23,7 +23,7 @@ def test_choice_question_options_allow_multiple_and_normalization() -> None:
     q = qset.question_map["Q1"]
     assert isinstance(q, ChoiceQuestion)
     # Constants: normalize case True, trim whitespace True
-    assert q.options == {"red", "blue"}
+    assert q.options == {"blue": None, "red": None}
     # allow_multiple autodetected since Original Answer had two tokens
     assert q.allow_multiple is True
     assert q.max_points == 1.0  # no points column in CSV → default
@@ -40,7 +40,7 @@ def test_choice_single_token_allows_multiple_false() -> None:
     )
     q = qset.question_map["Q2"]
     assert isinstance(q, ChoiceQuestion)
-    assert q.options == {"green"}
+    assert q.options == {"green": None}
     assert q.allow_multiple is False
     assert q.max_points == 1.0  # no points column in CSV → default
 
@@ -162,31 +162,31 @@ def test_question_set_from_full_csv_defaults_and_inference() -> None:
     q1 = qset.question_map["Q1"]
     assert isinstance(q1, ChoiceQuestion)
     assert q1.allow_multiple is True
-    assert {"b", "c", "f", "g"} <= q1.options
+    assert {"b", "c", "f", "g"} <= q1.option_ids
     assert q1.max_points == 2.0
 
     q2 = qset.question_map["Q2"]
     assert isinstance(q2, ChoiceQuestion)
     assert q2.allow_multiple is False
-    assert q2.options == {"a"}
+    assert q2.options == {"a": None}
     assert q2.max_points == 1.0
 
     q3 = qset.question_map["Q3"]
     assert isinstance(q3, ChoiceQuestion)
     assert q3.allow_multiple is True
-    assert {"a", "c", "d"} <= q3.options
+    assert {"a", "c", "d"} <= q3.option_ids
     assert q3.max_points == 1.0
 
     q4 = qset.question_map["Q4"]
     assert isinstance(q4, ChoiceQuestion)
     # Options should include adjusted tokens too (adapter collects observed options)
-    assert {"a", "b", "c", "e"} <= q4.options
+    assert {"a", "b", "c", "e"} <= q4.option_ids
     assert q4.max_points == 2.0
 
     q5 = qset.question_map["Q5"]
     assert isinstance(q5, ChoiceQuestion)
     assert q5.allow_multiple is True
-    assert {"a", "c", "d", "e"} <= q5.options
+    assert {"a", "c", "d", "e"} <= q5.option_ids
     assert q5.max_points == 2.0
 
     # FITB rows default to TEXT (single and multi)

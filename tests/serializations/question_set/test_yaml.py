@@ -4,6 +4,7 @@ import yaml
 from gradeflow_engine.core import dump_question_set_to_blob, load_question_set_from_blob
 from gradeflow_engine.exceptions import DumpError, LoadError, QuestionSetValidationError
 from gradeflow_engine.question_sets.model import QuestionSet
+from gradeflow_engine.questions.models.choice import ChoiceQuestion
 from gradeflow_engine.questions.models.text import TextQuestion
 from gradeflow_engine.serializations.base import DataBlob
 from gradeflow_engine.serializations.question_set import yaml as qset_yaml
@@ -49,6 +50,50 @@ def test_roundtrip_equal() -> None:
 
     qset2 = load_question_set_from_blob(out_blob, serializer_name="yaml")
     assert qset2.model_dump() == qset.model_dump()
+
+
+def test_choice_options_dump_as_plain_mapping_with_displayed_text() -> None:
+    qset = QuestionSet(
+        question_map={"Q1": ChoiceQuestion(options={"a": "First answer", "b": None})}
+    )
+
+    out_blob = dump_question_set_to_blob(qset, serializer_name="yaml")
+    output = out_blob.data.decode("utf-8")
+
+    assert "!!set" not in output
+    assert yaml.safe_load(output)["question_map"]["Q1"]["options"] == {
+        "a": "First answer",
+        "b": None,
+    }
+
+
+@pytest.mark.parametrize(
+    "options_yaml",
+    [
+        "!!set\n          a: null\n          b: null",
+        "[a, b]",
+    ],
+)
+def test_legacy_choice_option_collections_load_as_canonical_mapping(
+    options_yaml: str,
+) -> None:
+    yaml_str = f"""
+    question_map:
+      Q1:
+        type: CHOICE
+        options: {options_yaml}
+    """
+    blob = DataBlob(
+        data=yaml_str.encode("utf-8"),
+        media_type="application/yaml",
+        extension="yaml",
+    )
+
+    qset = load_question_set_from_blob(blob, serializer_name="yaml")
+
+    question = qset.question_map["Q1"]
+    assert isinstance(question, ChoiceQuestion)
+    assert question.options == {"a": None, "b": None}
 
 
 def test_non_strict_question_set_load_is_not_supported() -> None:
